@@ -49,6 +49,17 @@
   - `POST /api/portfolio/export`
   - `GET /api/portfolio/exports/{export_id}/download`
   - PDF 使用打包的 Noto Sans TC 字型，Cloud Run 也可正確渲染繁中。
+- Google Stitch source rule 已補到 `docs/stitch-screen-map.md`：
+  - missing / unclear UI screen 必須先 reference 使用者現有 Stitch project `projects/10595017015370179580`。
+  - 如找不到對應既有 screen，要用 Google Stitch MCP 在該 project 生成 missing screen，再按生成 screen 實作。
+  - 不可未經 Stitch source 直接在 React 手寫 missing screen。
+  - K1-K3 Learning Passport reference `幼稚園面試作品集 (Portfolio)`，P1-S6 reference `家長主導學習儀表板 (Progress Dashboard)` / `學習態度 (AI Review)`。
+- 學習進度與老師分享已開始接上真 persistence：
+  - `POST /api/generate-quiz` 產生 Mathematics multiple-choice practice；每題 4 個 options，`answer` 對應其中一個 option。
+  - `POST /api/practice-attempts` 保存每次互動練習答案、topic、正誤與錯因。
+  - `GET /api/learning/progress` 聚合 OCR documents + practice attempts，產生 weak topics、improved topics、trend points。
+  - `POST /api/reports/share` 建立可分享 report token；`GET /teacher-report/{token}` 提供補習老師可讀的月度學習報告頁。
+  - 以上 learning loop 目前先鎖定 Mathematics；其他 HKEDB 科目只作 roadmap catalogue / UI mapping。
 - 已新增 tests：
   - Pydantic schema coercion
   - AI provider JSON output validator
@@ -73,6 +84,10 @@
 - `DELETE /api/children/{child_id}`
 - `POST /api/ocr-review`
 - `POST /api/generate-quiz`
+- `POST /api/practice-attempts`
+- `GET /api/learning/progress`
+- `POST /api/reports/share`
+- `GET /teacher-report/{token}`
 - `POST /api/portfolio/export`
 - `GET /api/portfolio/exports/{export_id}/download`
 

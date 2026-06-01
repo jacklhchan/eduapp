@@ -41,12 +41,35 @@ def test_signup_login_and_first_child_onboarding(monkeypatch) -> None:
     )
     assert child.status_code == 200
     assert child.json()["name"] == "Avery"
+    child_id = child.json()["id"]
+
+    passport_update = client.patch(
+        f"/api/children/{child_id}",
+        json={
+            "passport": "SPCC Interview Portfolio",
+            "focus": "升小 Portfolio + 自理能力",
+            "portfolio_sections": [
+                {
+                    "id": "about",
+                    "status": "Completed",
+                    "body": "Avery enjoys explaining ideas and sharing family routines.",
+                    "evidence": ["家長觀察", "活動相片"],
+                    "updated_at": "1 Jun",
+                }
+            ],
+        },
+    )
+    assert passport_update.status_code == 200
+    assert passport_update.json()["passport"] == "SPCC Interview Portfolio"
+    assert passport_update.json()["portfolio_sections"][0]["id"] == "about"
 
     me = client.get("/api/auth/me")
     assert me.status_code == 200
     profile = me.json()["parent"]
     assert profile["onboarding_complete"] is True
     assert profile["children"][0]["grade"] == "P3"
+    assert profile["children"][0]["focus"] == "升小 Portfolio + 自理能力"
+    assert profile["children"][0]["portfolio_sections"][0]["body"].startswith("Avery enjoys")
 
     login_client = TestClient(app)
     login = login_client.post("/api/auth/login", json={"email": email, "pin": "135790"})

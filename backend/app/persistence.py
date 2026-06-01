@@ -30,7 +30,9 @@ class Persistence:
             "parents": {},
             "children": {},
             "documents": {},
+            "practice_attempts": {},
             "portfolio_exports": {},
+            "shared_reports": {},
         }
         self._firestore = None
         self._storage = None
@@ -82,6 +84,7 @@ class Persistence:
                 "language": "繁中 / English",
                 "school_type": "香港主流小學",
                 "avatar_url": None,
+                "portfolio_sections": [],
                 "sort_order": 10,
             },
             {
@@ -94,6 +97,7 @@ class Persistence:
                 "language": "繁中 / English",
                 "school_type": "香港幼稚園",
                 "avatar_url": None,
+                "portfolio_sections": [],
                 "sort_order": 20,
             },
         ]
@@ -187,7 +191,7 @@ class Persistence:
         return parent
 
     def patch_child(self, parent_id: str, child_id: str, updates: dict[str, Any]) -> dict[str, Any]:
-        allowed = {"name", "grade", "passport", "focus", "language", "school_type", "avatar_url"}
+        allowed = {"name", "grade", "passport", "focus", "language", "school_type", "avatar_url", "portfolio_sections"}
         clean = {key: value for key, value in updates.items() if key in allowed}
         db = self.firestore
         if db is None:
@@ -217,6 +221,7 @@ class Persistence:
             "language": str(payload.get("language") or "繁中 / English").strip() or "繁中 / English",
             "school_type": str(payload.get("school_type") or "香港主流小學").strip() or "香港主流小學",
             "avatar_url": payload.get("avatar_url"),
+            "portfolio_sections": payload.get("portfolio_sections") or [],
             "sort_order": int(payload.get("sort_order") or 100),
         }
         db = self.firestore
@@ -273,6 +278,7 @@ class Persistence:
                     "child_name": str(child.get("name", "")),
                     "grade": str(child.get("grade", "")),
                     "document_count": len(self._records_for_child("documents", parent_id, child_id)),
+                    "practice_count": len(self._records_for_child("practice_attempts", parent_id, child_id)),
                     "portfolio_export_count": len(self._records_for_child("portfolio_exports", parent_id, child_id)),
                 }
             )
@@ -327,7 +333,9 @@ class Persistence:
             raise ValueError("Child name confirmation does not match")
 
         documents = self._records_for_child("documents", parent_id, child_id)
+        practice_attempts = self._records_for_child("practice_attempts", parent_id, child_id)
         exports = self._records_for_child("portfolio_exports", parent_id, child_id)
+        shared_reports = self._records_for_child("shared_reports", parent_id, child_id)
         storage_deleted = 0
         if delete_storage:
             for record in [*documents.values(), *exports.values()]:
@@ -343,14 +351,22 @@ class Persistence:
             self._memory["children"].pop(child_id, None)
             for record_id in documents:
                 self._memory["documents"].pop(record_id, None)
+            for record_id in practice_attempts:
+                self._memory["practice_attempts"].pop(record_id, None)
             for record_id in exports:
                 self._memory["portfolio_exports"].pop(record_id, None)
+            for record_id in shared_reports:
+                self._memory["shared_reports"].pop(record_id, None)
         else:
             db.collection("children").document(child_id).delete()
             for record_id in documents:
                 db.collection("documents").document(record_id).delete()
+            for record_id in practice_attempts:
+                db.collection("practice_attempts").document(record_id).delete()
             for record_id in exports:
                 db.collection("portfolio_exports").document(record_id).delete()
+            for record_id in shared_reports:
+                db.collection("shared_reports").document(record_id).delete()
 
         self.record_audit_event(
             parent_id,
@@ -359,7 +375,9 @@ class Persistence:
             details={
                 "child_name": child.get("name"),
                 "deleted_documents": len(documents),
+                "deleted_practice_attempts": len(practice_attempts),
                 "deleted_portfolio_exports": len(exports),
+                "deleted_shared_reports": len(shared_reports),
                 "deleted_storage_objects": storage_deleted,
             },
         )
@@ -367,7 +385,9 @@ class Persistence:
             "parent": self.get_parent_with_children(parent_id),
             "deleted_child_id": child_id,
             "deleted_documents": len(documents),
+            "deleted_practice_attempts": len(practice_attempts),
             "deleted_portfolio_exports": len(exports),
+            "deleted_shared_reports": len(shared_reports),
             "deleted_storage_objects": storage_deleted,
         }
 
@@ -435,6 +455,24 @@ class Persistence:
             db.collection("documents").document(record["id"]).set(record)
         return record
 
+    def list_documents(self, parent_id: str, child_id: str) -> list[dict[str, Any]]:
+        records = list(self._records_for_child("documents", parent_id, child_id).values())
+        records.sort(key=lambda record: str(record.get("created_at", "")), reverse=True)
+        return records
+
+    def save_practice_attempt(self, record: dict[str, Any]) -> dict[str, Any]:
+        db = self.firestore
+        if db is None:
+            self._memory["practice_attempts"][record["id"]] = record
+        else:
+            db.collection("practice_attempts").document(record["id"]).set(record)
+        return record
+
+    def list_practice_attempts(self, parent_id: str, child_id: str) -> list[dict[str, Any]]:
+        records = list(self._records_for_child("practice_attempts", parent_id, child_id).values())
+        records.sort(key=lambda record: str(record.get("created_at", "")), reverse=True)
+        return records
+
     def save_portfolio_export(self, record: dict[str, Any]) -> dict[str, Any]:
         db = self.firestore
         if db is None:
@@ -453,6 +491,32 @@ class Persistence:
         if not record or record.get("parent_id") != parent_id:
             return None
         return record
+
+    def save_shared_report(self, record: dict[str, Any]) -> dict[str, Any]:
+        db = self.firestore
+        if db is None:
+            self._memory["shared_reports"][record["id"]] = record
+        else:
+            db.collection("shared_reports").document(record["id"]).set(record)
+        return record
+
+    def get_shared_report_by_token(self, token: str) -> dict[str, Any] | None:
+        db = self.firestore
+        if db is None:
+            for record in self._memory["shared_reports"].values():
+                if record.get("token") == token:
+                    return dict(record)
+            return None
+
+        snapshots = db.collection("shared_reports").where("token", "==", token).limit(1).stream()
+        for snapshot in snapshots:
+            return snapshot.to_dict() or {}
+        return None
+
+    def list_shared_reports(self, parent_id: str, child_id: str) -> list[dict[str, Any]]:
+        records = list(self._records_for_child("shared_reports", parent_id, child_id).values())
+        records.sort(key=lambda record: str(record.get("created_at", "")), reverse=True)
+        return records
 
 
 persistence = Persistence()

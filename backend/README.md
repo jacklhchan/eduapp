@@ -26,6 +26,11 @@ Cloud service：
 - `DELETE /api/children/{child_id}`
 - `POST /api/ocr-review`
 - `POST /api/generate-quiz`
+- `POST /api/practice-attempts`
+- `GET /api/learning/progress`
+- `POST /api/reports/share`
+- `GET /api/reports/share/{token}`
+- `GET /teacher-report/{token}`
 - `POST /api/portfolio/export`
 - `GET /api/portfolio/exports/{export_id}/download`
 
@@ -33,8 +38,14 @@ GCP provider：
 
 - Google Cloud Vision：image OCR evidence extraction
 - Vertex AI Gemini `gemini-3.5-flash`：PDF OCR extraction、multimodal OCR review、quiz generation
-- Firestore：parent / child / document / portfolio export records
+- Firestore：parent / child / document / practice attempt / shared report / portfolio export records
 - Cloud Storage：uploaded homework and generated PDF files
+
+Current learning scope：
+
+- Active OCR review, weakness tracking, practice generation, progress report, and teacher-share flow are Mathematics-first.
+- Mathematics practice questions are multiple-choice by default: each generated item carries 4 options and one exact answer option for mobile-friendly auto-marking.
+- HKEDB non-maths subjects remain in the curriculum catalogue as roadmap mapping, not active practice workflows.
 
 OCR review pipeline：
 
@@ -52,6 +63,7 @@ OCR review pipeline：
 - first-login parent / child onboarding support
 - parent consent, retention preference, audit log, and child data deletion foundation
 - per-child persistence
+- practice result tracking, weakness / progress summary, and teacher-share learning report links
 - AI provider output validator
 - Pydantic schema tests
 - server-side PDF export with bundled Noto Sans TC font

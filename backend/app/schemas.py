@@ -93,6 +93,14 @@ class CurriculumNode(BaseModel):
     source: str = Field(..., examples=["EDB curriculum mapping draft"])
 
 
+class PortfolioDraftSection(BaseModel):
+    id: str
+    status: str
+    body: str
+    evidence: list[str] = Field(default_factory=list)
+    updated_at: str | None = None
+
+
 class ChildProfile(BaseModel):
     id: str
     name: str
@@ -102,6 +110,7 @@ class ChildProfile(BaseModel):
     focus: str = "小學數學 + 升小 Portfolio"
     language: str = "繁中 / English"
     school_type: str = "香港主流小學"
+    portfolio_sections: list[PortfolioDraftSection] = Field(default_factory=list)
 
 
 class ChildCreateRequest(BaseModel):
@@ -112,6 +121,7 @@ class ChildCreateRequest(BaseModel):
     language: str = "繁中 / English"
     school_type: str = "香港主流小學"
     avatar_url: str | None = None
+    portfolio_sections: list[PortfolioDraftSection] = Field(default_factory=list)
 
 
 class PrivacySettings(BaseModel):
@@ -142,6 +152,7 @@ class ChildDataSummary(BaseModel):
     child_name: str
     grade: str
     document_count: int = 0
+    practice_count: int = 0
     portfolio_export_count: int = 0
 
 
@@ -336,6 +347,7 @@ class GeneratedQuizItem(BaseModel):
     skill: str
     difficulty: int = Field(..., ge=1, le=5)
     question_text: str
+    options: list[str] = Field(default_factory=list)
     answer: str
     marking_scheme: str
     explanation: str
@@ -355,6 +367,106 @@ class GeneratedQuiz(BaseModel):
     source_document_ids: list[str] = Field(default_factory=list)
     items: list[GeneratedQuizItem]
     parent_visible_rationale: str
+
+
+class PracticeAnswerSubmission(BaseModel):
+    question_id: str
+    topic: str
+    subject: Subject = Subject.mathematics
+    question_text: str = ""
+    submitted_answer: str = ""
+    expected_answer: str = ""
+    target_mistake: MistakeType = MistakeType.concept
+    is_correct: bool | None = None
+
+    @field_validator("target_mistake", mode="before")
+    @classmethod
+    def normalize_mistake(cls, value: Any) -> MistakeType:
+        return coerce_mistake_type(value)
+
+
+class PracticeAttemptRequest(BaseModel):
+    child_id: str = "child-matthew"
+    grade: str = "P3"
+    subject: Subject = Subject.mathematics
+    source_document_ids: list[str] = Field(default_factory=list)
+    answers: list[PracticeAnswerSubmission]
+
+
+class PracticeTopicResult(BaseModel):
+    topic: str
+    subject: Subject
+    attempted: int = 0
+    correct: int = 0
+    incorrect: int = 0
+    mistake_tags: list[MistakeType] = Field(default_factory=list)
+
+
+class PracticeAttemptRecord(BaseModel):
+    id: str
+    parent_id: str
+    child_id: str
+    grade: str
+    subject: Subject
+    source_document_ids: list[str] = Field(default_factory=list)
+    total_count: int
+    correct_count: int
+    topic_results: list[PracticeTopicResult] = Field(default_factory=list)
+    answers: list[PracticeAnswerSubmission] = Field(default_factory=list)
+    created_at: str
+
+
+class LearningTopicSummary(BaseModel):
+    topic: str
+    subject: str
+    evidence_count: int = 0
+    practice_count: int = 0
+    correct_count: int = 0
+    incorrect_count: int = 0
+    mastery: int = Field(default=50, ge=0, le=100)
+    trend: Literal["improving", "steady", "needs_attention"] = "steady"
+    last_seen_at: str | None = None
+
+
+class LearningProgressResponse(BaseModel):
+    ok: bool = True
+    child: ChildProfile
+    report_month: str
+    document_count: int = 0
+    practice_count: int = 0
+    overall_mastery: int = Field(default=0, ge=0, le=100)
+    trend_points: list[int] = Field(default_factory=list)
+    weak_topics: list[LearningTopicSummary] = Field(default_factory=list)
+    improved_topics: list[LearningTopicSummary] = Field(default_factory=list)
+    all_topics: list[LearningTopicSummary] = Field(default_factory=list)
+    recent_activity: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ShareLearningReportRequest(BaseModel):
+    child_id: str = "child-matthew"
+    report_month: str | None = None
+    teacher_name: str | None = None
+    include_upload_evidence: bool = False
+
+
+class ShareLearningReportRecord(BaseModel):
+    id: str
+    parent_id: str
+    child_id: str
+    token: str
+    report_month: str
+    teacher_name: str | None = None
+    share_url: str
+    include_upload_evidence: bool = False
+    created_at: str
+    expires_at: str | None = None
+
+
+class TeacherLearningReportResponse(BaseModel):
+    ok: bool = True
+    share: ShareLearningReportRecord
+    child: ChildProfile
+    progress: LearningProgressResponse
 
 
 class PortfolioSection(BaseModel):

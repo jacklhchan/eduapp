@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import uuid
+from datetime import datetime, timedelta, timezone
+from html import escape
 from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from google import genai
 from google.cloud import vision
@@ -42,12 +45,20 @@ from .schemas import (
     OcrReviewResult,
     ParentUpdateRequest,
     ParentProfile,
+    PracticeAttemptRecord,
+    PracticeAttemptRequest,
+    PracticeTopicResult,
     PrivacyCenterResponse,
     PrivacySettings,
     PrivacyUpdateRequest,
     PortfolioExportRecord,
     PortfolioExportRequest,
+    ShareLearningReportRecord,
+    ShareLearningReportRequest,
     SignupRequest,
+    TeacherLearningReportResponse,
+    LearningProgressResponse,
+    LearningTopicSummary,
 )
 
 
@@ -59,6 +70,7 @@ DEMO_PARENT_EMAIL = os.getenv("EDUPASS_DEMO_EMAIL", "parent@example.com").lower(
 DEMO_PARENT_PIN = os.getenv("EDUPASS_DEMO_PIN", "246810")
 OCR_REVIEW_MODE = os.getenv("EDUPASS_OCR_REVIEW_MODE", "multimodal")
 LOCAL_PRACTICE_FALLBACK = os.getenv("EDUPASS_LOCAL_PRACTICE_FALLBACK", "1").lower() not in {"0", "false", "no"}
+ACTIVE_LEARNING_SUBJECT = "Mathematics"
 
 app = FastAPI(title="EduPass AI Backend", version="0.1.0")
 app.add_middleware(
@@ -166,6 +178,7 @@ def build_ocr_review_prompt(
     page_count_hint: int = 1,
 ) -> str:
     allowed_subjects = subject_names_for_grade(grade) or ["Mathematics"]
+    active_subjects = [ACTIVE_LEARNING_SUBJECT] if ACTIVE_LEARNING_SUBJECT in allowed_subjects else allowed_subjects
     return f"""
 You are a multimodal OCR review assistant for a Hong Kong parent-led learning app.
 Return JSON only. Align subject and topic labels with the HKEDB curriculum catalogue.
@@ -209,7 +222,8 @@ Schema:
 }}
 
 Rules:
-- Subject must be one of these HKEDB-aligned subjects for grade "{grade}": {allowed_subjects}.
+- The active MVP review subject is Mathematics. Other subjects are roadmap catalogue context only.
+- Subject must be one of these active subjects for grade "{grade}": {active_subjects}.
 - Use grade "{grade}".
 - The upload may contain multiple pages or multiple uploaded page images. The current upload has at least {page_count_hint} uploaded page/file part(s); for PDFs, count physical pages when visible.
 - Do not invent student personal data.
@@ -636,7 +650,7 @@ async def generate_quiz(
     child_profile_id = str(payload.get("child_profile_id", "prototype-child"))
     weak_topic = str(payload.get("weak_topic", "Fractions"))
     grade = str(payload.get("grade", "P3"))
-    requested_subject = str(payload.get("subject", "Mathematics"))
+    requested_subject = ACTIVE_LEARNING_SUBJECT
     question_count = clamp_question_count(payload.get("question_count", 5))
     practice_plan = normalize_practice_plan(payload.get("practice_plan"), question_count)
     curriculum_subject = find_subject_for_grade(grade, requested_subject) or find_subject_for_grade(grade, "Mathematics")
@@ -660,6 +674,7 @@ Return JSON only for this Pydantic schema:
       "skill": "HKEDB-aligned skill for this topic",
       "difficulty": 2,
       "question_text": "string",
+      "options": ["A", "B", "C", "D"],
       "answer": "string",
       "marking_scheme": "string",
       "explanation": "Traditional Chinese explanation for parent/student",
@@ -680,21 +695,25 @@ HKEDB curriculum context:
 - practice plan by topic / area:
 {plan_prompt}
 
-Generate exactly {question_count} original Hong Kong learning check items or practice questions. Do not copy uploaded questions.
+Generate exactly {question_count} original Hong Kong multiple-choice learning check items or practice questions. Do not copy uploaded questions.
 If a practice plan is provided, distribute the items exactly according to each plan row's question_count.
 Every item must target the requested topic/area plan for grade "{grade}" and subject "{subject}". If no plan is provided, target "{weak_topic}".
 Use each item's topic field to identify the relevant plan topic / area.
+Each item must include exactly 4 options. The answer must exactly match one of the option strings.
 Use Traditional Chinese explanations for the parent/student even when the subject is English.
 target_mistake must be exactly one of: concept, calculation, reading, unit_conversion, careless.
+All question_text, options, answer, marking_scheme, and explanation values must be display-ready plain text.
+Do not use LaTeX, Markdown math, dollar signs, backslashes, \\frac, \\triangle, or \\square.
+Write math in mobile-readable text such as 1/4, 3/8, △, □, ×, ÷, or Traditional Chinese words.
 """
     try:
         client = get_genai_client()
         response = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
-        quiz = validate_ai_json(response.text or "{}", GeneratedQuiz)
+        quiz = sanitize_generated_quiz(validate_ai_json(response.text or "{}", GeneratedQuiz))
     except HTTPException as exc:
         if not LOCAL_PRACTICE_FALLBACK:
             raise
-        quiz = build_local_practice_quiz(
+        quiz = sanitize_generated_quiz(build_local_practice_quiz(
             child_profile_id,
             grade,
             subject,
@@ -703,11 +722,11 @@ target_mistake must be exactly one of: concept, calculation, reading, unit_conve
             question_count,
             practice_plan,
             f"Vertex AI unavailable: {exc.detail}",
-        )
+        ))
     except Exception as exc:
         if not LOCAL_PRACTICE_FALLBACK:
             raise HTTPException(status_code=502, detail=f"Vertex AI quiz generation failed: {exc}") from exc
-        quiz = build_local_practice_quiz(
+        quiz = sanitize_generated_quiz(build_local_practice_quiz(
             child_profile_id,
             grade,
             subject,
@@ -716,8 +735,54 @@ target_mistake must be exactly one of: concept, calculation, reading, unit_conve
             question_count,
             practice_plan,
             f"Vertex AI fallback: {exc}",
-        )
+        ))
     return {"ok": True, "parent_id": parent_id, "quiz": quiz.model_dump(mode="json")}
+
+
+def sanitize_math_text(value: Any) -> str:
+    text = str(value or "")
+    replacements = {
+        "\\triangle": "△",
+        "\\square": "□",
+        "\\times": "×",
+        "\\div": "÷",
+        "\\cdot": "×",
+        "\\pm": "±",
+        "\\leq": "≤",
+        "\\geq": "≥",
+        "\\neq": "≠",
+        "\\left": "",
+        "\\right": "",
+    }
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+    text = re.sub(r"\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}", r"\1/\2", text)
+    text = re.sub(r"\\dfrac\s*\{([^{}]+)\}\s*\{([^{}]+)\}", r"\1/\2", text)
+    text = re.sub(r"\\tfrac\s*\{([^{}]+)\}\s*\{([^{}]+)\}", r"\1/\2", text)
+    text = text.replace("$", "")
+    text = text.replace("\\(", "").replace("\\)", "").replace("\\[", "").replace("\\]", "")
+    text = re.sub(r"\\([A-Za-z]+)", r"\1", text)
+    text = text.replace("\\", "")
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def sanitize_generated_quiz(quiz: GeneratedQuiz) -> GeneratedQuiz:
+    data = quiz.model_dump(mode="json")
+    for item in data["items"]:
+        for key in ("topic", "skill", "question_text", "answer", "marking_scheme", "explanation"):
+            item[key] = sanitize_math_text(item.get(key, ""))
+        options: list[str] = []
+        for option in item.get("options", []):
+            clean_option = sanitize_math_text(option)
+            if clean_option and clean_option not in options:
+                options.append(clean_option)
+        answer = item["answer"]
+        if answer and answer not in options:
+            options = [answer, *options]
+        item["options"] = options[:4]
+    data["parent_visible_rationale"] = sanitize_math_text(data.get("parent_visible_rationale", ""))
+    return GeneratedQuiz.model_validate(data)
 
 
 def clamp_question_count(value: Any) -> int:
@@ -764,6 +829,7 @@ def build_local_practice_quiz(
                     "skill": f"{subject} · {strand}",
                     "difficulty": 2 if item_number <= 6 else 3,
                     "question_text": build_local_question_text(topic_label, strand, item_number),
+                    "options": build_local_options(topic_label, strand, item_number),
                     "answer": build_local_answer(topic_label, strand),
                     "marking_scheme": "2 分：列出相關概念或步驟；1 分：答案方向正確但解釋不足；0 分：未能回應題目要求。",
                     "explanation": f"這題用來檢查 {grade} {subject} 在「{topic_label}」的核心理解；提交後可把錯因標記到學習地圖。",
@@ -785,6 +851,7 @@ def build_local_practice_quiz(
                 "skill": f"{subject} · practice",
                 "difficulty": 2,
                 "question_text": build_local_question_text(weak_topic, "practice", item_number),
+                "options": build_local_options(weak_topic, "practice", item_number),
                 "answer": build_local_answer(weak_topic, "practice"),
                 "marking_scheme": "2 分：回應完整並有清楚理據；1 分：方向正確但欠完整；0 分：未能回應題目要求。",
                 "explanation": f"這題補足 requested question count，用來檢查 {grade} {subject} 的當前弱項。",
@@ -811,16 +878,32 @@ def build_local_practice_quiz(
 def build_local_question_text(topic_label: str, strand: str, item_number: int) -> str:
     if any(marker in strand.lower() for marker in ("number", "measure", "algebra", "data", "shape")):
         return (
-            f"【{topic_label}】第 {item_number} 題：請設計一個生活情境例子，列出已知資料、所需步驟，"
-            "並寫出完整答案或解釋。"
+            f"【{topic_label}】第 {item_number} 題：小明完成一題數學題後得到 24。"
+            "以下哪一個檢查方法最能幫助他確認答案合理？"
         )
-    return f"【{topic_label}】第 {item_number} 題：請用 3 至 5 句回答，並引用一個課堂或生活例子支持你的答案。"
+    return f"【{topic_label}】第 {item_number} 題：以下哪一個做法最能幫助你檢查這類題目的答案？"
+
+
+def build_local_options(topic_label: str, strand: str, item_number: int) -> list[str]:
+    if any(marker in strand.lower() for marker in ("number", "measure", "algebra", "data", "shape", "practice")):
+        return [
+            "重讀題目，圈出已知資料和要求，並用相反運算或估算檢查答案",
+            "只看最後答案是否像整數",
+            "把題目中的所有數字直接相加",
+            "不用檢查單位，只要有算式即可",
+        ]
+    return [
+        f"直接回應問題，並用一個與「{topic_label}」相關的例子支持",
+        "只抄題目中的第一句",
+        "只寫一個關鍵詞，不作解釋",
+        "避開題目要求，改寫自己的感想",
+    ]
 
 
 def build_local_answer(topic_label: str, strand: str) -> str:
     if any(marker in strand.lower() for marker in ("number", "measure", "algebra", "data", "shape")):
-        return f"參考答案應包含：清楚列式或圖表、合理運算步驟、以及與「{topic_label}」相關的答句。"
-    return f"參考答案應包含：直接回應問題、使用「{topic_label}」相關概念、並以例子或證據支持。"
+        return "重讀題目，圈出已知資料和要求，並用相反運算或估算檢查答案"
+    return f"直接回應問題，並用一個與「{topic_label}」相關的例子支持"
 
 
 def slug_for_id(value: str) -> str:
@@ -874,6 +957,375 @@ def normalize_practice_plan(value: Any, fallback_total: int) -> list[dict[str, A
         if overflow <= 0:
             break
     return [item for item in plan if item["question_count"] > 0]
+
+
+def normalize_month(value: str | None = None) -> str:
+    if value:
+        return value[:7]
+    return datetime.now(timezone.utc).strftime("%Y-%m")
+
+
+def answer_is_correct(submitted: str, expected: str) -> bool:
+    clean_submitted = " ".join(submitted.strip().lower().split())
+    clean_expected = " ".join(expected.strip().lower().split())
+    if not clean_submitted or not clean_expected:
+        return False
+    return clean_submitted == clean_expected or clean_expected in clean_submitted
+
+
+def topic_key(subject: str, topic: str) -> str:
+    return f"{subject.strip().lower()}::{topic.strip().lower()}"
+
+
+def enum_text(value: Any) -> str:
+    return str(getattr(value, "value", value))
+
+
+def summarize_practice_topics(payload: PracticeAttemptRequest) -> list[PracticeTopicResult]:
+    topics: dict[str, dict[str, Any]] = {}
+    for answer in payload.answers:
+        subject = enum_text(answer.subject or payload.subject)
+        topic = answer.topic.strip() or "General practice"
+        key = topic_key(subject, topic)
+        is_correct = answer.is_correct
+        if is_correct is None:
+            is_correct = answer_is_correct(answer.submitted_answer, answer.expected_answer)
+        summary = topics.setdefault(
+            key,
+            {
+                "topic": topic,
+                "subject": subject,
+                "attempted": 0,
+                "correct": 0,
+                "incorrect": 0,
+                "mistake_tags": [],
+            },
+        )
+        summary["attempted"] += 1
+        if is_correct:
+            summary["correct"] += 1
+        else:
+            summary["incorrect"] += 1
+            summary["mistake_tags"].append(answer.target_mistake)
+    return [PracticeTopicResult.model_validate(value) for value in topics.values()]
+
+
+@app.post("/api/practice-attempts", response_model=PracticeAttemptRecord)
+def save_practice_attempt(
+    payload: PracticeAttemptRequest,
+    parent_id: str = Depends(require_parent_id),
+) -> PracticeAttemptRecord:
+    require_privacy_consent(parent_id, "ai_processing_consent", "practice result tracking")
+    if enum_text(payload.subject) != ACTIVE_LEARNING_SUBJECT:
+        raise HTTPException(status_code=400, detail="Only Mathematics practice tracking is active; other subjects are roadmap.")
+    parent = persistence.get_parent_with_children(parent_id)
+    child = next((item for item in parent.get("children", []) if item.get("id") == payload.child_id), None)
+    if not child:
+        raise HTTPException(status_code=404, detail="Child not found")
+    if not payload.answers:
+        raise HTTPException(status_code=400, detail="At least one submitted answer is required")
+
+    normalized_answers = []
+    correct_count = 0
+    for answer in payload.answers:
+        is_correct = answer.is_correct
+        if is_correct is None:
+            is_correct = answer_is_correct(answer.submitted_answer, answer.expected_answer)
+        correct_count += 1 if is_correct else 0
+        normalized_answers.append(answer.model_copy(update={"is_correct": is_correct}))
+
+    record = PracticeAttemptRecord(
+        id=f"practice-{uuid.uuid4().hex[:10]}",
+        parent_id=parent_id,
+        child_id=payload.child_id,
+        grade=payload.grade,
+        subject=payload.subject,
+        source_document_ids=payload.source_document_ids,
+        total_count=len(normalized_answers),
+        correct_count=correct_count,
+        topic_results=summarize_practice_topics(payload.model_copy(update={"answers": normalized_answers})),
+        answers=normalized_answers,
+        created_at=now_iso(),
+    )
+    persistence.save_practice_attempt(record.model_dump(mode="json"))
+    persistence.record_audit_event(
+        parent_id,
+        "practice_attempt_saved",
+        child_id=payload.child_id,
+        details={"practice_id": record.id, "total_count": record.total_count, "correct_count": record.correct_count},
+    )
+    return record
+
+
+def build_learning_progress(parent_id: str, child_id: str, report_month: str | None = None) -> LearningProgressResponse:
+    parent = persistence.get_parent_with_children(parent_id)
+    child_data = next((item for item in parent.get("children", []) if item.get("id") == child_id), None)
+    if not child_data:
+        raise HTTPException(status_code=404, detail="Child not found")
+
+    month = normalize_month(report_month)
+    documents = persistence.list_documents(parent_id, child_id)
+    attempts = persistence.list_practice_attempts(parent_id, child_id)
+    topic_stats: dict[str, dict[str, Any]] = {}
+    recent_activity: list[dict[str, Any]] = []
+    trend_points: list[int] = []
+
+    for document in documents:
+        review = document.get("review") or {}
+        if enum_text(review.get("subject") or ACTIVE_LEARNING_SUBJECT) != ACTIVE_LEARNING_SUBJECT:
+            continue
+        created_at = str(document.get("created_at") or "")
+        recent_activity.append(
+            {
+                "type": "upload_review",
+                "title": document.get("filename") or "Uploaded homework",
+                "created_at": created_at,
+                "count": len(review.get("extracted_questions") or []),
+            }
+        )
+        for topic in review.get("topics") or []:
+            subject = str(topic.get("subject") or review.get("subject") or "Mathematics")
+            label = str(topic.get("topic") or "Uncategorised")
+            key = topic_key(subject, label)
+            stats = topic_stats.setdefault(
+                key,
+                {
+                    "topic": label,
+                    "subject": subject,
+                    "evidence_count": 0,
+                    "practice_count": 0,
+                    "correct_count": 0,
+                    "incorrect_count": 0,
+                    "last_seen_at": created_at,
+                },
+            )
+            stats["evidence_count"] += 1
+            stats["last_seen_at"] = max(str(stats.get("last_seen_at") or ""), created_at)
+        for question in review.get("extracted_questions") or []:
+            label = str(question.get("topic") or "Uncategorised")
+            subject = str(review.get("subject") or "Mathematics")
+            key = topic_key(subject, label)
+            stats = topic_stats.setdefault(
+                key,
+                {
+                    "topic": label,
+                    "subject": subject,
+                    "evidence_count": 0,
+                    "practice_count": 0,
+                    "correct_count": 0,
+                    "incorrect_count": 0,
+                    "last_seen_at": created_at,
+                },
+            )
+            stats["evidence_count"] += 1
+            if question.get("score") is not None and question.get("max_score"):
+                if int(question.get("score") or 0) >= int(question.get("max_score") or 1):
+                    stats["correct_count"] += 1
+                else:
+                    stats["incorrect_count"] += 1
+
+    for attempt in attempts:
+        if enum_text(attempt.get("subject") or ACTIVE_LEARNING_SUBJECT) != ACTIVE_LEARNING_SUBJECT:
+            continue
+        created_at = str(attempt.get("created_at") or "")
+        total_count = max(int(attempt.get("total_count") or 0), 1)
+        correct_count = int(attempt.get("correct_count") or 0)
+        trend_points.append(round(correct_count / total_count * 100))
+        recent_activity.append(
+            {
+                "type": "practice_attempt",
+                "title": str(attempt.get("subject") or "Practice"),
+                "created_at": created_at,
+                "score": round(correct_count / total_count * 100),
+                "count": total_count,
+            }
+        )
+        for topic_result in attempt.get("topic_results") or []:
+            subject = str(topic_result.get("subject") or attempt.get("subject") or "Mathematics")
+            label = str(topic_result.get("topic") or "General practice")
+            key = topic_key(subject, label)
+            stats = topic_stats.setdefault(
+                key,
+                {
+                    "topic": label,
+                    "subject": subject,
+                    "evidence_count": 0,
+                    "practice_count": 0,
+                    "correct_count": 0,
+                    "incorrect_count": 0,
+                    "last_seen_at": created_at,
+                },
+            )
+            stats["practice_count"] += int(topic_result.get("attempted") or 0)
+            stats["correct_count"] += int(topic_result.get("correct") or 0)
+            stats["incorrect_count"] += int(topic_result.get("incorrect") or 0)
+            stats["last_seen_at"] = max(str(stats.get("last_seen_at") or ""), created_at)
+
+    summaries: list[LearningTopicSummary] = []
+    for stats in topic_stats.values():
+        assessed = int(stats["correct_count"]) + int(stats["incorrect_count"])
+        if assessed:
+            mastery = round(int(stats["correct_count"]) / assessed * 100)
+        else:
+            mastery = 58 if int(stats["evidence_count"]) else 50
+        trend = "improving" if mastery >= 75 else "needs_attention" if mastery < 60 else "steady"
+        summaries.append(
+            LearningTopicSummary(
+                topic=str(stats["topic"]),
+                subject=str(stats["subject"]),
+                evidence_count=int(stats["evidence_count"]),
+                practice_count=int(stats["practice_count"]),
+                correct_count=int(stats["correct_count"]),
+                incorrect_count=int(stats["incorrect_count"]),
+                mastery=mastery,
+                trend=trend,
+                last_seen_at=str(stats.get("last_seen_at") or "") or None,
+            )
+        )
+
+    summaries.sort(key=lambda item: (item.mastery, -item.evidence_count, item.topic))
+    weak_topics = summaries[:3]
+    improved_topics = sorted(
+        [item for item in summaries if item.trend == "improving"],
+        key=lambda item: item.mastery,
+        reverse=True,
+    )[:3]
+    overall_mastery = round(sum(item.mastery for item in summaries) / len(summaries)) if summaries else 0
+    if not trend_points and overall_mastery:
+        trend_points = [max(0, overall_mastery - 12), max(0, overall_mastery - 5), overall_mastery]
+    recent_activity.sort(key=lambda item: str(item.get("created_at", "")), reverse=True)
+
+    return LearningProgressResponse(
+        child=ChildProfile.model_validate(child_data),
+        report_month=month,
+        document_count=len(documents),
+        practice_count=len(attempts),
+        overall_mastery=overall_mastery,
+        trend_points=trend_points[-8:],
+        weak_topics=weak_topics,
+        improved_topics=improved_topics,
+        all_topics=summaries,
+        recent_activity=recent_activity[:8],
+    )
+
+
+@app.get("/api/learning/progress", response_model=LearningProgressResponse)
+def learning_progress(
+    child_id: str = DEMO_CHILD_ID,
+    report_month: str | None = None,
+    parent_id: str = Depends(require_parent_id),
+) -> LearningProgressResponse:
+    return build_learning_progress(parent_id, child_id, report_month)
+
+
+@app.post("/api/reports/share", response_model=TeacherLearningReportResponse)
+def share_learning_report(
+    payload: ShareLearningReportRequest,
+    parent_id: str = Depends(require_parent_id),
+) -> TeacherLearningReportResponse:
+    require_privacy_consent(parent_id, "portfolio_export_consent", "learning report share")
+    progress = build_learning_progress(parent_id, payload.child_id, payload.report_month)
+    token = uuid.uuid4().hex
+    share_id = f"share-{uuid.uuid4().hex[:10]}"
+    share = ShareLearningReportRecord(
+        id=share_id,
+        parent_id=parent_id,
+        child_id=payload.child_id,
+        token=token,
+        report_month=progress.report_month,
+        teacher_name=payload.teacher_name,
+        share_url=f"/teacher-report/{token}",
+        include_upload_evidence=payload.include_upload_evidence,
+        created_at=now_iso(),
+        expires_at=(datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+    )
+    persistence.save_shared_report(share.model_dump(mode="json"))
+    persistence.record_audit_event(
+        parent_id,
+        "learning_report_shared",
+        child_id=payload.child_id,
+        details={"share_id": share.id, "report_month": share.report_month},
+    )
+    return TeacherLearningReportResponse(share=share, child=progress.child, progress=progress)
+
+
+@app.get("/api/reports/share/{token}", response_model=TeacherLearningReportResponse)
+def teacher_learning_report(token: str) -> TeacherLearningReportResponse:
+    share_data = persistence.get_shared_report_by_token(token)
+    if not share_data:
+        raise HTTPException(status_code=404, detail="Shared report not found")
+    share = ShareLearningReportRecord.model_validate(share_data)
+    progress = build_learning_progress(share.parent_id, share.child_id, share.report_month)
+    return TeacherLearningReportResponse(share=share, child=progress.child, progress=progress)
+
+
+def render_teacher_report_html(report: TeacherLearningReportResponse) -> str:
+    progress = report.progress
+    weak_rows = "".join(
+        f"<li><strong>{escape(topic.topic)}</strong><span>{escape(topic.subject)} · mastery {topic.mastery}% · "
+        f"evidence {topic.evidence_count} · practice {topic.practice_count}</span></li>"
+        for topic in progress.weak_topics
+    ) or "<li><strong>No weak topic yet</strong><span>More OCR reviews or practices are needed.</span></li>"
+    improved_rows = "".join(
+        f"<li><strong>{escape(topic.topic)}</strong><span>{escape(topic.subject)} · mastery {topic.mastery}%</span></li>"
+        for topic in progress.improved_topics
+    ) or "<li><strong>Not enough history yet</strong><span>Improvement trend will appear after repeated attempts.</span></li>"
+    trend_bars = "".join(
+        f"<span style='height:{max(12, min(96, point))}%'></span>"
+        for point in (progress.trend_points or [progress.overall_mastery])
+    )
+    teacher = escape(report.share.teacher_name or "Teacher")
+    child_name = escape(report.child.name)
+    return f"""<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{child_name} Learning Report</title>
+  <style>
+    :root {{ color-scheme: light; --blue:#003d9b; --green:#006e28; --bg:#f7f9fc; --line:#c3c6d6; --text:#191c1e; --muted:#434654; }}
+    body {{ margin:0; background:var(--bg); color:var(--text); font-family:Inter, "Noto Sans TC", system-ui, sans-serif; }}
+    main {{ max-width:720px; margin:0 auto; padding:20px 16px 32px; }}
+    header, section {{ margin-bottom:14px; padding:16px; border:1px solid rgba(195,198,214,.72); border-radius:14px; background:#fff; box-shadow:0 4px 14px rgba(0,61,155,.08); }}
+    span.label {{ color:var(--blue); font-size:12px; font-weight:800; }}
+    h1, h2 {{ margin:.25rem 0; line-height:1.22; }}
+    p {{ color:var(--muted); line-height:1.55; }}
+    .metrics {{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }}
+    .metric {{ padding:10px; border-radius:10px; background:#dae2ff; color:var(--blue); text-align:center; font-weight:800; }}
+    .metric small {{ display:block; color:#434654; font-weight:600; }}
+    .trend {{ display:flex; align-items:end; gap:8px; height:92px; padding:10px; border-radius:12px; background:#f2f4f7; }}
+    .trend span {{ flex:1; border-radius:999px 999px 4px 4px; background:linear-gradient(180deg,var(--green),#0052cc); animation:draw .48s ease both; transform-origin:bottom; }}
+    ul {{ display:grid; gap:8px; padding:0; list-style:none; }}
+    li {{ display:flex; justify-content:space-between; gap:12px; padding:10px; border-radius:10px; background:#f7f9fc; }}
+    li strong, li span {{ display:block; }}
+    li span {{ color:var(--muted); font-size:12px; }}
+    @keyframes draw {{ from {{ transform:scaleY(.08); }} to {{ transform:scaleY(1); }} }}
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <span class="label">EduPass AI · Teacher View</span>
+      <h1>{child_name} · {escape(progress.report_month)} 學習報告</h1>
+      <p>Shared for {teacher}. This link contains learning summaries only; original uploads are not exposed.</p>
+    </header>
+    <section class="metrics">
+      <div class="metric">{progress.overall_mastery}%<small>Mastery</small></div>
+      <div class="metric">{progress.document_count}<small>Uploads</small></div>
+      <div class="metric">{progress.practice_count}<small>Practices</small></div>
+    </section>
+    <section><h2>Progress curve</h2><div class="trend">{trend_bars}</div></section>
+    <section><h2>Top weak topics</h2><ul>{weak_rows}</ul></section>
+    <section><h2>Improved topics</h2><ul>{improved_rows}</ul></section>
+  </main>
+</body>
+</html>"""
+
+
+@app.get("/teacher-report/{token}", response_class=HTMLResponse)
+def teacher_learning_report_page(token: str) -> HTMLResponse:
+    report = teacher_learning_report(token)
+    return HTMLResponse(render_teacher_report_html(report))
 
 
 @app.post("/api/portfolio/export", response_model=PortfolioExportRecord)
