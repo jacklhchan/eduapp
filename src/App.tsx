@@ -561,9 +561,25 @@ function homeContentForChild(child: ChildProfile | null) {
       actionTitle: '整理一項自理或社交觀察',
       actionLabel: '整理 Portfolio',
       actionView: 'portfolio' as View,
+      actionDescription: '加入一項家長確認的生活片段，建立面試作品集可用 evidence。',
       portfolioTitle: '幼兒成長 Portfolio',
       portfolioText: '整理性格、語言、自理、社交情緒、創意與體能發展。',
       progress: 61,
+      masteryScore: 68,
+      masteryLabel: 'Growth Readiness',
+      trendLabel: '+3 observations this week',
+      progressTitle: 'Whole-child Development',
+      progressText: `${childName} 正在累積自理、語言、社交與創意表達 evidence。`,
+      progressItems: [
+        { icon: 'self_improvement', label: 'Self-care', value: 72, tone: 'secondary' },
+        { icon: 'record_voice_over', label: 'Language', value: 68, tone: 'primary' },
+        { icon: 'diversity_1', label: 'Social', value: 64, tone: 'tertiary' },
+      ],
+      goals: [
+        { label: 'Complete 1 self-care observation', completed: true },
+        { label: 'Upload 1 artwork or activity photo', actionLabel: 'Upload', actionView: 'upload' as View },
+        { label: 'Review About Me portfolio draft', actionLabel: 'Review', actionView: 'portfolio' as View },
+      ],
       coachIcon: 'psychology_alt',
       coachTitle: 'AI 成長觀察',
       coachText: '以家長確認的生活片段生成面試友善描述，不以學科分數作核心。',
@@ -591,9 +607,25 @@ function homeContentForChild(child: ChildProfile | null) {
     actionTitle: '練習：5題兩步應用題',
     actionLabel: '開始練習',
     actionView: 'coach' as View,
+    actionDescription: 'Focusing on problem comprehension from recent OCR evidence.',
     portfolioTitle: '學習歷程檔案',
     portfolioText: '收集並整理學生的學習成果與進步軌跡。',
     progress: 65,
+    masteryScore: 78,
+    masteryLabel: 'Mastery Score',
+    trendLabel: '+5% This Week',
+    progressTitle: 'Learning Progress',
+    progressText: `Great job! ${childName} is making steady progress this month.`,
+    progressItems: [
+      { icon: 'calculate', label: 'Math', value: 85, tone: 'primary' },
+      { icon: 'menu_book', label: 'Language', value: 72, tone: 'tertiary' },
+      { icon: 'palette', label: 'Arts', value: 60, tone: 'secondary' },
+    ],
+    goals: [
+      { label: 'Complete 1 Math Exercise', completed: true },
+      { label: 'Upload 1 piece of Artwork', actionLabel: 'Upload', actionView: 'upload' as View },
+      { label: 'Review Language corrections', actionLabel: 'Review', actionView: 'portfolio' as View },
+    ],
     coachIcon: 'calculate',
     coachTitle: 'AI 數學教練',
     coachText: '基礎運算掌握良好，目前專注於應用題解析。',
@@ -1579,23 +1611,86 @@ function HomeView({
   const handlePrimaryAction = content.actionView === 'coach'
     ? onStartPractice
     : () => setActiveView(content.actionView);
+  const completedGoals = content.goals.filter((goal) => goal.completed).length;
+  const handleGoalAction = (view: View | undefined) => {
+    if (view === 'coach') {
+      onStartPractice();
+      return;
+    }
+    if (view) setActiveView(view);
+  };
 
   return (
-    <main className="content-stack home-view">
-      <section className="ai-summary-card">
-        <Icon name="auto_awesome" />
-        <div className="ai-summary-inner">
-          <div className="summary-icon">
-            <Icon name={content.summaryIcon} filled />
+    <main
+      className="content-stack home-view"
+      data-stitch-source="projects/10595017015370179580/screens/2cf4c58dda9a400181ac6d8b56c19aea"
+    >
+      <section className="home-progress-dashboard" aria-label="Home progress dashboard">
+        <Icon name="monitoring" />
+        <div className="home-mastery-block">
+          <div className="home-mastery-ring-wrap">
+            <svg className="home-mastery-ring" viewBox="0 0 36 36" aria-hidden="true">
+              <path
+                className="ring-track"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+              <path
+                className="ring-value"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                strokeDasharray={`${content.masteryScore}, 100`}
+              />
+            </svg>
+            <div>
+              <strong>{content.masteryScore}%</strong>
+              <span>{content.masteryLabel}</span>
+            </div>
           </div>
+          <span className="home-trend-chip"><Icon name="trending_up" /> {content.trendLabel}</span>
+        </div>
+
+        <div className="home-progress-content">
           <div>
-            <h2>{content.summaryTitle}</h2>
-            <p>{content.summaryBody}</p>
+            <h2>{content.progressTitle}</h2>
+            <p>{content.progressText}</p>
+          </div>
+          <div className="dashboard-progress-grid">
+            {content.progressItems.map((item) => (
+              <article className={`dashboard-progress-item ${item.tone}`} key={item.label}>
+                <div>
+                  <span><Icon name={item.icon} filled /> {item.label}</span>
+                  <b>{item.value}%</b>
+                </div>
+                <div className="progress-track">
+                  <span style={{ width: `${item.value}%` }} />
+                </div>
+              </article>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="next-action-card">
+      <section className="daily-goals-card">
+        <div className="daily-goals-head">
+          <h2><Icon name="task_alt" filled /> Daily Goals</h2>
+          <span>{completedGoals} of {content.goals.length} completed</span>
+        </div>
+        <div className="daily-goal-list">
+          {content.goals.map((goal) => (
+            <div className={goal.completed ? 'daily-goal-row completed' : 'daily-goal-row'} key={goal.label}>
+              <span className="goal-check">{goal.completed ? <Icon name="check" /> : null}</span>
+              <p>{goal.label}</p>
+              {goal.actionLabel ? (
+                <button type="button" onClick={() => handleGoalAction(goal.actionView)}>
+                  {goal.actionLabel}
+                </button>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="next-action-card dashboard-action-card">
+        <Icon name={content.actionIcon} />
         <div className="next-copy">
           <div className="school-icon">
             <Icon name={content.actionIcon} filled />
@@ -1603,6 +1698,7 @@ function HomeView({
           <div>
             <span>{content.actionKicker}</span>
             <h3>{content.actionTitle}</h3>
+            <p>{content.actionDescription}</p>
           </div>
         </div>
         <button className="primary-action" type="button" onClick={handlePrimaryAction}>

@@ -1,6 +1,6 @@
 # Status
 
-最後更新：2026-06-01 17:42 HKT
+最後更新：2026-06-01 17:52 HKT
 
 ## 目前目標
 
@@ -13,7 +13,7 @@
 - GCP project：`gen-lang-client-0228668877`
 - Project number：`594335170533`
 - Region：`asia-east2`
-- Last verified revision：`edupass-ai-00024-kx2`
+- Last verified revision：`edupass-ai-00025-j8n`
 - Service account：`594335170533-compute@developer.gserviceaccount.com`
 - Storage bucket：`gs://edupass-ai-594335170533-prototype-storage`
 - Firestore database：`(default)` in `asia-east2`
@@ -97,6 +97,7 @@
   - Learning Passport 依 grade stage 分流：K1-K3 reference `幼稚園面試作品集 (Portfolio)`，使用 whole-child / personal development sections；P1-S6 reference `家長主導學習儀表板 (Progress Dashboard)` 與 `學習態度 (AI Review)`，使用 academic progress / evidence sections。
   - Learning Passport overview 現在提供 `Edit info` 入口，可直接編輯 child name / grade / passport / focus 等 profile info；section draft / status / evidence 會 autosave 到 child profile 的 `portfolio_sections`，再由 Firestore / memory backend rehydrate。
   - Home tab 已改成 profile / stage aware：K1-K3 顯示成長摘要、幼兒 Portfolio、AI 成長觀察與生活 evidence；P1-S6 顯示 academic learning summary、practice CTA、AI 數學教練與功課 evidence。
+  - Home tab 已按 Stitch `家長主導學習儀表板 (Progress Dashboard)` / `projects/10595017015370179580/screens/2cf4c58dda9a400181ac6d8b56c19aea` 重構 first screen：mastery ring、progress breakdown、daily goals、recommended practice、Portfolio / Coach cards 與最近上載；K1-K3 仍改寫成 whole-child development，不套學科分數語氣。
   - 修正 AI draft `確認採用` button 內 `task_alt` icon 名稱漏成文字的 CSS 問題，action button icon 會強制用 Material Symbols font。
 - 加入 OCR document persistence：
   - upload file 存入 Cloud Storage
@@ -176,7 +177,7 @@
   - `find docs/syllabus -type f | wc -l`：204 files。
   - 本機 PDF render 已檢查，繁中沒有缺字。
 - Cloud Run：
-  - Last verified revision `edupass-ai-00024-kx2` serving 100% traffic。
+  - Last verified revision `edupass-ai-00025-j8n` serving 100% traffic。
   - `GET /api/health` 回傳 `gemini_model: gemini-3.5-flash`。
   - `POST /api/auth/login` 成功，children order 為 `child-matthew`, `child-chloe`。
   - `GET /api/auth/me` 成功。
@@ -197,6 +198,7 @@
   - Cloud Run revision `edupass-ai-00022-bp6` 已部署並 serving 100% traffic。
   - Cloud Run revision `edupass-ai-00023-9qp` 已部署並 serving 100% traffic。
   - Cloud Run revision `edupass-ai-00024-kx2` 已部署並 serving 100% traffic。
+  - Cloud Run revision `edupass-ai-00025-j8n` 已部署並 serving 100% traffic。
   - Cloud smoke：`GET /api/health` 回傳 `ok: true`、`gemini_model: gemini-3.5-flash`；demo login `parent@example.com` 成功；`GET /api/auth/me` 成功；React static HTML 回傳 root 與 2 個 asset refs。
   - Cloud smoke：`POST /api/generate-quiz` 產生 2 題 Mathematics multiple-choice 題目，每題 4 個 options，且 answer 均在 options 內。
   - Cloud smoke：`POST /api/practice-attempts` 保存 2 題練習結果，`correct_count: 2`。
@@ -205,6 +207,7 @@
   - Cloud smoke：`POST /api/generate-quiz` 產生 3 題 Mathematics multiple-choice 題目，每題 4 個 options、answer 均在 options 內；display fields（question/options/answer/explanation/marking scheme）不含 `\` 或 `$`。
   - Cloud smoke：fresh parent Jack + child Jackson 在 consent 前 `POST /api/generate-quiz` 回 403 `Parent consent required for AI practice generation`；`PATCH /api/privacy/consent` 開啟 `ai_processing_consent` 後同一 child 生成 2 題 Mathematics multiple-choice 題目成功，且無 raw LaTeX display text。
   - Cloud Playwright smoke：390px mobile Coach 頁 `coachHeroCount: 0`，只保留 `Generate 6 questions` 作出題入口，無 duplicate `開始練習`；`scrollWidth === clientWidth`；Progress Report DOM 帶 `data-stitch-source="projects/7550425496525656523/screens/1fb93eb80a3b493a96781f530ba50099"`。
+  - Cloud Playwright smoke：390px mobile Home 頁顯示 Stitch Progress Dashboard-style `Learning Progress`、`Daily Goals`、`78%` mastery；`scrollWidth === clientWidth`；Home DOM 帶 `data-stitch-source="projects/10595017015370179580/screens/2cf4c58dda9a400181ac6d8b56c19aea"`。
 - 本次本機驗證：
   - `.venv312/bin/python -m pytest tests -q`：22 passed，1 warning（ReportLab dependency deprecation warning）。
   - `.venv312/bin/python -m py_compile backend/app/main.py backend/app/schemas.py backend/app/persistence.py` 通過。
@@ -212,6 +215,7 @@
   - 本機 API smoke：`POST /api/generate-quiz` 產生 3 題 Mathematics multiple-choice 題目，每題 4 個 options、answer 均在 options 內，且無 raw LaTeX display text。
   - 本機 fresh parent Jack + child Jackson smoke：consent 前 quiz 403，開啟 `ai_processing_consent` 後同一 child quiz 200，回 2 題、每題 4 options。
   - 本機 Playwright smoke：390px mobile Coach 頁已移除 duplicate `每日 5 分鐘特訓 / 開始練習` block，只剩 topic allocation 的 `Generate 6 questions`。
+  - 本機 Playwright smoke：390px mobile Home 頁已套用 Stitch Progress Dashboard pattern；Matthew 顯示 `Learning Progress` academic dashboard，Chloe 顯示 `Whole-child Development`；兩者無 horizontal overflow。
 
 ## 下一步
 

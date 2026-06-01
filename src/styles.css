@@ -446,6 +446,8 @@ p {
   gap: 16px;
 }
 
+.home-progress-dashboard,
+.daily-goals-card,
 .ai-summary-card,
 .next-action-card,
 .shortcut-card,
@@ -462,6 +464,316 @@ p {
   border-radius: 12px;
   background: var(--surface-lowest);
   box-shadow: var(--shadow-1);
+}
+
+.home-progress-dashboard {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 20px;
+  padding: 16px;
+}
+
+.home-progress-dashboard > .material-symbols-outlined {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  color: var(--primary);
+  font-size: 74px;
+  opacity: 0.05;
+  pointer-events: none;
+}
+
+.home-mastery-block {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.home-mastery-ring-wrap {
+  position: relative;
+  width: 128px;
+  height: 128px;
+}
+
+.home-mastery-ring {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.home-mastery-ring path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-width: 3.2;
+}
+
+.home-mastery-ring .ring-track {
+  stroke: var(--surface-variant);
+}
+
+.home-mastery-ring .ring-value {
+  stroke: var(--primary-container);
+  transform: rotate(-90deg);
+  transform-origin: center;
+}
+
+.home-mastery-ring-wrap > div {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.home-mastery-ring-wrap strong {
+  color: var(--primary);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 34px;
+}
+
+.home-mastery-ring-wrap span {
+  max-width: 88px;
+  color: var(--on-variant);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
+}
+
+.home-trend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 26px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(0, 108, 71, 0.1);
+  color: var(--secondary);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.home-trend-chip .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.home-progress-content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 16px;
+}
+
+.home-progress-content h2,
+.daily-goals-head h2 {
+  color: var(--on-surface);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 28px;
+}
+
+.home-progress-content p {
+  margin-top: 4px;
+  color: var(--on-variant);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.dashboard-progress-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.dashboard-progress-item {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(195, 198, 214, 0.32);
+  border-radius: 12px;
+  background: var(--surface-low);
+}
+
+.dashboard-progress-item > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dashboard-progress-item span,
+.dashboard-progress-item b {
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.dashboard-progress-item span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--on-surface);
+}
+
+.dashboard-progress-item .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.dashboard-progress-item.primary b,
+.dashboard-progress-item.primary .material-symbols-outlined {
+  color: var(--primary);
+}
+
+.dashboard-progress-item.tertiary b,
+.dashboard-progress-item.tertiary .material-symbols-outlined {
+  color: var(--tertiary);
+}
+
+.dashboard-progress-item.secondary b,
+.dashboard-progress-item.secondary .material-symbols-outlined {
+  color: var(--secondary);
+}
+
+.dashboard-progress-item.primary .progress-track span {
+  background: var(--primary-container);
+}
+
+.dashboard-progress-item.tertiary .progress-track span {
+  background: var(--tertiary-container);
+}
+
+.dashboard-progress-item.secondary .progress-track span {
+  background: var(--secondary);
+}
+
+.daily-goals-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.daily-goals-head,
+.daily-goal-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.daily-goals-head {
+  justify-content: space-between;
+}
+
+.daily-goals-head h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.daily-goals-head h2 .material-symbols-outlined {
+  color: var(--secondary);
+  font-size: 22px;
+}
+
+.daily-goals-head > span {
+  color: var(--on-variant);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.daily-goal-list {
+  display: grid;
+  gap: 10px;
+}
+
+.daily-goal-row {
+  min-height: 48px;
+  padding: 10px;
+  border: 1px solid rgba(195, 198, 214, 0.42);
+  border-radius: 10px;
+  background: var(--surface-low);
+}
+
+.daily-goal-row.completed {
+  border-color: rgba(0, 108, 71, 0.22);
+  background: rgba(0, 108, 71, 0.06);
+}
+
+.goal-check {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--outline-variant);
+  border-radius: 999px;
+  color: white;
+}
+
+.daily-goal-row.completed .goal-check {
+  border-color: var(--secondary);
+  background: var(--secondary);
+}
+
+.goal-check .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.daily-goal-row p {
+  flex: 1;
+  min-width: 0;
+  color: var(--on-surface);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.daily-goal-row.completed p {
+  color: var(--on-variant);
+  text-decoration: line-through;
+}
+
+.daily-goal-row button {
+  flex: 0 0 auto;
+  background: transparent;
+  color: var(--primary);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dashboard-action-card {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(0, 82, 204, 0.2);
+  background: rgba(218, 226, 255, 0.28);
+}
+
+.dashboard-action-card > .material-symbols-outlined {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  color: var(--primary);
+  font-size: 56px;
+  opacity: 0.1;
+}
+
+.dashboard-action-card > *:not(.material-symbols-outlined) {
+  position: relative;
+  z-index: 1;
 }
 
 .ai-summary-card {
@@ -566,6 +878,13 @@ p {
   font-size: 20px;
   font-weight: 700;
   line-height: 28px;
+}
+
+.next-copy p {
+  margin-top: 4px;
+  color: var(--on-variant);
+  font-size: 13px;
+  line-height: 18px;
 }
 
 .primary-action {
@@ -4498,6 +4817,17 @@ p {
   .coach-grid,
   .portfolio-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-progress-dashboard {
+    grid-template-columns: minmax(148px, 0.36fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 28px;
+    padding: 24px;
+  }
+
+  .dashboard-progress-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .portfolio-card.wide,
