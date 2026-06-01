@@ -23,7 +23,7 @@
 - Repository：`https://github.com/jacklhchan/eduapp`
 - Working branch：`codex/edupass-prototype`
 - Draft PR：`https://github.com/jacklhchan/eduapp/pull/1`
-- Current local commit：`ab0b345`
+- Latest pushed commit：以 `codex/edupass-prototype` branch head 為準。
 
 ## Demo Login
 
