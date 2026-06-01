@@ -19,9 +19,12 @@
 - 已加入 iPhone 友善的 web app manifest / icon / mobile metadata。
 - 已加入 demo auth：
   - `POST /api/auth/login`
+  - `POST /api/auth/signup`
   - `POST /api/auth/logout`
   - `GET /api/auth/me`
+  - `PATCH /api/parent`
   - signed `edupass_session` cookie
+- 已加入 first-login onboarding，可建立 parent display name 與第一個 child profile。
 - 已加入 Firestore / Cloud Storage persistence：
   - parent / children records
   - uploaded OCR documents
@@ -48,7 +51,9 @@
 前端已開始由 auth / persistence API 取代純 frontend state：
 
 - `POST /api/auth/login`
+- `POST /api/auth/signup`
 - `GET /api/auth/me`
+- `PATCH /api/parent`
 - `GET /api/children`
 - `POST /api/children`
 - `PATCH /api/children/{child_id}`

@@ -1,6 +1,6 @@
 # Status
 
-最後更新：2026-06-01 14:14 HKT
+最後更新：2026-06-01 14:18 HKT
 
 ## 目前目標
 
@@ -50,6 +50,11 @@
   - `POST /api/auth/login`
   - `POST /api/auth/logout`
   - `GET /api/auth/me`
+- 加入 prototype signup / first-login onboarding：
+  - `POST /api/auth/signup`
+  - prototype PIN hash storage，不存 plain PIN
+  - first login 會要求建立 parent display name 與第一個 child profile
+  - `PATCH /api/parent` 可更新 parent display name / onboarding state
 - 加入 per-child persistence：
   - Firestore parent / child records
   - Matthew / Chloe demo children
@@ -92,6 +97,8 @@
   - OCR review prompt 會按 child grade 限定 HKEDB-aligned subject list；quiz generation prompt 會帶入 subject / KLA / strands / source ids。
   - 已修正 Stitch MCP API key 設定，並成功用 `generate_screen_from_text` 生成 curriculum source screen `d1423b25c1f5425d80c697265ecacb27`（`HKEDB 課程地圖 (P1-P6)`）。
   - 已用 Stitch MCP `get_screen` 讀取 `d1423b25c1f5425d80c697265ecacb27`，確認 source screen 可直接作後續 UI 對齊來源。
+  - 已用 Stitch MCP `get_screen` 讀取 profile-bound S3 learning map source screen `fe9f34c1c45a4089a8c980dfc16a6c7b`（`Matthew S3 課程地圖 (S3 Curriculum Map)`）。
+  - Frontend 已開始建立 course content / learning topic layer，source workspace id 記錄為 `019e81ae-60ab-7fb1-b131-9f60588a450a`，目前先有 K2 / P3 / P4 / S1 topic seeds。
 
 ## 已驗證
 
@@ -106,6 +113,7 @@
   - Bottom tab 在 Profile / Upload / Coach / 練習完成頁都維持同一套五個 tab。
   - Coach flow 已驗證可從 `Start Practice` 經 `AI 分析中` 到 5 題練習、查看所有答案，再進入 `練習完成`。
   - 本機 in-app browser smoke：把 demo child grade 改為 `S3` 後，Coach 課程地圖顯示 `Official EDB aligned · S3`、`14 個當前年級科目`，包含 `公民、經濟與社會`，不包含 `公民與社會發展`、`應用學習`、`小學科學`；無 horizontal overflow。
+  - 本機 in-app browser smoke：`http://localhost:8000/` signup 成功，first-login onboarding 可建立 parent + P3 child profile，Home 顯示新 child，Coach 顯示 `P3 Learning Topics`、`分數概念建構`、`兩步應用題審題`，Profile 可打開 parent / child edit 表單。
 - Backend local：
   - `.venv312/bin/python -m pytest tests -q`：10 passed，1 warning（ReportLab dependency deprecation warning）。
   - `.venv312/bin/python -m py_compile backend/app/main.py backend/app/schemas.py backend/app/persistence.py backend/app/curriculum_catalog.py scripts/generate_syllabus_docs.py` 通過。
@@ -128,6 +136,7 @@
 
 - 在 iPhone Safari 開啟 Cloud URL，使用 Share > Add to Home Screen 建立主畫面入口。
 - 用真實功課 / 測驗相片做 OCR review QA，特別是手寫、陰影、旋轉與中文題目。
-- 將 demo PIN auth 升級為正式 Firebase Auth / Identity Platform。
+- 將 prototype PIN auth / signup 升級為正式 Firebase Auth / Identity Platform。
 - 補 parent consent、data retention、delete child data flow。
 - Portfolio PDF 下一步加入封面照片、作品相片、家長確認欄位與 school-ready template。
+- 擴充 `src/data/courseContent.ts` topic seeds，逐步由 `docs/syllabus/` 生成 per-grade / per-subject lessons。

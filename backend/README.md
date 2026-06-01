@@ -13,8 +13,10 @@ Cloud service：
 
 - `GET /api/health`
 - `POST /api/auth/login`
+- `POST /api/auth/signup`
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
+- `PATCH /api/parent`
 - `GET /api/children`
 - `POST /api/children`
 - `PATCH /api/children/{child_id}`
@@ -33,6 +35,8 @@ GCP provider：
 已加入：
 
 - signed cookie demo auth
+- prototype signup with hashed PIN storage
+- first-login parent / child onboarding support
 - per-child persistence
 - AI provider output validator
 - Pydantic schema tests

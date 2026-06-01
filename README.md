@@ -36,7 +36,7 @@ Demo login：
 UI alignment：
 
 - Google Stitch project：`EduPass AI`
-- Source screens：Dashboard、Portfolio、Refined Recognition、Math Coach、Profile & Settings、animated practice screens、HKEDB 課程地圖 (`d1423b25c1f5425d80c697265ecacb27`)
+- Source screens：Dashboard、Portfolio、Refined Recognition、Math Coach、Profile & Settings、animated practice screens、HKEDB 課程地圖 (`d1423b25c1f5425d80c697265ecacb27`)、profile-bound S3 課程地圖 (`fe9f34c1c45a4089a8c980dfc16a6c7b`)
 - React prototype now follows Stitch-generated HTML structure, Material Symbols, image assets, spacing tokens, top app bars, and bottom navigation patterns.
 - The active prototype now wires core buttons for child switching, upload review, practice generation, profile editing, child creation, settings sheets, and stable five-tab navigation.
 
@@ -57,6 +57,7 @@ UI alignment：
 - `src/`：React + Vite prototype
 - `src/data/seed.ts`：前端 seed fixture 與資料型別
 - `src/data/curriculum.ts`：前端 HKEDB curriculum catalogue 與 child-grade learning map helpers
+- `src/data/courseContent.ts`：app 內 course content / learning topic seeds，對應 syllabus workspace `019e81ae-60ab-7fb1-b131-9f60588a450a`
 - `backend/app/main.py`：FastAPI app、GCP OCR / Gemini endpoints、frontend static serving
 - `backend/app/curriculum_catalog.py`：後端 HKEDB curriculum catalogue 與 API source-of-truth
 - `backend/app/auth.py`：signed session cookie auth
