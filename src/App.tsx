@@ -259,18 +259,165 @@ const images = {
 };
 
 const navItems: Array<{ id: View; label: string; icon: string }> = [
-  { id: 'home', label: 'Home', icon: 'home' },
-  { id: 'portfolio', label: 'Portfolio', icon: 'import_contacts' },
-  { id: 'upload', label: 'Upload', icon: 'add_a_photo' },
-  { id: 'coach', label: 'Progress', icon: 'monitoring' },
-  { id: 'profile', label: 'Profile', icon: 'person' },
+  { id: 'home', label: '首頁', icon: 'home' },
+  { id: 'portfolio', label: '檔案', icon: 'import_contacts' },
+  { id: 'upload', label: '上載', icon: 'add_a_photo' },
+  { id: 'coach', label: '進度', icon: 'monitoring' },
+  { id: 'profile', label: '設定', icon: 'person' },
 ];
 
 const gradeOptions = ['K1', 'K2', 'K3', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6'];
 
-const evidenceSuggestions = ['作品相片', '家長觀察', '課堂紀錄', '功課 evidence', '活動證書'];
+const evidenceSuggestions = ['作品相片', '家長觀察', '課堂紀錄', '功課證據', '活動證書'];
 const activeCoachSubjectId = 'mathematics';
 const activeCoachSubjectName = 'Mathematics';
+const defaultPassportName = '學習護照';
+const languageOptions = ['繁體中文', '英文', '雙語：繁中及英文'];
+
+const subjectDisplayNames: Record<string, string> = {
+  'Chinese Language': '中國語文',
+  'Early Childhood Mathematics': '幼兒數學',
+  'English Language': '英國語文',
+  'Expressing feelings': '情緒表達',
+  'Fractions': '分數',
+  'Fractions word problems': '分數應用題',
+  'General Studies': '常識',
+  Inference: '閱讀推論',
+  Language: '語文',
+  Mathematics: '數學',
+  'Number sense': '數感',
+  Patterns: '規律',
+  'Reading comprehension': '閱讀理解',
+  'Self and Society': '個人與群體',
+  'Sentence grammar': '句子文法',
+  'Story retelling': '故事重述',
+  'Community facilities': '社區設施',
+  'Self-care routines': '自理常規',
+  'Taking turns': '輪候與分享',
+  'Two-step word problems': '兩步應用題',
+  'Vocabulary in context': '語境詞彙',
+};
+
+function displayPassportName(value?: string | null) {
+  if (!value || value === 'Learning Passport') return defaultPassportName;
+  return value;
+}
+
+function portfolioStatusLabel(status: string) {
+  if (status === 'Completed') return '已完成';
+  if (status === 'AI Ready') return 'AI 草稿';
+  if (status === 'Drafting') return '草稿中';
+  return status;
+}
+
+function displaySubjectName(value?: string | null) {
+  if (!value) return '未分類';
+  return subjectDisplayNames[value] || value;
+}
+
+function displayTopicName(value?: string | null) {
+  if (!value) return '未分類主題';
+  return subjectDisplayNames[value] || value;
+}
+
+function displayKlaName(subject: CurriculumSubject) {
+  const labels: Record<string, string> = {
+    arts: '藝術教育',
+    'chinese-language': '中國語文教育',
+    'cross-curricular': '跨學科學習',
+    'english-language': '英國語文教育',
+    kindergarten: '幼稚園學習範疇',
+    mathematics: '數學教育',
+    'physical-education': '體育',
+    pshe: '個人、社會及人文教育',
+    science: '科學教育',
+    technology: '科技教育',
+  };
+  return labels[subject.klaId] || subject.klaName;
+}
+
+function displaySubjectUse(subject: CurriculumSubject) {
+  if (subject.klaId === 'kindergarten') return '作為成長觀察與作品集證據';
+  return '作為成績、OCR 證據與弱項主題追蹤';
+}
+
+function displayStageCaption(value: string) {
+  const labels: Record<string, string> = {
+    Kindergarten: '幼稚園',
+    Primary: '小學',
+    'Junior Secondary': '初中',
+    'Senior Secondary': '高中',
+  };
+  return labels[value] || value;
+}
+
+function displaySubjectStatus(value?: string) {
+  if (!value) return '';
+  if (value === 'Progressively replaced by Primary Science and Primary Humanities from 2025/26.') {
+    return '由 2025/26 起逐步由小學科學及小學人文取代。';
+  }
+  return value;
+}
+
+function displayStrandName(value: string) {
+  const labels: Record<string, string> = {
+    accounting: '會計',
+    algebra: '代數',
+    argumentation: '論證',
+    'arts in context': '情境中的藝術',
+    citizenship: '公民',
+    communication: '溝通',
+    community: '社群',
+    culture: '文化',
+    data: '數據',
+    'data handling': '數據處理',
+    'data skills': '數據技能',
+    ecology: '生態',
+    economics: '經濟',
+    energy: '能量',
+    ethics: '倫理',
+    'everyday inquiry': '日常探究',
+    'gross motor': '大肌肉發展',
+    health: '健康',
+    'health habits': '健康習慣',
+    'historical enquiry': '歷史探究',
+    'historical sources': '歷史資料',
+    ICT: '資訊科技',
+    interpersonal: '人際溝通',
+    listening: '聆聽',
+    'living environment': '生活環境',
+    measure: '量度',
+    music: '音樂',
+    number: '數',
+    'number sense': '數感',
+    observation: '觀察',
+    patterns: '規律',
+    'personal and social': '個人與社會',
+    phonetics: '語音',
+    programming: '編程',
+    reading: '閱讀',
+    reflection: '反思',
+    'safety awareness': '安全意識',
+    'shape and space': '圖形與空間',
+    'social skills': '社交技巧',
+    speaking: '說話',
+    'science and technology': '科學與科技',
+    sustainability: '可持續發展',
+    values: '價值觀',
+    'values and attitudes': '價值觀與態度',
+    'visual expression': '視覺表達',
+    writing: '寫作',
+  };
+  return labels[value] || value;
+}
+
+function formatActivityDate(value: unknown) {
+  const source = String(value || '');
+  if (!source) return '剛剛';
+  const date = new Date(source);
+  if (Number.isNaN(date.getTime())) return source.slice(5, 10) || source;
+  return date.toLocaleDateString('zh-HK', { month: 'short', day: 'numeric' });
+}
 
 function preferredChildId(parent: ParentProfile): string {
   return parent.children.find((child) => child.id === 'child-matthew')?.id || parent.children[0]?.id || 'child-matthew';
@@ -291,7 +438,7 @@ function portfolioTone(status: PortfolioStatus): PortfolioTone {
 }
 
 function formatPortfolioDate() {
-  return new Date().toLocaleDateString('en-HK', { day: 'numeric', month: 'short' });
+  return new Date().toLocaleDateString('zh-HK', { month: 'short', day: 'numeric' });
 }
 
 function isEarlyYearsGrade(grade: string | undefined) {
@@ -301,17 +448,17 @@ function isEarlyYearsGrade(grade: string | undefined) {
 function portfolioStageCopy(child: ChildProfile | null) {
   if (isEarlyYearsGrade(child?.grade)) {
     return {
-      badge: 'Whole-child portfolio',
-      pdfLabel: 'Portfolio ready',
-      tipReady: '個 personal development section 已有 AI 草稿，可由家長確認。',
-      tipDone: '幼兒成長 portfolio 已可直接匯出 PDF。',
+      badge: '全人發展檔案',
+      pdfLabel: '可匯出檔案',
+      tipReady: '個成長章節已有 AI 草稿，可由家長確認。',
+      tipDone: '幼兒成長檔案已可直接匯出 PDF。',
     };
   }
   return {
-    badge: 'Academic learning passport',
-    pdfLabel: 'PDF ready',
-    tipReady: '個 academic section 已有 AI 草稿，可由家長確認。',
-    tipDone: '所有 academic section 已可直接匯出 PDF。',
+    badge: '學科學習護照',
+    pdfLabel: '可匯出 PDF',
+    tipReady: '個學科章節已有 AI 草稿，可由家長確認。',
+    tipDone: '所有學科章節已可直接匯出 PDF。',
   };
 }
 
@@ -332,7 +479,7 @@ function blankPortfolioSectionsForNewChild(sections: PortfolioSectionDraft[]) {
 function createPortfolioSections(child: ChildProfile | null): PortfolioSectionDraft[] {
   const childName = child?.name || 'Matthew';
   const grade = child?.grade || 'P3';
-  const focus = child?.focus || '小學數學 + 升小 Portfolio';
+  const focus = child?.focus || '小學數學及學習歷程';
   const earlyYears = isEarlyYearsGrade(grade);
   const useSeedContent = usesDemoPortfolioContent(child);
 
@@ -341,12 +488,12 @@ function createPortfolioSections(child: ChildProfile | null): PortfolioSectionDr
       {
         id: 'cover',
         icon: 'book',
-        title: '封面設計 (Cover Page)',
-        shortTitle: 'Cover',
+        title: '封面設計',
+        shortTitle: '封面',
         copy: '基本資料、成長焦點與代表相片。',
         status: 'Completed',
-        body: `${childName} 的幼兒成長 Portfolio 已整理年級 ${grade}、家庭觀察、代表相片及發展焦點，適合作幼稚園或升小面試前的 school-ready 草稿。`,
-        aiDraft: `${childName}'s early years portfolio introduces the child through family observations, daily routines, and selected development evidence rather than academic scores.`,
+        body: `${childName} 的幼兒成長檔案已整理年級 ${grade}、家庭觀察、代表相片及發展焦點，適合作幼稚園或升小面試前的準備草稿。`,
+        aiDraft: `${childName} 的幼兒成長檔案可從家庭觀察、日常規律與已確認的發展證據介紹孩子，而不是以學科分數作核心。`,
         evidence: ['學生相片', '基本資料'],
         evidenceSuggestions: ['學生相片', '家庭觀察', '成長焦點', '老師短評'],
         requiredEvidence: 2,
@@ -356,12 +503,12 @@ function createPortfolioSections(child: ChildProfile | null): PortfolioSectionDr
       {
         id: 'about',
         icon: 'face',
-        title: '關於我 (About Me)',
-        shortTitle: 'About',
+        title: '關於我',
+        shortTitle: '關於我',
         copy: '性格、興趣、家庭生活及表達方式。',
         status: 'Completed',
         body: `${childName} 喜歡透過遊戲和日常生活表達想法。家長可補充孩子的興趣、性格特質、常用語言，以及在熟悉環境中的互動表現。`,
-        aiDraft: `${childName} is developing a clear sense of self through play, family routines, and simple conversations about interests and feelings.`,
+        aiDraft: `${childName} 正透過遊戲、家庭日常和簡單對話建立自我認識，能逐步表達興趣與感受。`,
         evidence: ['家長觀察', '興趣紀錄'],
         evidenceSuggestions: ['興趣相片', '家庭活動', '孩子語錄', '自我介紹錄音'],
         requiredEvidence: 2,
@@ -370,12 +517,12 @@ function createPortfolioSections(child: ChildProfile | null): PortfolioSectionDr
       {
         id: 'language',
         icon: 'record_voice_over',
-        title: '語言與溝通 (Language & Communication)',
-        shortTitle: 'Language',
+        title: '語言與溝通',
+        shortTitle: '語言',
         copy: '聆聽、表達、故事分享及雙語接觸。',
         status: 'AI Ready',
         body: `${childName} 正在建立聆聽與表達能力，能用熟悉詞語分享需要、感受和日常經驗。下一步可加入故事閱讀、唱歌或對話例子。`,
-        aiDraft: `${childName} communicates needs and ideas through familiar words, gestures, stories, and play-based conversations, with parent support in bilingual routines.`,
+        aiDraft: `${childName} 會透過熟悉詞語、手勢、故事和遊戲對話表達需要與想法，家長可補充雙語日常例子。`,
         evidence: ['故事閱讀', '日常對話'],
         evidenceSuggestions: ['故事閱讀相片', '唱歌錄音', '中英文詞語例子', '課堂互動紀錄'],
         requiredEvidence: 3,
@@ -384,12 +531,12 @@ function createPortfolioSections(child: ChildProfile | null): PortfolioSectionDr
       {
         id: 'self-care',
         icon: 'health_and_safety',
-        title: '自理與獨立性 (Self-care & Independence)',
-        shortTitle: 'Self-care',
+        title: '自理與獨立性',
+        shortTitle: '自理',
         copy: '穿衣、收拾、進食、如廁及日常規律。',
         status: 'Drafting',
         body: `${childName} 正在建立日常自理習慣，包括收拾個人物品、跟隨簡單步驟，以及在需要協助時清楚表達。`,
-        aiDraft: `${childName} is developing independence in familiar routines and can follow simple steps with gentle reminders from adults.`,
+        aiDraft: `${childName} 正在熟悉日常流程中建立獨立性，能在成人溫和提示下跟隨簡單步驟。`,
         evidence: ['日常觀察'],
         evidenceSuggestions: ['收拾書包相片', '進食紀錄', '如廁／洗手習慣', '生活技能觀察'],
         requiredEvidence: 2,
@@ -398,12 +545,12 @@ function createPortfolioSections(child: ChildProfile | null): PortfolioSectionDr
       {
         id: 'social-emotional',
         icon: 'diversity_1',
-        title: '社交與情緒 (Social & Emotional)',
-        shortTitle: 'Social',
+        title: '社交與情緒',
+        shortTitle: '社交',
         copy: '合作、輪候、情緒表達及同伴互動。',
         status: 'Drafting',
         body: `${childName} 在成人引導下練習輪候、分享及表達情緒。家長可加入同伴活動或家庭互動例子，展示孩子的社交發展。`,
-        aiDraft: `${childName} is learning to name feelings, take turns, and participate in small-group routines with adult guidance.`,
+        aiDraft: `${childName} 正學習說出感受、輪候和參與小組活動，並能在成人引導下與同伴互動。`,
         evidence: ['同伴活動'],
         evidenceSuggestions: ['小組活動相片', '情緒表達例子', '合作遊戲', '老師觀察'],
         requiredEvidence: 3,
@@ -412,12 +559,12 @@ function createPortfolioSections(child: ChildProfile | null): PortfolioSectionDr
       {
         id: 'artworks',
         icon: 'palette',
-        title: '創意與體能 (Creativity & Physical Development)',
-        shortTitle: 'Creativity',
+        title: '創意與體能',
+        shortTitle: '創意體能',
         copy: '藝術創作、音樂律動、大小肌肉及感官探索。',
         status: 'Drafting',
         body: `${childName} 的作品和活動可展示創意、手眼協調、專注力和探索精神。下一步可補充作品相片、活動過程及家長短評。`,
-        aiDraft: `${childName}'s creative and movement evidence shows curiosity, fine-motor practice, sensory exploration, and willingness to try guided activities.`,
+        aiDraft: `${childName} 的創作與體能活動證據展示好奇心、精細動作練習、感官探索和願意嘗試的態度。`,
         evidence: ['視藝作品'],
         evidenceSuggestions: ['作品相片', '積木／拼砌活動', '音樂律動', '戶外體能活動'],
         requiredEvidence: 4,
@@ -432,12 +579,12 @@ function createPortfolioSections(child: ChildProfile | null): PortfolioSectionDr
     {
       id: 'cover',
       icon: 'book',
-      title: '封面設計 (Cover Page)',
-      shortTitle: 'Cover',
+      title: '封面設計',
+      shortTitle: '封面',
       copy: '基本資料、年級、學習焦點與代表相片。',
       status: 'Completed',
-      body: `${childName} 的 Academic Learning Passport 已整理基本資料、年級 ${grade}、學習焦點及代表 evidence，可作家長、補習老師或學校溝通草稿。`,
-      aiDraft: `${childName}'s academic learning passport introduces current grade, learning goals, selected work samples, and parent-confirmed evidence.`,
+      body: `${childName} 的學科學習護照已整理基本資料、年級 ${grade}、學習焦點及代表證據，可作家長、補習老師或學校溝通草稿。`,
+      aiDraft: `${childName} 的學科學習護照會介紹目前年級、學習目標、代表作品和家長確認的證據。`,
       evidence: ['學生相片', '基本資料'],
       evidenceSuggestions: ['學生相片', '基本資料', '學期目標', '老師／家長備註'],
       requiredEvidence: 2,
@@ -447,12 +594,12 @@ function createPortfolioSections(child: ChildProfile | null): PortfolioSectionDr
     {
       id: 'about',
       icon: 'face',
-      title: '學習者檔案 (Learner Profile)',
-      shortTitle: 'Profile',
+      title: '學習者檔案',
+      shortTitle: '檔案',
       copy: '學習風格、興趣科目及家庭支援。',
       status: 'Completed',
       body: `${childName} 喜歡主動發問，能把新知識連繫到日常生活。家長觀察到孩子在 ${focus} 方面有清晰興趣，適合以短練習、錯題回顧和可視化例子鞏固。`,
-      aiDraft: `${childName} benefits from structured practice, parent-visible feedback, and examples that connect academic ideas to daily contexts.`,
+      aiDraft: `${childName} 適合以有結構的練習、家長可見的回饋，以及連繫日常生活的例子來鞏固學習。`,
       evidence: ['家長觀察', '興趣紀錄'],
       evidenceSuggestions: ['家長觀察', '學習習慣紀錄', '興趣科目', '補習老師備註'],
       requiredEvidence: 2,
@@ -461,12 +608,12 @@ function createPortfolioSections(child: ChildProfile | null): PortfolioSectionDr
     {
       id: 'attitude',
       icon: 'menu_book',
-      title: '學習態度與策略 (Learning Attitude)',
-      shortTitle: 'Attitude',
+      title: '學習態度與策略',
+      shortTitle: '學習態度',
       copy: '堅持度、審題習慣、改正策略與學習目標。',
       status: 'AI Ready',
       body: `近期上載紀錄顯示 ${childName} 能保持練習節奏，在分數概念上有進步；應用題審題仍需要每日短練習支援。`,
-      aiDraft: `${childName} demonstrates persistence during multi-step questions. Recent evidence suggests stronger number sense, while word-problem reading remains the next growth target.`,
+      aiDraft: `${childName} 在多步驟題目中能保持堅持；近期證據顯示數感有進步，下一步可加強應用題審題。`,
       evidence: ['數學小測', 'AI 學習摘要'],
       evidenceSuggestions: ['錯題分析', '練習紀錄', '老師評語', '自我反思'],
       requiredEvidence: 3,
@@ -475,26 +622,26 @@ function createPortfolioSections(child: ChildProfile | null): PortfolioSectionDr
     {
       id: 'academic-progress',
       icon: 'monitoring',
-      title: '學科進展 (Academic Progress)',
-      shortTitle: 'Progress',
-      copy: 'OCR evidence、練習結果、強弱項及進步曲線。',
+      title: '學科進展',
+      shortTitle: '進展',
+      copy: 'OCR 證據、練習結果、強弱項及進步曲線。',
       status: 'Drafting',
-      body: `${childName} 的學科進展應連結已確認的功課、測驗、練習結果與弱項 topic，避免只靠主觀描述。下一步可加入最近一次 OCR review 和 practice attempt。`,
-      aiDraft: `${childName}'s academic progress should connect uploaded work, confirmed mistakes, practice outcomes, and parent-approved next steps.`,
-      evidence: ['OCR evidence'],
-      evidenceSuggestions: ['功課 OCR review', '測驗分數', '練習結果', '弱項 topic summary'],
+      body: `${childName} 的學科進展應連結已確認的功課、測驗、練習結果與弱項主題，避免只靠主觀描述。下一步可加入最近一次 OCR 檢視和練習紀錄。`,
+      aiDraft: `${childName} 的學科進展應連結已上載作品、已確認錯題、練習結果和家長同意的下一步。`,
+      evidence: ['OCR 證據'],
+      evidenceSuggestions: ['功課 OCR 檢視', '測驗分數', '練習結果', '弱項主題摘要'],
       requiredEvidence: 3,
       updatedAt: formatPortfolioDate(),
     },
     {
       id: 'artworks',
       icon: 'emoji_events',
-      title: '成果與活動 (Achievements & Activities)',
-      shortTitle: 'Achievements',
-      copy: '作品、比賽、活動、閱讀或跨學科 evidence。',
+      title: '成果與活動',
+      shortTitle: '成果',
+      copy: '作品、比賽、活動、閱讀或跨學科證據。',
       status: 'Drafting',
-      body: `${childName} 的成果 evidence 可展示課外活動、閱讀、創意作品或跨學科能力。這部分應支援學習目標，而不是取代核心學科進展。`,
-      aiDraft: `${childName}'s achievement evidence can show broader strengths, interests, and transferable skills when linked back to learning goals.`,
+      body: `${childName} 的成果證據可展示課外活動、閱讀、創意作品或跨學科能力。這部分應支援學習目標，而不是取代核心學科進展。`,
+      aiDraft: `${childName} 的成果證據若能連繫學習目標，就可展示更廣泛的強項、興趣和可遷移能力。`,
       evidence: ['活動紀錄'],
       evidenceSuggestions: ['活動證書', '閱讀紀錄', '專題作品', '比賽／表演相片'],
       requiredEvidence: 4,
@@ -551,7 +698,7 @@ function buildPortfolioExportSections(sections: PortfolioSectionDraft[]) {
   return sections.map((section) => ({
     title: section.title,
     status: section.status,
-    body: `${section.body.trim()} Evidence: ${section.evidence.join(', ') || 'To be added.'}`,
+    body: `${section.body.trim()} 證據：${section.evidence.join('、') || '尚待加入。'}`,
   }));
 }
 
@@ -565,32 +712,32 @@ function homeContentForChild(child: ChildProfile | null) {
       summaryTitle: '本週成長摘要',
       summaryBody: (
         <>
-          本週加入 <strong>2</strong> 項生活觀察，{childName} 在自理、表達和小組互動上有新 evidence。
+          本週加入 <strong>2</strong> 項生活觀察，{childName} 在自理、表達和小組互動上有新證據。
         </>
       ),
       actionIcon: 'child_care',
       actionKicker: '今日建議',
       actionTitle: '整理一項自理或社交觀察',
-      actionLabel: '整理 Portfolio',
+      actionLabel: '整理檔案',
       actionView: 'portfolio' as View,
-      actionDescription: '加入一項家長確認的生活片段，建立面試作品集可用 evidence。',
-      portfolioTitle: '幼兒成長 Portfolio',
+      actionDescription: '加入一項家長確認的生活片段，建立面試作品集可用證據。',
+      portfolioTitle: '幼兒成長檔案',
       portfolioText: '整理性格、語言、自理、社交情緒、創意與體能發展。',
       progress: 61,
       masteryScore: 68,
-      masteryLabel: 'Growth Readiness',
-      trendLabel: '+3 observations this week',
-      progressTitle: 'Whole-child Development',
-      progressText: `${childName} 正在累積自理、語言、社交與創意表達 evidence。`,
+      masteryLabel: '成長準備度',
+      trendLabel: '本週新增 3 項觀察',
+      progressTitle: '全人發展',
+      progressText: `${childName} 正在累積自理、語言、社交與創意表達證據。`,
       progressItems: [
-        { icon: 'self_improvement', label: 'Self-care', value: 72, tone: 'secondary' },
-        { icon: 'record_voice_over', label: 'Language', value: 68, tone: 'primary' },
-        { icon: 'diversity_1', label: 'Social', value: 64, tone: 'tertiary' },
+        { icon: 'self_improvement', label: '自理', value: 72, tone: 'secondary' },
+        { icon: 'record_voice_over', label: '語言', value: 68, tone: 'primary' },
+        { icon: 'diversity_1', label: '社交', value: 64, tone: 'tertiary' },
       ],
       goals: [
-        { label: 'Complete 1 self-care observation', completed: true },
-        { label: 'Upload 1 artwork or activity photo', actionLabel: 'Upload', actionView: 'upload' as View },
-        { label: 'Review About Me portfolio draft', actionLabel: 'Review', actionView: 'portfolio' as View },
+        { label: '完成 1 項自理觀察', completed: true },
+        { label: '上載 1 張作品或活動相片', actionLabel: '上載', actionView: 'upload' as View },
+        { label: '檢視「關於我」檔案草稿', actionLabel: '檢視', actionView: 'portfolio' as View },
       ],
       coachIcon: 'psychology_alt',
       coachTitle: 'AI 成長觀察',
@@ -619,28 +766,28 @@ function homeContentForChild(child: ChildProfile | null) {
     actionTitle: '查看各科成績進度',
     actionLabel: '查看進度',
     actionView: 'coach' as View,
-    actionDescription: '按學科整理 OCR evidence、測驗分數與弱項 topics。',
+    actionDescription: '按學科整理 OCR 證據、測驗分數與弱項主題。',
     portfolioTitle: '學習歷程檔案',
     portfolioText: '收集並整理學生的學習成果與進步軌跡。',
     progress: 65,
     masteryScore: 78,
-    masteryLabel: 'Mastery Score',
-    trendLabel: '+5% This Week',
-    progressTitle: 'Learning Progress',
-    progressText: `Great job! ${childName} is making steady progress this month.`,
+    masteryLabel: '掌握度',
+    trendLabel: '本週提升 5%',
+    progressTitle: '學習進度',
+    progressText: `${childName} 今個月保持穩定進步，已確認的功課和練習紀錄會用來更新各科成績。`,
     progressItems: [
-      { icon: 'calculate', label: 'Math', value: 85, tone: 'primary' },
-      { icon: 'menu_book', label: 'Language', value: 72, tone: 'tertiary' },
-      { icon: 'science', label: 'Science', value: 60, tone: 'secondary' },
+      { icon: 'calculate', label: '數學', value: 85, tone: 'primary' },
+      { icon: 'menu_book', label: '語文', value: 72, tone: 'tertiary' },
+      { icon: 'science', label: '常識', value: 60, tone: 'secondary' },
     ],
     goals: [
-      { label: 'Review latest subject scores', completed: true },
-      { label: 'Upload 1 marked homework', actionLabel: 'Upload', actionView: 'upload' as View },
-      { label: 'Review Language corrections', actionLabel: 'Review', actionView: 'portfolio' as View },
+      { label: '檢視最新各科成績', completed: true },
+      { label: '上載 1 份已批改功課', actionLabel: '上載', actionView: 'upload' as View },
+      { label: '整理語文改正紀錄', actionLabel: '檢視', actionView: 'portfolio' as View },
     ],
     coachIcon: 'monitoring',
     coachTitle: '學科進度',
-    coachText: '集中追蹤各 academic subject 的成績、evidence 與弱項。',
+    coachText: '集中追蹤各學科的成績、證據與弱項。',
     tags: ['數學', '語文', '科學'],
     recentUploads: [
       { image: images.homework, title: '數學小測', time: '今天 14:30' },
@@ -784,7 +931,7 @@ function App() {
       setAuthState('authenticated');
       setAuthMode('login');
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : 'Login failed');
+      setAuthError(error instanceof Error ? error.message : '登入失敗');
     }
   }
 
@@ -797,7 +944,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          display_name: signupDisplayName || loginEmail.split('@')[0] || 'EduPass Parent',
+          display_name: signupDisplayName || loginEmail.split('@')[0] || 'EduPass 家長',
           email: loginEmail,
           pin: loginPin,
         }),
@@ -808,9 +955,9 @@ function App() {
       setSelectedChildId(preferredChildId(data.parent));
       setAuthState('authenticated');
       setActiveView('profile');
-      setToast('Account created');
+      setToast('帳戶已建立');
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : 'Sign up failed');
+      setAuthError(error instanceof Error ? error.message : '建立帳戶失敗');
     }
   }
 
@@ -826,7 +973,7 @@ function App() {
     const currentIndex = parent.children.findIndex((child) => child.id === selectedChildId);
     const nextChild = parent.children[(currentIndex + 1) % parent.children.length] || parent.children[0];
     setSelectedChildId(nextChild.id);
-    setToast(`Switched to ${nextChild.name}`);
+    setToast(`已切換至 ${nextChild.name}`);
   }
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -868,7 +1015,7 @@ function App() {
       setOcrResult(data);
       setOcrState('done');
     } catch (error) {
-      setOcrResult({ detail: error instanceof Error ? error.message : 'OCR analysis failed' });
+      setOcrResult({ detail: error instanceof Error ? error.message : 'OCR 分析失敗' });
       setOcrState('error');
     }
   }
@@ -878,8 +1025,8 @@ function App() {
       setActiveView('profile');
       setProfileSheet('privacy');
       setPracticeState('idle');
-      setPracticeError('Parent consent required for AI practice generation');
-      setToast('請先在 Data & Privacy 開啟 AI review processing');
+      setPracticeError('需要家長同意後才能使用 AI 練習功能');
+      setToast('請先在資料與私隱開啟 AI 分析同意');
       return;
     }
 
@@ -915,12 +1062,12 @@ function App() {
       setPracticeQuiz(data.quiz);
       setPracticeState('ready');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Practice generation failed';
+      const message = error instanceof Error ? error.message : '練習生成失敗';
       setPracticeError(message);
       if (message.includes('Parent consent required')) {
         setActiveView('profile');
         setProfileSheet('privacy');
-        setToast('請先在 Data & Privacy 開啟 AI review processing');
+        setToast('請先在資料與私隱開啟 AI 分析同意');
       }
       setPracticeState('error');
     }
@@ -975,9 +1122,9 @@ function App() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
       await refreshLearningProgress(currentChild.id);
-      setToast('Practice saved to progress report');
+      setToast('練習紀錄已加入進度報告');
     } catch (error) {
-      setToast(error instanceof Error ? error.message : 'Practice completed but save failed');
+      setToast(error instanceof Error ? error.message : '練習已完成，但儲存失敗');
     } finally {
       setPracticeState('complete');
     }
@@ -994,17 +1141,17 @@ function App() {
         body: JSON.stringify({
           child_id: currentChild.id,
           report_month: learningProgress?.report_month,
-          teacher_name: 'Tutor / Class Teacher',
+          teacher_name: '補習老師 / 班主任',
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
       setShareReport(data.share);
       setShareState('done');
-      setToast('Teacher report link ready');
+      setToast('教師報告連結已建立');
     } catch (error) {
       setShareState('error');
-      setToast(error instanceof Error ? error.message : 'Report share failed');
+      setToast(error instanceof Error ? error.message : '分享報告失敗');
     }
   }
 
@@ -1025,7 +1172,7 @@ function App() {
         children: previous.children.map((item) => (item.id === child.id ? child : item)),
       };
     });
-    setToast('Profile saved');
+    setToast('資料已儲存');
   }
 
   async function updateParentProfile(updates: ParentProfileUpdates) {
@@ -1043,7 +1190,7 @@ function App() {
         ? current
         : preferredChildId(updatedParent));
     }
-    setToast('Profile saved');
+    setToast('資料已儲存');
   }
 
   async function updatePrivacySettings(updates: Partial<PrivacySettings>) {
@@ -1056,7 +1203,7 @@ function App() {
     const summary = await response.json();
     if (!response.ok) throw new Error(summary.detail || `HTTP ${response.status}`);
     setParent(summary.parent);
-    setToast('Privacy settings saved');
+    setToast('私隱設定已儲存');
     return summary as PrivacyCenterResponse;
   }
 
@@ -1071,7 +1218,7 @@ function App() {
     if (!response.ok) throw new Error(result.detail || `HTTP ${response.status}`);
     setParent(result.parent);
     setSelectedChildId(preferredChildId(result.parent));
-    setToast('Child data deleted');
+    setToast('學生資料已刪除');
     return result as { parent: ParentProfile };
   }
 
@@ -1089,7 +1236,7 @@ function App() {
       return { ...previous, onboarding_complete: true, children: [...previous.children, child] };
     });
     setSelectedChildId(child.id);
-    setToast(`${child.name} added`);
+    setToast(`已新增 ${child.name}`);
   }
 
   async function completeOnboarding(parentUpdates: ParentProfileUpdates, childPayload: Omit<ChildProfile, 'id'>) {
@@ -1113,7 +1260,7 @@ function App() {
     setParent(updatedParent);
     setSelectedChildId(child.id);
     setActiveView('home');
-    setToast('Learning profile ready');
+    setToast('學習檔案已建立');
   }
 
   async function persistPortfolioSections(childId: string, sections: PortfolioSectionDraft[]) {
@@ -1134,7 +1281,7 @@ function App() {
         };
       });
     } catch (error) {
-      setToast(error instanceof Error ? error.message : 'Learning Passport save failed');
+      setToast(error instanceof Error ? error.message : '學習護照儲存失敗');
     }
   }
 
@@ -1362,7 +1509,7 @@ function LoadingView() {
       <section className="login-card">
         <span className="login-mark"><Icon name="school" filled /></span>
         <h1>EduPass AI</h1>
-        <p>Loading secure learning workspace...</p>
+        <p>正在載入安全學習工作區...</p>
       </section>
     </main>
   );
@@ -1402,30 +1549,30 @@ function LoginView({
         <h1>EduPass AI</h1>
         <p>
           {isSignup
-            ? 'Create a parent account, then set up your first child learning profile.'
-            : 'Sign in to load parent profile, child records, OCR history, and portfolio exports from GCP.'}
+            ? '建立家長帳戶後，即可設定第一個學生學習檔案。'
+            : '登入後會載入家長資料、學生紀錄、OCR 歷史及已匯出的作品集。'}
         </p>
         {isSignup ? (
           <label>
-            Parent name
-            <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="e.g. Mrs Chan" />
+            家長姓名
+            <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="例如：陳太" />
           </label>
         ) : null}
         <label>
-          Email
+          電郵
           <input value={email} type="email" onChange={(event) => setEmail(event.target.value)} />
         </label>
         <label>
-          {isSignup ? 'Create PIN' : 'Demo PIN'}
+          {isSignup ? '建立 PIN' : '示範 PIN'}
           <input value={pin} type="password" inputMode="numeric" onChange={(event) => setPin(event.target.value)} />
         </label>
         {authError ? <strong className="login-error">{authError}</strong> : null}
         <button className="primary-action full" type="submit">
           <Icon name={isSignup ? 'person_add' : 'login'} filled />
-          {isSignup ? 'Create account' : 'Sign in'}
+          {isSignup ? '建立帳戶' : '登入'}
         </button>
         <button className="auth-switch" type="button" onClick={() => setAuthMode(isSignup ? 'login' : 'signup')}>
-          {isSignup ? 'Already have an account? Sign in' : 'New parent? Create account'}
+          {isSignup ? '已有帳戶？登入' : '新家長？建立帳戶'}
         </button>
       </form>
     </main>
@@ -1468,7 +1615,7 @@ function OnboardingView({
         },
       );
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Profile setup failed');
+      setError(submitError instanceof Error ? submitError.message : '建立檔案失敗');
     } finally {
       setSaving(false);
     }
@@ -1480,49 +1627,47 @@ function OnboardingView({
         <div className="onboarding-head">
           <span className="login-mark"><Icon name="family_restroom" filled /></span>
           <div>
-            <span>First login setup</span>
-            <h1>Create learning profiles</h1>
+            <span>首次登入設定</span>
+            <h1>建立學習檔案</h1>
             <p>{parent.email}</p>
           </div>
         </div>
 
         <label>
-          Parent display name
+          家長顯示名稱
           <input required value={parentName} onChange={(event) => setParentName(event.target.value)} />
         </label>
 
         <div className="onboarding-divider">
           <Icon name="child_care" />
-          <span>First child profile</span>
+          <span>第一位學生檔案</span>
         </div>
 
         <label>
-          Child name
-          <input required value={childName} onChange={(event) => setChildName(event.target.value)} placeholder="e.g. Matthew" />
+          學生姓名
+          <input required value={childName} onChange={(event) => setChildName(event.target.value)} placeholder="例如：Matthew" />
         </label>
         <div className="form-grid two">
           <label>
-            Grade
+            年級
             <select value={grade} onChange={(event) => setGrade(event.target.value)}>
               {gradeOptions.map((option) => <option key={option}>{option}</option>)}
             </select>
           </label>
           <label>
-            Language
+            語言
             <select value={language} onChange={(event) => setLanguage(event.target.value)}>
-              <option value="">Not set yet</option>
-              <option>繁中 / English</option>
-              <option>繁體中文</option>
-              <option>English</option>
+              <option value="">尚未設定</option>
+              {languageOptions.map((option) => <option key={option}>{option}</option>)}
             </select>
           </label>
         </div>
         <label>
-          Learning focus
+          學習焦點
           <textarea value={focus} onChange={(event) => setFocus(event.target.value)} />
         </label>
         <label>
-          School type
+          學校類型
           <input value={schoolType} onChange={(event) => setSchoolType(event.target.value)} />
         </label>
 
@@ -1530,9 +1675,9 @@ function OnboardingView({
 
         <button className="primary-action full" type="submit" disabled={saving}>
           <Icon name={saving ? 'sync' : 'check_circle'} filled />
-          {saving ? 'Saving...' : 'Start EduPass'}
+          {saving ? '儲存中...' : '開始使用 EduPass'}
         </button>
-        <button className="auth-switch" type="button" onClick={onLogout}>Logout</button>
+        <button className="auth-switch" type="button" onClick={onLogout}>登出</button>
       </form>
     </main>
   );
@@ -1556,16 +1701,16 @@ function MainHeader({
         <img className="avatar-img" src={avatar} alt={child?.name || 'Matthew'} />
         <div>
           {isPortfolio ? (
-            <h1 className="brand-title">Learning Passport</h1>
+            <h1 className="brand-title">{defaultPassportName}</h1>
           ) : (
             <>
-              <h1 className="student-title">{activeView === 'home' ? child?.name || 'Matthew' : 'Learning Passport'}</h1>
-              {activeView === 'home' ? <p>{child?.grade || 'P3'} • {child?.passport || 'Learning Passport'}</p> : null}
+              <h1 className="student-title">{activeView === 'home' ? child?.name || 'Matthew' : defaultPassportName}</h1>
+              {activeView === 'home' ? <p>{child?.grade || 'P3'} • {displayPassportName(child?.passport)}</p> : null}
             </>
           )}
         </div>
       </div>
-      <button className="symbol-button" type="button" aria-label="Switch profile" onClick={onSwitchChild}>
+      <button className="symbol-button" type="button" aria-label="切換學生檔案" onClick={onSwitchChild}>
         <Icon name="switch_account" />
       </button>
     </header>
@@ -1575,10 +1720,10 @@ function MainHeader({
 function UploadHeader({ onBack }: { onBack: () => void }) {
   return (
     <header className="upload-appbar">
-      <button className="symbol-button" type="button" aria-label="Go back" onClick={onBack}>
+      <button className="symbol-button" type="button" aria-label="返回" onClick={onBack}>
         <Icon name="arrow_back" />
       </button>
-      <h1>確認作業內容 / Upload Review</h1>
+      <h1>確認作業內容</h1>
       <span aria-hidden="true" />
     </header>
   );
@@ -1587,11 +1732,11 @@ function UploadHeader({ onBack }: { onBack: () => void }) {
 function SettingsHeader({ onBack, onHelp }: { onBack: () => void; onHelp: () => void }) {
   return (
     <header className="settings-appbar">
-      <button className="symbol-button" type="button" aria-label="Back" onClick={onBack}>
+      <button className="symbol-button" type="button" aria-label="返回" onClick={onBack}>
         <Icon name="arrow_back" />
       </button>
-      <h1>Settings</h1>
-      <button className="symbol-button" type="button" aria-label="Help" onClick={onHelp}>
+      <h1>設定</h1>
+      <button className="symbol-button" type="button" aria-label="說明" onClick={onHelp}>
         <Icon name="help" />
       </button>
     </header>
@@ -1619,7 +1764,7 @@ function HomeView({
       className="content-stack home-view"
       data-stitch-source="projects/10595017015370179580/screens/2cf4c58dda9a400181ac6d8b56c19aea"
     >
-      <section className="home-progress-dashboard" aria-label="Home progress dashboard">
+      <section className="home-progress-dashboard" aria-label="首頁進度儀表板">
         <Icon name="monitoring" />
         <div className="home-mastery-block">
           <div className="home-mastery-ring-wrap">
@@ -1665,8 +1810,8 @@ function HomeView({
 
       <section className="daily-goals-card">
         <div className="daily-goals-head">
-          <h2><Icon name="task_alt" filled /> Daily Goals</h2>
-          <span>{completedGoals} of {content.goals.length} completed</span>
+          <h2><Icon name="task_alt" filled /> 今日目標</h2>
+          <span>已完成 {completedGoals}/{content.goals.length}</span>
         </div>
         <div className="daily-goal-list">
           {content.goals.map((goal) => (
@@ -1797,19 +1942,19 @@ function PortfolioView({
   const copy = portfolioStageCopy(child);
   const statusOptions: PortfolioStatus[] = ['Completed', 'AI Ready', 'Drafting'];
   const renderEditorPanel = (section: PortfolioSectionDraft) => (
-    <section className="passport-editor-panel" aria-label={`${section.title} editor`}>
+    <section className="passport-editor-panel" aria-label={`${section.title} 編輯區`}>
       <div className="editor-head">
         <span className="portfolio-icon">
           <Icon name={section.icon} filled />
         </span>
         <div className="editor-title">
-          <span>{section.shortTitle} · Updated {section.updatedAt}</span>
+          <span>{section.shortTitle} · 更新 {section.updatedAt}</span>
           <h2>{section.title}</h2>
         </div>
         <StatusChip status={section.status} tone={portfolioTone(section.status)} />
       </div>
 
-      <div className="status-segments" role="group" aria-label="Portfolio section status">
+      <div className="status-segments" role="group" aria-label="章節狀態">
         {statusOptions.map((status) => (
           <button
             className={section.status === status ? 'active' : ''}
@@ -1817,13 +1962,13 @@ function PortfolioView({
             type="button"
             onClick={() => onUpdateSection(section.id, { status })}
           >
-            {status}
+            {portfolioStatusLabel(status)}
           </button>
         ))}
       </div>
 
       <label className="draft-textarea">
-        School-ready draft
+        家長確認草稿
         <textarea
           value={section.body}
           onChange={(event) => onUpdateSection(section.id, { body: event.target.value })}
@@ -1832,7 +1977,7 @@ function PortfolioView({
 
       <div className="ai-draft-panel">
         <div>
-          <span><Icon name="auto_awesome" filled /> AI draft</span>
+          <span><Icon name="auto_awesome" filled /> AI 草稿</span>
           <p>{section.aiDraft}</p>
         </div>
         <button
@@ -1847,26 +1992,26 @@ function PortfolioView({
 
       <div className="evidence-tools">
         <div className="evidence-head">
-          <h3>Evidence bank</h3>
+          <h3>證據庫</h3>
           <span>{section.evidence.length}/{section.requiredEvidence}</span>
         </div>
         <div className="evidence-list">
           {section.evidence.length ? section.evidence.map((item) => (
             <span className="evidence-chip" key={item}>
               {item}
-              <button type="button" aria-label={`Remove ${item}`} onClick={() => onRemoveEvidence(section.id, item)}>
+              <button type="button" aria-label={`移除 ${item}`} onClick={() => onRemoveEvidence(section.id, item)}>
                 <Icon name="close" />
               </button>
             </span>
           )) : (
-            <span className="empty-evidence">No evidence yet</span>
+            <span className="empty-evidence">尚未加入證據</span>
           )}
         </div>
 
         <div className="editor-button-row">
           <button className="secondary-action" type="button" onClick={() => onAddEvidence(section.id)}>
             <Icon name="add_circle" />
-            新增 evidence
+            新增證據
           </button>
           <button className="secondary-action" type="button" onClick={onOpenUpload}>
             <Icon name="upload_file" />
@@ -1904,22 +2049,22 @@ function PortfolioView({
         <div>
           <span className="verified-label"><Icon name="verified" filled /> {copy.badge}</span>
           <div className="passport-title-row">
-            <h2>{child?.passport || 'Learning Passport'}</h2>
+            <h2>{displayPassportName(child?.passport)}</h2>
             <button type="button" onClick={onEditPassportInfo}>
               <Icon name="edit" />
-              Edit info
+              編輯資料
             </button>
           </div>
-          <p>{child?.name || '孩子'} · {child?.grade || 'P3'} · {child?.focus || 'Portfolio Builder'}</p>
+          <p>{child?.name || '孩子'} · {child?.grade || 'P3'} · {child?.focus || '尚未設定學習焦點'}</p>
         </div>
-        <div className="passport-progress-meter" aria-label={`Passport progress ${progress}%`}>
+        <div className="passport-progress-meter" aria-label={`學習護照完成度 ${progress}%`}>
           <strong>{progress}%</strong>
           <span>{copy.pdfLabel}</span>
         </div>
         <div className="passport-stat-row">
-          <span><b>{completedCount}</b> Completed</span>
-          <span><b>{evidenceCount}</b> Evidence</span>
-          <span><b>{sections.length}</b> Sections</span>
+          <span><b>{completedCount}</b> 已完成</span>
+          <span><b>{evidenceCount}</b> 證據</span>
+          <span><b>{sections.length}</b> 章節</span>
         </div>
       </section>
 
@@ -1954,7 +2099,7 @@ function PortfolioView({
               </div>
               <div className="portfolio-card-actions">
                 <span><Icon name="edit_note" /> 編輯</span>
-                <span>{section.evidence.length}/{section.requiredEvidence} evidence</span>
+                <span>{section.evidence.length}/{section.requiredEvidence} 證據</span>
               </div>
             </button>
             {section.id === activeSectionId ? renderEditorPanel(section) : null}
@@ -1964,13 +2109,13 @@ function PortfolioView({
 
       {exportState === 'done' || exportState === 'error' ? (
         <div className={`export-toast ${exportState}`}>
-          {exportState === 'done' ? 'PDF export ready' : exportError}
+          {exportState === 'done' ? 'PDF 已準備好' : exportError}
         </div>
       ) : null}
 
       <button className="generate-fab" type="button" onClick={onExport} disabled={exportState === 'running'}>
         <Icon name="picture_as_pdf" filled />
-        {exportState === 'running' ? 'Generating' : 'Generate PDF'}
+        {exportState === 'running' ? '生成中' : '生成 PDF'}
       </button>
     </main>
   );
@@ -1980,7 +2125,7 @@ function StatusChip({ status, tone }: { status: string; tone: string }) {
   return (
     <span className={`status-chip ${tone}`}>
       {tone === 'ready' ? <Icon name="sync" /> : <i />}
-      {status}
+      {portfolioStatusLabel(status)}
     </span>
   );
 }
@@ -2027,10 +2172,10 @@ function UploadView({
   const selectedFileCount = selectedFiles.length;
   const activePreviewItem = previewItems[activePreviewIndex] || null;
   const topicValue = detectedTopics.length
-    ? detectedTopics.map((topic) => topic.topic).join(' / ')
+    ? detectedTopics.map((topic) => displayTopicName(topic.topic)).join(' / ')
     : ocrState === 'done'
-      ? '未能穩定判定 topic，請家長確認'
-      : 'AI 會自動辨識多個 topic';
+      ? '未能穩定判定主題，請家長確認'
+      : 'AI 會自動辨識多個主題';
   const statusLabel = ocrState === 'running'
     ? 'AI 分析中'
     : ocrState === 'done'
@@ -2054,7 +2199,7 @@ function UploadView({
                 <span>PDF 已加入分析佇列</span>
               </div>
             ) : (
-              <img src={previewUrl} alt={activePreviewItem?.name || 'Scanned math homework'} />
+              <img src={previewUrl} alt={activePreviewItem?.name || '已掃描功課'} />
             )}
             {selectedFileCount ? (
               <span className="page-stack-badge">
@@ -2068,12 +2213,12 @@ function UploadView({
               <span />
               <span />
             </div>
-            <button type="button" aria-label="View full image" onClick={onViewPreview} disabled={!canViewPreview}>
+            <button type="button" aria-label="查看大圖" onClick={onViewPreview} disabled={!canViewPreview}>
               <Icon name="fullscreen" />
             </button>
           </div>
           {selectedFileCount ? (
-            <div className="selected-file-strip" aria-label="Selected upload pages">
+            <div className="selected-file-strip" aria-label="已選上載頁面">
               {previewItems.slice(0, 6).map((item, index) => (
                 <button
                   className={index === activePreviewIndex ? 'active' : ''}
@@ -2087,7 +2232,7 @@ function UploadView({
                   <span>{item.name}</span>
                 </button>
               ))}
-              {selectedFileCount > 6 ? <span className="more-pages">+{selectedFileCount - 6} more</span> : null}
+              {selectedFileCount > 6 ? <span className="more-pages">另有 {selectedFileCount - 6} 頁</span> : null}
             </div>
           ) : null}
         </section>
@@ -2098,23 +2243,23 @@ function UploadView({
             <span>{statusLabel}</span>
           </div>
 
-          <FormDisplay icon="stacks" label="頁數 / 檔案" value={selectedFileCount ? `${pageCount} pages from ${selectedFileCount} upload(s)` : '可一次選多張相片或 PDF'} />
-          <FormDisplay icon="category" label="學習主題 (AI 多 topic)" value={topicValue} />
+          <FormDisplay icon="stacks" label="頁數 / 檔案" value={selectedFileCount ? `${selectedFileCount} 個檔案，共 ${pageCount} 頁` : '可一次選多張相片或 PDF'} />
+          <FormDisplay icon="category" label="學習主題（AI 多主題）" value={topicValue} />
 
           <div className="parent-confirmation-notice">
             <Icon name="info" filled />
-            <p>AI review requires parent confirmation before saving to learning profile.</p>
+            <p>AI 檢視結果需要家長確認後，才會儲存到學生學習檔案。</p>
           </div>
 
           {detectedTopics.length ? (
-            <div className="detected-topic-grid" aria-label="Detected topics">
+            <div className="detected-topic-grid" aria-label="已辨識主題">
               {detectedTopics.map((topic, index) => (
                 <span
                   className={(topic.confidence || 0) >= 0.9 ? 'high-confidence' : ''}
                   key={topic.id || `${topic.topic}-${index}`}
                   style={{ animationDelay: `${index * 70}ms` }}
                 >
-                  <b>{topic.topic}</b>
+                  <b>{displayTopicName(topic.topic)}</b>
                   <small>
                     {topic.confidence !== undefined ? `${Math.round(topic.confidence * 100)}%` : 'AI'}
                     {topic.page_numbers?.length ? ` · P${topic.page_numbers.join(',')}` : ''}
@@ -2150,11 +2295,11 @@ function UploadView({
 
             {ocrState === 'done' && detectedQuestions.length ? (
               <div className="analysis-result success question-result-list">
-                <strong>Hybrid OCR Review · {detectedQuestions.length} items</strong>
+                <strong>混合 OCR 檢視 · {detectedQuestions.length} 題</strong>
                 {detectedQuestions.slice(0, 5).map((question, index) => (
                   <p key={`${question.question_text}-${index}`}>
                     <span>P{question.page_number || index + 1}</span>
-                    {question.topic ? <em>{question.topic}</em> : null}
+                    {question.topic ? <em>{displayTopicName(question.topic)}</em> : null}
                     {question.question_text}
                   </p>
                 ))}
@@ -2162,8 +2307,8 @@ function UploadView({
             ) : null}
             {ocrState === 'error' ? (
               <div className="analysis-result error">
-                <strong>GCP OCR Error</strong>
-                <p>{ocrResult?.detail || 'OCR analysis failed'}</p>
+                <strong>GCP OCR 錯誤</strong>
+                <p>{ocrResult?.detail || 'OCR 分析失敗'}</p>
               </div>
             ) : null}
           </div>
@@ -2173,7 +2318,7 @@ function UploadView({
       <footer className={selectedFileCount ? 'upload-footer dual-actions' : 'upload-footer'}>
         <button className="secondary-action add-pages-action" type="button" onClick={() => inputRef.current?.click()}>
           <Icon name="add_photo_alternate" />
-          Add More Pages
+          加入更多頁面
         </button>
         <button
           className={ocrState === 'done' ? 'primary-action full save-ready' : 'primary-action full'}
@@ -2229,22 +2374,22 @@ function MistakeCard({
         <div>
           <div className="question-meta-row">
             <span>{page}</span>
-            <em>{topic}</em>
+            <em>{displayTopicName(topic)}</em>
             <small>{confidence}</small>
           </div>
           <strong>{title}</strong>
           <span>{question}</span>
         </div>
-        <button type="button" aria-label="Delete" onClick={onDelete}>
+        <button type="button" aria-label="刪除" onClick={onDelete}>
           <Icon name="delete" />
         </button>
       </div>
       <label>
         <span>錯誤原因</span>
         <select value={reason} onChange={(event) => onReasonChange(event.target.value)}>
-          <option>運算錯誤 (Calculation)</option>
-          <option>概念不清 (Conceptual)</option>
-          <option>粗心大意 (Careless)</option>
+          <option>運算錯誤</option>
+          <option>概念不清</option>
+          <option>粗心大意</option>
         </select>
       </label>
     </article>
@@ -2294,7 +2439,7 @@ function CoachView({
     >
       <section className="page-intro tight">
         <h2>學科進度</h2>
-        <p>{child?.name || 'Matthew'} 的 academic subject score、OCR evidence 與弱項 topic。</p>
+        <p>{child?.name || 'Matthew'} 的各科成績、OCR 證據與弱項主題。</p>
       </section>
 
       <AcademicSubjectProgressPanel
@@ -2324,30 +2469,30 @@ function CoachView({
       <section className="coach-grid">
         <article className="data-card">
           <div className="card-title-row">
-            <h3>弱項 topic</h3>
+            <h3>弱項主題</h3>
             <Icon name="bar_chart" />
           </div>
           {(learningProgress?.weak_topics || []).slice(0, 4).map((topic) => (
             <Mastery
               key={`${topic.subject}-${topic.topic}`}
-              label={topic.topic}
+              label={displayTopicName(topic.topic)}
               value={topic.mastery}
               tone={topic.mastery >= 75 ? 'green' : topic.mastery >= 60 ? 'amber' : 'red'}
             />
           ))}
-          {learningProgress?.weak_topics?.length ? null : <p>暫時未有已評分 academic topic。</p>}
+          {learningProgress?.weak_topics?.length ? null : <p>暫時未有已評分學習主題。</p>}
         </article>
 
         <article className="data-card">
           <div className="card-title-row">
-            <h3>Score source</h3>
+            <h3>分數來源</h3>
             <Icon name="fact_check" />
           </div>
-          <p>基於已上載並確認的 OCR review、測驗分數及已保存的 subject attempts。</p>
+          <p>基於已上載並確認的 OCR 檢視、測驗分數及已保存的學科練習紀錄。</p>
           <div className="mistake-tags">
-            <span><Icon name="upload_file" /> {learningProgress?.document_count || 0} uploads</span>
-            <span><Icon name="edit_note" /> {learningProgress?.practice_count || 0} attempts</span>
-            <span className="amber"><Icon name="visibility_off" /> PE / VA excluded</span>
+            <span><Icon name="upload_file" /> {learningProgress?.document_count || 0} 份上載</span>
+            <span><Icon name="edit_note" /> {learningProgress?.practice_count || 0} 次練習</span>
+            <span className="amber"><Icon name="visibility_off" /> 體育 / 視藝不計分</span>
           </div>
         </article>
       </section>
@@ -2358,13 +2503,13 @@ function CoachView({
           <HistoryCard
             key={`${activity.created_at || index}-${activity.title || 'activity'}`}
             score={`${activity.score ?? learningProgress?.overall_mastery ?? 0}`}
-            title={String(activity.title || 'Learning evidence')}
-            date={String(activity.created_at || '').slice(5, 10) || 'Now'}
-            text={`${activity.type === 'practice_attempt' ? 'Subject attempt' : 'OCR evidence'} · ${activity.count || 0} item(s)`}
+            title={displayTopicName(String(activity.title || '學習證據'))}
+            date={formatActivityDate(activity.created_at)}
+            text={`${activity.type === 'practice_attempt' ? '學科練習' : 'OCR 證據'} · ${activity.count || 0} 項`}
             tone={Number(activity.score || learningProgress?.overall_mastery || 0) >= 75 ? 'green' : 'gray'}
           />
         ))}
-        {learningProgress?.recent_activity?.length ? null : <p className="empty-report-note">上載有分數的 academic work 後，這裡會顯示最新紀錄。</p>}
+        {learningProgress?.recent_activity?.length ? null : <p className="empty-report-note">上載有分數的學科作品後，這裡會顯示最新紀錄。</p>}
       </section>
     </main>
   );
@@ -2435,33 +2580,33 @@ function AcademicSubjectProgressPanel({
   return (
     <section
       className="academic-progress-panel"
-      aria-label="Academic subject score progress"
+      aria-label="學科成績進度"
       data-stitch-source="projects/10595017015370179580/screens/a592e20bc97e4cbfb85986527e821d31"
     >
       <div className="academic-progress-hero">
         <div>
-          <span className="report-kicker"><Icon name="monitoring" /> Academic Progress</span>
+          <span className="report-kicker"><Icon name="monitoring" /> 學科進度</span>
           <h2>{child?.name || '孩子'} 的各科成績</h2>
-          <p>{progress?.report_month || '今個月'} · {subjects.length} academic subjects · PE / VA portfolio only</p>
+          <p>{progress?.report_month || '今個月'} · {subjects.length} 個學科 · 體育 / 視藝只入作品檔案</p>
         </div>
         <div className="report-mastery-card">
           <strong>{mastery}</strong>
-          <small>Overall</small>
+          <small>整體</small>
         </div>
       </div>
 
       <div className="subject-score-summary">
-        <Metric value={`${scoredRows.length}/${subjects.length}`} label="Scored" />
-        <Metric value={`${progress?.document_count || 0}`} label="Uploads" />
-        <Metric value={`${progress?.all_topics?.length || 0}`} label="Topics" />
+        <Metric value={`${scoredRows.length}/${subjects.length}`} label="已評分" />
+        <Metric value={`${progress?.document_count || 0}`} label="上載" />
+        <Metric value={`${progress?.all_topics?.length || 0}`} label="主題" />
       </div>
 
       {selectedRow ? (
         <article className="selected-subject-score">
           <div>
-            <span>{selectedRow.subject.klaName}</span>
+            <span>學習領域</span>
             <h3>{selectedRow.subject.displayNameZh}</h3>
-            <p>{selectedRow.subject.name}</p>
+            <p>{displaySubjectUse(selectedRow.subject)}</p>
           </div>
           <strong>{selectedRow.mastery === null ? '--' : `${selectedRow.mastery}%`}</strong>
         </article>
@@ -2478,7 +2623,7 @@ function AcademicSubjectProgressPanel({
             <span className="subject-score-icon"><Icon name={row.mastery === null ? 'pending' : 'query_stats'} /></span>
             <div>
               <strong>{row.subject.displayNameZh}</strong>
-              <span>{row.evidenceCount} evidence · {row.practiceCount} attempts · {row.topicCount} topics</span>
+              <span>{row.evidenceCount} 項證據 · {row.practiceCount} 次練習 · {row.topicCount} 個主題</span>
             </div>
             <b>{row.mastery === null ? '--' : `${row.mastery}%`}</b>
           </button>
@@ -2518,26 +2663,26 @@ function LearningReportPanel({
   return (
     <section
       className={shareState === 'done' ? 'learning-report-panel share-ready' : 'learning-report-panel'}
-      aria-label="Progress report and teacher share"
+      aria-label="進度報告與教師分享"
       data-stitch-source="projects/7550425496525656523/screens/1fb93eb80a3b493a96781f530ba50099"
     >
       <div className="report-panel-head">
         <div>
-          <span className="report-kicker"><Icon name="analytics" /> Progress Report</span>
+          <span className="report-kicker"><Icon name="analytics" /> 進度報告</span>
           <h2>{child?.name || '孩子'} 的進步報告</h2>
-          <p>{reportMonth} · OCR evidence + subject scores</p>
+          <p>{reportMonth} · OCR 證據 + 科目分數</p>
         </div>
-        <div className="report-mastery-card" aria-label={`Mastery ${mastery}`}>
+        <div className="report-mastery-card" aria-label={`掌握度 ${mastery}`}>
           <strong>{mastery}</strong>
-          <small>Mastery</small>
+          <small>掌握度</small>
         </div>
       </div>
 
       <div className="report-dashboard">
         <div className="report-trend-card">
-          <span>Overall Mastery</span>
+          <span>整體掌握度</span>
           <strong>{mastery}</strong>
-          <div className="trend-line" aria-label="Recent progress trend">
+          <div className="trend-line" aria-label="近期進度走勢">
             {trend.map((point, index) => (
               <i
                 key={`${point}-${index}`}
@@ -2547,15 +2692,15 @@ function LearningReportPanel({
           </div>
         </div>
         <div className="report-metrics">
-          <Metric value={`${progress?.document_count || 0}`} label="Uploads" />
-          <Metric value={`${progress?.practice_count || 0}`} label="Attempts" />
-          <Metric value={`${progress?.all_topics?.length || 0}`} label="Topics" />
+          <Metric value={`${progress?.document_count || 0}`} label="上載" />
+          <Metric value={`${progress?.practice_count || 0}`} label="練習" />
+          <Metric value={`${progress?.all_topics?.length || 0}`} label="主題" />
         </div>
       </div>
 
       <div className="topic-report-grid">
         <article>
-          <h3><Icon name="flag" /> Top 3 weak topics</h3>
+          <h3><Icon name="flag" /> 三個主要弱項</h3>
           {weakTopics.length ? weakTopics.map((topic) => (
             <TopicReportRow key={`${topic.subject}-${topic.topic}`} topic={topic} />
           )) : <p className="empty-report-note">完成 OCR review 或輸入測驗分數後會整理弱項。</p>}
@@ -2580,12 +2725,12 @@ function LearningReportPanel({
             {shareState === 'running' ? '準備中...' : shareState === 'done' ? '已分享給老師' : '分享給補習老師'}
           </button>
           {shareHref ? (
-            <div className="teacher-share-link-row" aria-label="Teacher report link ready">
-              <button type="button" aria-label="Copy teacher report link" onClick={copyShareHref}>
+            <div className="teacher-share-link-row" aria-label="教師報告連結已建立">
+              <button type="button" aria-label="複製教師報告連結" onClick={copyShareHref}>
                 <Icon name="content_copy" />
               </button>
               <a href={shareHref} target="_blank" rel="noreferrer">{shareHref}</a>
-              <a className="open-report-link" href={shareHref} target="_blank" rel="noreferrer" aria-label="Open teacher report">
+              <a className="open-report-link" href={shareHref} target="_blank" rel="noreferrer" aria-label="開啟教師報告">
                 <Icon name="open_in_new" />
               </a>
             </div>
@@ -2600,8 +2745,8 @@ function TopicReportRow({ topic }: { topic: LearningTopicSummary }) {
   return (
     <div className={`topic-report-row ${topic.trend}`}>
       <div>
-        <strong>{topic.topic}</strong>
-        <span>{topic.subject} · evidence {topic.evidence_count} · attempts {topic.practice_count}</span>
+        <strong>{displayTopicName(topic.topic)}</strong>
+        <span>{displaySubjectName(topic.subject)} · 證據 {topic.evidence_count} · 練習 {topic.practice_count}</span>
       </div>
       <b>{topic.mastery}%</b>
     </div>
@@ -2700,9 +2845,9 @@ function DailyPracticeView({
         <h2>互動練習</h2>
         <p>{quiz.parent_visible_rationale}</p>
         <div className="practice-progress-strip">
-          <Metric value={`${submittedCount}/${quiz.items.length}`} label="Submitted" />
-          <Metric value={`${correctCount}/${quiz.items.length}`} label="Correct" />
-          <Metric value={`${Math.ceil(quiz.items.reduce((total, item) => total + item.estimated_time_seconds, 0) / 60)}`} label="Mins" />
+        <Metric value={`${submittedCount}/${quiz.items.length}`} label="已提交" />
+        <Metric value={`${correctCount}/${quiz.items.length}`} label="答對" />
+        <Metric value={`${Math.ceil(quiz.items.reduce((total, item) => total + item.estimated_time_seconds, 0) / 60)}`} label="分鐘" />
         </div>
       </section>
 
@@ -2716,7 +2861,7 @@ function DailyPracticeView({
             </div>
             <h3>{displayMathText(item.question_text)}</h3>
 
-            <div className="choice-list" role="radiogroup" aria-label={`Question ${index + 1} choices`}>
+            <div className="choice-list" role="radiogroup" aria-label={`第 ${index + 1} 題選項`}>
               {normalizeQuizOptions(item).map((option, optionIndex) => {
                 const selected = answers[item.id] === option;
                 const correct = estimateAnswerCorrect(option, item.answer);
@@ -2798,9 +2943,9 @@ function PracticeCompleteView({
         <h2>練習完成</h2>
         <p>已完成今日 5 分鐘特訓。系統會把這次練習加入學習軌跡，供下次推薦使用。</p>
         <div className="completion-stats">
-          <Metric value={`${itemCount}`} label="Items" />
-          <Metric value="+8%" label="Focus" />
-          <Metric value={grade} label="Level" />
+          <Metric value={`${itemCount}`} label="題目" />
+          <Metric value="+8%" label="專注" />
+          <Metric value={grade} label="級別" />
         </div>
         <div className="practice-actions">
           <button className="secondary-action" type="button" onClick={onBack}>
@@ -2840,10 +2985,10 @@ function CurriculumMapSection({
   }, [academicSubjects, onSelectSubject, selectedSubjectId]);
 
   return (
-    <section className="curriculum-map" aria-label="HKEDB curriculum map">
+    <section className="curriculum-map" aria-label="HKEDB 課程地圖">
       <div className="curriculum-head">
         <div>
-          <span className="verified-label"><Icon name="verified" filled /> Academic subjects · {profileGrade}</span>
+          <span className="verified-label"><Icon name="verified" filled /> 學科清單 · {profileGrade}</span>
           <h2>{child?.name || '孩子'} 的學科地圖</h2>
         </div>
       </div>
@@ -2851,19 +2996,19 @@ function CurriculumMapSection({
       <div className="profile-grade-lock">
         <span className="grade-token"><Icon name="badge" /> {profileGrade}</span>
         <div>
-          <strong>{stage.label} · {stage.caption}</strong>
-          <p>{child?.school_type || '香港學校'} · Academic score tracking excludes PE / VA</p>
+          <strong>{stage.label} · {displayStageCaption(stage.caption)}</strong>
+          <p>{child?.school_type || '香港學校'} · 成績追蹤不包括體育 / 視藝</p>
         </div>
       </div>
 
       <section className="stage-summary">
         <div>
-          <span>{stage.caption}</span>
+          <span>{displayStageCaption(stage.caption)}</span>
           <h3>{stage.learningGoal}</h3>
         </div>
         <div className="curriculum-metrics">
-          <Metric value="Score" label="Mode" />
-          <Metric value={`${academicSubjects.length}`} label="Subjects" />
+          <Metric value="成績" label="模式" />
+          <Metric value={`${academicSubjects.length}`} label="學科" />
           <Metric value="2025/26" label="EDB" />
         </div>
       </section>
@@ -2927,13 +3072,13 @@ function CourseContentSection({
 
   if (!activeSubject || !selectedTopic) {
     return (
-      <section className="course-planner roadmap-only" aria-label="Mathematics topic notice">
+      <section className="course-planner roadmap-only" aria-label="數學主題提示">
         <div className="course-head">
           <div>
-            <span><Icon name="calculate" filled /> Mathematics</span>
-            <h2>{profileGrade} 數學 Learning Topics</h2>
+            <span><Icon name="calculate" filled /> 數學</span>
+            <h2>{profileGrade} 數學學習主題</h2>
           </div>
-          <b>Math first</b>
+          <b>數學優先</b>
         </div>
         <p className="roadmap-note">正在載入數學課程節點；練習生成、弱項追蹤與報告目前都以數學為主。</p>
       </section>
@@ -2941,16 +3086,16 @@ function CourseContentSection({
   }
 
   return (
-    <section className="course-planner" aria-label="Learning topics and course content">
+    <section className="course-planner" aria-label="學習主題與課程內容">
       <div className="course-head">
         <div>
-          <span><Icon name="auto_stories" filled /> Course content draft</span>
-          <h2>{profileGrade} {activeSubject.displayNameZh} Learning Topics</h2>
+          <span><Icon name="auto_stories" filled /> 課程內容草稿</span>
+          <h2>{profileGrade} {activeSubject.displayNameZh} 學習主題</h2>
         </div>
         <b>019e81ae</b>
       </div>
 
-      <div className="topic-rail" role="tablist" aria-label="Course topics">
+      <div className="topic-rail" role="tablist" aria-label="課程主題">
         {topics.map((topic) => (
           <article
             key={topic.id}
@@ -2963,7 +3108,7 @@ function CourseContentSection({
               aria-selected={topic.id === selectedTopic.id}
               onClick={() => setSelectedTopicId(topic.id)}
             >
-              <span>{topic.subjectNameZh} · {topic.strand}</span>
+              <span>{topic.subjectNameZh} · {displayStrandName(topic.strand)}</span>
               <strong>{topic.titleZh}</strong>
             </button>
           </article>
@@ -2973,32 +3118,32 @@ function CourseContentSection({
       <article className="topic-detail-card">
         <div className="topic-detail-top">
           <div>
-            <span>{selectedTopic.subjectName} · {selectedTopic.strand}</span>
+            <span>{selectedTopic.subjectNameZh} · {displayStrandName(selectedTopic.strand)}</span>
             <h3>{selectedTopic.titleZh}</h3>
-            <p>{selectedTopic.title}</p>
+            <p>{selectedTopic.outcomes[0] || '按課程目標整理練習重點。'}</p>
           </div>
-          <Metric value={`${selectedTopic.lessonCount}`} label="Lessons" />
+          <Metric value={`${selectedTopic.lessonCount}`} label="課節" />
         </div>
 
         <div className="topic-stats">
-          <span><Icon name="schedule" /> {selectedTopic.durationMinutes} min</span>
+          <span><Icon name="schedule" /> {selectedTopic.durationMinutes} 分鐘</span>
           <span><Icon name="signal_cellular_alt" /> {selectedTopic.level}</span>
-          <span><Icon name="sell" /> {selectedTopic.evidenceTag}</span>
+          <span><Icon name="sell" /> 學習證據標籤</span>
         </div>
 
-        <section className="practice-builder" aria-label="Practice question allocation">
+        <section className="practice-builder" aria-label="練習題數分配">
           <div className="builder-head">
             <div>
-              <span>Practice setup</span>
-              <h4>按 topic / area 分配題數</h4>
+              <span>練習設定</span>
+              <h4>按主題 / 範疇分配題數</h4>
             </div>
-            <Metric value={`${totalQuestions}`} label="Questions" />
+            <Metric value={`${totalQuestions}`} label="題目" />
           </div>
           <div className="allocation-list">
             {topics.map((topic) => (
               <div className={topic.id === selectedTopic.id ? 'allocation-row active' : 'allocation-row'} key={topic.id}>
                 <button type="button" onClick={() => setSelectedTopicId(topic.id)}>
-                  <span>{topic.strand}</span>
+                  <span>{displayStrandName(topic.strand)}</span>
                   <strong>{topic.titleZh}</strong>
                 </button>
                 <QuestionStepper
@@ -3033,7 +3178,7 @@ function CourseContentSection({
           onClick={() => onStartPractice(buildPracticeOptions(activeSubject, activePlan))}
         >
           <Icon name="play_lesson" filled />
-          Generate {totalQuestions || 0} questions
+          生成 {totalQuestions || 0} 題
         </button>
       </article>
     </section>
@@ -3050,12 +3195,12 @@ function QuestionStepper({
   onChange: (count: number) => void;
 }) {
   return (
-    <div className="question-stepper" aria-label={`Question count ${count}`}>
-      <button type="button" aria-label="Decrease questions" onClick={() => onChange(Math.max(0, count - 1))}>
+    <div className="question-stepper" aria-label={`題數 ${count}`}>
+      <button type="button" aria-label="減少題數" onClick={() => onChange(Math.max(0, count - 1))}>
         <Icon name="remove" />
       </button>
       <span><b>{count}</b>{label}</span>
-      <button type="button" aria-label="Increase questions" onClick={() => onChange(Math.min(10, count + 1))}>
+      <button type="button" aria-label="增加題數" onClick={() => onChange(Math.min(10, count + 1))}>
         <Icon name="add" />
       </button>
     </div>
@@ -3117,30 +3262,30 @@ function CurriculumSubjectCard({
     >
       <div className="subject-card-top">
         <div>
-          <span>{subject.klaName}</span>
+          <span>{displayKlaName(subject)}</span>
           <h3>{subject.displayNameZh}</h3>
-          <p>{subject.name}</p>
+          <p>{displaySubjectUse(subject)}</p>
         </div>
-        <b>{roadmap ? 'Roadmap' : grade}</b>
+        <b>{roadmap ? '路線圖' : grade}</b>
       </div>
       <div className="strand-tags">
         {subject.strands.slice(0, 3).map((strand) => (
-          <span key={strand}>{strand}</span>
+          <span key={strand}>{displayStrandName(strand)}</span>
         ))}
       </div>
       <p className="app-use">
         <Icon name={roadmap ? 'map' : 'auto_awesome'} />
-        {roadmap ? 'Not active in this MVP.' : subject.appUse}
+        {roadmap ? '暫未在原型啟用。' : displaySubjectUse(subject)}
       </p>
-      {subject.status ? <p className="subject-status">{subject.status}</p> : null}
+      {subject.status ? <p className="subject-status">{displaySubjectStatus(subject.status)}</p> : null}
     </button>
   );
 }
 
 function gradeNotices(grade: string) {
   return [
-    { icon: 'school', text: `${grade} academic subjects` },
-    { icon: 'visibility_off', text: '體育 / VA 不作 score tracking' },
+    { icon: 'school', text: `${grade} 學科` },
+    { icon: 'visibility_off', text: '體育 / 視藝不作成績追蹤' },
   ];
 }
 
@@ -3198,32 +3343,32 @@ function ProfileView({
   setSelectedChildId: (id: string) => void;
 }) {
   const settings = [
-    { icon: 'workspace_premium', title: 'Learning Plus', subtitle: 'Active Subscription', badge: 'Manage', sheet: 'learning-plus' as const },
-    { icon: 'language', title: 'Language', value: '繁體中文', sheet: 'language' as const },
-    { icon: 'security', title: 'Data & Privacy', subtitle: 'Uploads, PCPD consent', sheet: 'privacy' as const },
-    { icon: 'notifications', title: 'Notification Settings', sheet: 'notifications' as const },
-    { icon: 'help_center', title: 'Support & FAQ', sheet: 'support' as const },
+    { icon: 'workspace_premium', title: 'Learning Plus', subtitle: '示範帳戶已啟用', badge: '管理', sheet: 'learning-plus' as const },
+    { icon: 'language', title: '語言', value: '繁體中文', sheet: 'language' as const },
+    { icon: 'security', title: '資料與私隱', subtitle: '上載、同意與資料保留', sheet: 'privacy' as const },
+    { icon: 'notifications', title: '通知設定', sheet: 'notifications' as const },
+    { icon: 'help_center', title: '支援與常見問題', sheet: 'support' as const },
   ];
 
   return (
     <main className="profile-content">
       <section className="parent-profile">
         <div className="parent-avatar">
-          <img src={images.parent} alt="Parent Avatar" />
-          <button type="button" aria-label="Edit parent profile" onClick={onEditParent}>
+          <img src={images.parent} alt="家長頭像" />
+          <button type="button" aria-label="編輯家長資料" onClick={onEditParent}>
             <Icon name="edit" />
           </button>
         </div>
         <h2>{parent.display_name}</h2>
         <p>{parent.email}</p>
         <div className="profile-action-row">
-          <button type="button" onClick={onEditParent}>Edit Parent</button>
-          <button type="button" onClick={onEditChild}>Edit {currentChild?.name || 'Child'}</button>
+          <button type="button" onClick={onEditParent}>編輯家長</button>
+          <button type="button" onClick={onEditChild}>編輯 {currentChild?.name || '學生'}</button>
         </div>
       </section>
 
       <section className="children-section">
-        <h3>Children</h3>
+        <h3>學生</h3>
         <div className="children-scroll">
           {children.map((child) => (
             <ChildCard
@@ -3237,13 +3382,13 @@ function ProfileView({
           ))}
           <button className="add-child" type="button" onClick={onAddChild}>
             <Icon name="add" />
-            <span>Add Child</span>
+            <span>新增學生</span>
           </button>
         </div>
       </section>
 
       <section className="settings-list">
-        <h3>App Settings</h3>
+        <h3>應用設定</h3>
         <div className="settings-card">
           {settings.map((item) => (
             <button className="settings-row" key={item.title} type="button" onClick={() => onOpenSetting(item.sheet)}>
@@ -3261,7 +3406,7 @@ function ProfileView({
           ))}
           <button className="settings-row logout" type="button" onClick={onLogout}>
             <span className="settings-icon"><Icon name="logout" /></span>
-            <span className="settings-copy"><strong>Logout</strong></span>
+            <span className="settings-copy"><strong>登出</strong></span>
           </button>
         </div>
       </section>
@@ -3293,12 +3438,12 @@ function ChildCard({
 
 function PreviewLightbox({ image, onClose }: { image: string; onClose: () => void }) {
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Homework preview">
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="功課預覽">
       <section className="preview-lightbox">
-        <button className="symbol-button" type="button" aria-label="Close preview" onClick={onClose}>
+        <button className="symbol-button" type="button" aria-label="關閉預覽" onClick={onClose}>
           <Icon name="close" />
         </button>
-        <img src={image} alt="Full homework preview" />
+        <img src={image} alt="功課完整預覽" />
       </section>
     </div>
   );
@@ -3328,14 +3473,14 @@ function ProfileSheetModal({
   if (!kind) return null;
 
   const titles: Record<Exclude<ProfileSheet, null>, string> = {
-    'add-child': 'Add Child',
-    'edit-child': `Edit ${currentChild?.name || 'Child'}`,
-    'edit-parent': 'Edit Parent',
-    language: 'Language',
+    'add-child': '新增學生',
+    'edit-child': `編輯 ${currentChild?.name || '學生'}`,
+    'edit-parent': '編輯家長',
+    language: '語言',
     'learning-plus': 'Learning Plus',
-    notifications: 'Notifications',
-    privacy: 'Data & Privacy',
-    support: 'Support & FAQ',
+    notifications: '通知設定',
+    privacy: '資料與私隱',
+    support: '支援與常見問題',
   };
 
   return (
@@ -3343,7 +3488,7 @@ function ProfileSheetModal({
       <section className="profile-sheet">
         <div className="sheet-head">
           <h2>{titles[kind]}</h2>
-          <button className="symbol-button" type="button" aria-label="Close" onClick={onClose}>
+          <button className="symbol-button" type="button" aria-label="關閉" onClick={onClose}>
             <Icon name="close" />
           </button>
         </div>
@@ -3361,7 +3506,7 @@ function ProfileSheetModal({
         {kind === 'edit-child' && currentChild ? (
           <ChildProfileForm
             initial={currentChild}
-            submitLabel="Save Profile"
+            submitLabel="儲存檔案"
             onSubmit={async (payload) => {
               await onUpdateChild(payload);
               onClose();
@@ -3371,7 +3516,7 @@ function ProfileSheetModal({
 
         {kind === 'add-child' ? (
           <ChildProfileForm
-            submitLabel="Add Child"
+            submitLabel="新增學生"
             onSubmit={async (payload) => {
               await onAddChild(payload as Omit<ChildProfile, 'id'>);
               onClose();
@@ -3389,19 +3534,19 @@ function ProfileSheetModal({
         ) : null}
 
         {kind === 'language' ? (
-          <SettingPanel icon="language" title="繁體中文 / English" text="Prototype language is currently Traditional Chinese with English labels where Stitch source screens use bilingual copy." />
+          <SettingPanel icon="language" title="繁體中文" text="介面文案已統一為繁體中文；英文只保留於產品名稱、課程來源或技術名詞。" />
         ) : null}
 
         {kind === 'notifications' ? (
-          <SettingPanel icon="notifications" title="Weekly progress reminders" text="Reminder preferences are staged here. The next backend phase can persist email / push notification choices per parent." />
+          <SettingPanel icon="notifications" title="每週進度提醒" text="提醒偏好會在下一階段接入後端，支援按家長設定電郵或推送通知。" />
         ) : null}
 
         {kind === 'learning-plus' ? (
-          <SettingPanel icon="workspace_premium" title="Active Subscription" text="Learning Plus is marked active for the demo account. Billing integration is intentionally not connected in this prototype." />
+          <SettingPanel icon="workspace_premium" title="示範帳戶已啟用" text="Learning Plus 目前只作原型示範，暫未接入真實付款或訂閱系統。" />
         ) : null}
 
         {kind === 'support' ? (
-          <SettingPanel icon="help_center" title="Support & FAQ" text="For prototype testing, use this panel to confirm navigation and settings flow. A real FAQ / support channel can be added as a separate screen." />
+          <SettingPanel icon="help_center" title="支援與常見問題" text="此面板用作確認設定流程；正式版可加入常見問題及支援渠道。" />
         ) : null}
       </section>
     </div>
@@ -3426,7 +3571,7 @@ function ParentProfileForm({
     try {
       await onSubmit({ display_name: displayName });
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Save failed');
+      setError(submitError instanceof Error ? submitError.message : '儲存失敗');
     } finally {
       setSaving(false);
     }
@@ -3435,17 +3580,17 @@ function ParentProfileForm({
   return (
     <form className="sheet-form" onSubmit={submit}>
       <label>
-        Parent display name
+        家長顯示名稱
         <input required value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
       </label>
       <label>
-        Email
+        電郵
         <input readOnly value={initial.email} />
       </label>
       {error ? <strong className="login-error">{error}</strong> : null}
       <button className="primary-action full" type="submit" disabled={saving}>
         <Icon name={saving ? 'sync' : 'save'} filled />
-        {saving ? 'Saving...' : 'Save Parent'}
+        {saving ? '儲存中...' : '儲存家長資料'}
       </button>
     </form>
   );
@@ -3484,7 +3629,7 @@ function ChildProfileForm({
         school_type: schoolType,
       });
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Save failed');
+      setError(submitError instanceof Error ? submitError.message : '儲存失敗');
     } finally {
       setSaving(false);
     }
@@ -3493,40 +3638,38 @@ function ChildProfileForm({
   return (
     <form className="sheet-form" onSubmit={submit}>
       <label>
-        Child name
+        學生姓名
         <input required value={name} onChange={(event) => setName(event.target.value)} />
       </label>
       <label>
-        Grade
+        年級
         <select required value={grade} onChange={(event) => setGrade(event.target.value)}>
           {gradeOptions.map((option) => <option key={option}>{option}</option>)}
         </select>
       </label>
       <label>
-        Passport
+        學習護照名稱
         <input value={passport} onChange={(event) => setPassport(event.target.value)} />
       </label>
       <label>
-        Learning focus
+        學習焦點
         <textarea value={focus} onChange={(event) => setFocus(event.target.value)} />
       </label>
       <label>
-        Language
+        語言
         <select value={language} onChange={(event) => setLanguage(event.target.value)}>
-          <option value="">Not set yet</option>
-          <option>繁中 / English</option>
-          <option>繁體中文</option>
-          <option>English</option>
+          <option value="">尚未設定</option>
+          {languageOptions.map((option) => <option key={option}>{option}</option>)}
         </select>
       </label>
       <label>
-        School type
+        學校類型
         <input value={schoolType} onChange={(event) => setSchoolType(event.target.value)} />
       </label>
       {error ? <strong className="login-error">{error}</strong> : null}
       <button className="primary-action full" type="submit" disabled={saving}>
         <Icon name={saving ? 'sync' : 'save'} filled />
-        {saving ? 'Saving...' : submitLabel}
+        {saving ? '儲存中...' : submitLabel}
       </button>
     </form>
   );
@@ -3581,7 +3724,7 @@ function PrivacyCenterPanel({
       })
       .catch((privacyError) => {
         if (!alive) return;
-        setError(privacyError instanceof Error ? privacyError.message : 'Privacy settings unavailable');
+        setError(privacyError instanceof Error ? privacyError.message : '私隱設定暫時未能載入');
       });
     return () => {
       alive = false;
@@ -3600,7 +3743,7 @@ function PrivacyCenterPanel({
       setSummary(updated);
       setSettings(updated.privacy_settings);
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Save failed');
+      setError(saveError instanceof Error ? saveError.message : '儲存失敗');
     } finally {
       setSaving(false);
     }
@@ -3615,7 +3758,7 @@ function PrivacyCenterPanel({
       setDeleteName('');
       await loadPrivacy();
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : 'Delete failed');
+      setError(deleteError instanceof Error ? deleteError.message : '刪除失敗');
     } finally {
       setDeleting(false);
     }
@@ -3631,54 +3774,54 @@ function PrivacyCenterPanel({
     <div className="privacy-center-panel">
       <section className="privacy-hero-card">
         <span className="privacy-shield"><Icon name="security" filled /></span>
-        <h3>Parent consent & child data</h3>
-        <p>Control AI processing, upload storage, portfolio export and retention for {activeChild?.name || 'your child'}.</p>
+        <h3>家長同意與學生資料</h3>
+        <p>管理 {activeChild?.name || '學生'} 的 AI 分析、上載儲存、作品集匯出和資料保留設定。</p>
         <span className={consentSaved ? 'privacy-status saved' : 'privacy-status'}>
           <Icon name={consentSaved ? 'check_circle' : 'pending'} filled />
-          {consentSaved ? 'Consent saved' : 'Consent pending'}
+          {consentSaved ? '同意已儲存' : '尚待確認同意'}
         </span>
       </section>
 
       <section className="privacy-card">
-        <h3>Data Processing</h3>
+        <h3>資料處理</h3>
         <ConsentSwitch
           checked={settings.ai_processing_consent}
-          description="AI 分析處理：allow OCR text and homework review to be processed by Vertex AI."
-          label="AI review processing"
+          description="允許系統使用 OCR 文字及功課內容作 AI 分析。"
+          label="AI 分析處理"
           onChange={(checked) => updateSetting('ai_processing_consent', checked)}
         />
         <ConsentSwitch
           checked={settings.upload_storage_consent}
-          description="作業上傳儲存：store homework images or PDFs in the child workspace."
-          label="Homework upload storage"
+          description="允許把功課相片或 PDF 儲存在學生工作區。"
+          label="功課上載儲存"
           onChange={(checked) => updateSetting('upload_storage_consent', checked)}
         />
         <ConsentSwitch
           checked={settings.portfolio_export_consent}
-          description="作品集 PDF 導出：save generated portfolio PDFs for download history."
-          label="Portfolio PDF export"
+          description="允許保存生成的作品集 PDF 及下載紀錄。"
+          label="作品集 PDF 匯出"
           onChange={(checked) => updateSetting('portfolio_export_consent', checked)}
         />
         <ConsentSwitch
           checked={settings.product_updates_consent}
-          description="產品更新：receive prototype progress and testing reminders."
-          label="Product updates"
+          description="接收原型進度及測試提醒。"
+          label="產品更新"
           onChange={(checked) => updateSetting('product_updates_consent', checked)}
         />
       </section>
 
       <section className="privacy-card">
         <div className="privacy-card-head">
-          <h3>Data Retention</h3>
+          <h3>資料保留</h3>
           <Icon name="info" />
         </div>
-        <p>Automatically delete child data and activity history after a set period.</p>
-        <div className="retention-segments" role="group" aria-label="Data retention period">
+        <p>按指定期限自動刪除學生資料及活動紀錄。</p>
+        <div className="retention-segments" role="group" aria-label="資料保留期限">
           {[
-            { label: '90 days', value: 90 },
-            { label: '180 days', value: 180 },
-            { label: '1 year', value: 365 },
-            { label: 'Until deleted', value: 3650 },
+            { label: '90 日', value: 90 },
+            { label: '180 日', value: 180 },
+            { label: '1 年', value: 365 },
+            { label: '直到手動刪除', value: 3650 },
           ].map((option) => (
             <button
               className={settings.retention_days === option.value ? 'active' : ''}
@@ -3698,15 +3841,15 @@ function PrivacyCenterPanel({
           <div>
             <h3>{activeChild.name} • {activeChild.grade}</h3>
             <p>
-              <Icon name="description" /> Documents: {childSummary?.document_count ?? 0}
-              <Icon name="picture_as_pdf" /> Portfolio PDFs: {childSummary?.portfolio_export_count ?? 0}
+              <Icon name="description" /> 文件：{childSummary?.document_count ?? 0}
+              <Icon name="picture_as_pdf" /> 作品集 PDF：{childSummary?.portfolio_export_count ?? 0}
             </p>
           </div>
         </section>
       ) : null}
 
       <section className="privacy-card">
-        <h3>Audit activity</h3>
+        <h3>審計紀錄</h3>
         <div className="audit-list">
           {auditEvents.length ? auditEvents.slice(0, 3).map((event) => (
             <div className="audit-row" key={event.id}>
@@ -3717,7 +3860,7 @@ function PrivacyCenterPanel({
               </div>
             </div>
           )) : (
-            <p>No privacy activity yet.</p>
+            <p>暫時未有私隱活動紀錄。</p>
           )}
         </div>
       </section>
@@ -3727,18 +3870,18 @@ function PrivacyCenterPanel({
           <div className="danger-zone-head">
             <Icon name="warning" filled />
             <div>
-              <h3>Danger Zone</h3>
-              <p>Permanently delete all data, generated portfolios, and settings for {activeChild.name}. This action cannot be undone.</p>
+              <h3>危險操作</h3>
+              <p>永久刪除 {activeChild.name} 的所有資料、生成作品集及設定。此操作不能復原。</p>
             </div>
           </div>
           <label>
-            To confirm, type "{activeChild.name}"
-            <input value={deleteName} onChange={(event) => setDeleteName(event.target.value)} placeholder={`Type ${activeChild.name}`} />
+            如要確認，請輸入「{activeChild.name}」
+            <input value={deleteName} onChange={(event) => setDeleteName(event.target.value)} placeholder={`輸入 ${activeChild.name}`} />
           </label>
-          {!canDelete ? <small>Keep at least one child profile in this prototype account.</small> : null}
+          {!canDelete ? <small>原型帳戶需要保留至少一個學生檔案。</small> : null}
           <button className="danger-action" type="button" disabled={!deleteReady || !canDelete || deleting} onClick={confirmDelete}>
             <Icon name={deleting ? 'sync' : 'delete_forever'} />
-            {deleting ? 'Deleting...' : `Delete ${activeChild.name} data`}
+            {deleting ? '刪除中...' : `刪除 ${activeChild.name} 資料`}
           </button>
         </section>
       ) : null}
@@ -3748,7 +3891,7 @@ function PrivacyCenterPanel({
       <div className="privacy-save-bar">
         <button className={saving ? 'primary-action full saving' : 'primary-action full'} type="button" onClick={savePrivacy} disabled={saving}>
           <span />
-          {saving ? 'Saving...' : 'Save privacy settings'}
+          {saving ? '儲存中...' : '儲存私隱設定'}
         </button>
       </div>
     </div>
@@ -3779,21 +3922,21 @@ function ConsentSwitch({
 }
 
 function auditEventLabel(eventType: string) {
-  if (eventType === 'privacy_settings_updated') return 'Privacy settings updated';
-  if (eventType === 'child_data_deleted') return 'Child data deleted';
-  if (eventType === 'portfolio_exported') return 'Portfolio PDF exported';
+  if (eventType === 'privacy_settings_updated') return '私隱設定已更新';
+  if (eventType === 'child_data_deleted') return '學生資料已刪除';
+  if (eventType === 'portfolio_exported') return '作品集 PDF 已匯出';
   return eventType.replace(/_/g, ' ');
 }
 
 function formatAuditTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('en-HK', { dateStyle: 'medium', timeStyle: 'short' });
+  return date.toLocaleString('zh-HK', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 function BottomNav({ activeView, setActiveView }: { activeView: View; setActiveView: (view: View) => void }) {
   return (
-    <nav className="bottom-nav" aria-label="Main navigation">
+    <nav className="bottom-nav" aria-label="主要導覽">
       {navItems.map((item) => (
         <button
           key={item.id}

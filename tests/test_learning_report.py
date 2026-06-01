@@ -108,7 +108,7 @@ def test_practice_attempt_updates_progress_and_share_report(monkeypatch) -> None
     teacher_page = client.get(f"/teacher-report/{token}")
     assert teacher_page.status_code == 200
     assert "Avery" in teacher_page.text
-    assert "Fractions" in teacher_page.text
+    assert "分數" in teacher_page.text
 
 
 def test_academic_subject_tracking_includes_non_math_and_excludes_non_academic(monkeypatch) -> None:

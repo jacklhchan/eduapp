@@ -229,6 +229,8 @@
   - 本機 Playwright smoke：Chloe K2 Progress tab 顯示語文、幼兒數學、大自然與生活、個人與群體；體能與健康 / 藝術與創意不出現在 score rows。
   - 本機 Playwright screenshot：Progress subject score row 的 `pending` Material Symbols icon 已修正，不再顯示成文字。
   - 本機 Playwright smoke：Portfolio section editor 會出現在所選 card 下方，Academic Progress card 後面立即接 editor。
+  - App 語言已對齊繁體中文：bottom nav、首頁、Portfolio editor、Upload review、Progress、Profile settings、Privacy sheet、teacher report HTML、Portfolio PDF labels 均已清走主要英文 UI label；英文只保留於品牌 / 技術名詞 / 課程來源必要位置。
+  - 本機 Playwright smoke：390px mobile Home / Portfolio / Progress / Profile 抽查，`Home` / `Portfolio` / `Upload` / `Progress` / `Profile` / `Daily Goals` / `Academic Progress` / `Progress Report` / `Evidence bank` / `Completed` / `Drafting` / `Generate PDF` / `Settings` / `Data & Privacy` 等舊英文 UI label 均未再出現；`scrollWidth === clientWidth`。
 
 ## 下一步
 

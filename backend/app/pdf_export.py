@@ -67,7 +67,7 @@ def build_portfolio_pdf(child: ChildProfile, sections: list[PortfolioSection]) -
         leftMargin=18 * mm,
         topMargin=18 * mm,
         bottomMargin=18 * mm,
-        title=f"{child.name} Portfolio",
+        title=f"{child.name} 學習護照",
     )
 
     styles = getSampleStyleSheet()
@@ -109,14 +109,14 @@ def build_portfolio_pdf(child: ChildProfile, sections: list[PortfolioSection]) -
     )
 
     story = [
-        Paragraph("Learning Passport", title),
+        Paragraph("學習護照", title),
         Paragraph(f"{child.name} - {child.grade} - {child.focus}", subtitle),
     ]
 
     meta = Table(
         [
-            ["Child", child.name, "Grade", child.grade],
-            ["Language", child.language, "School", child.school_type],
+            ["學生", child.name, "年級", child.grade],
+            ["語言", child.language, "學校", child.school_type],
         ],
         colWidths=[28 * mm, 58 * mm, 28 * mm, 58 * mm],
     )
@@ -137,15 +137,15 @@ def build_portfolio_pdf(child: ChildProfile, sections: list[PortfolioSection]) -
     if not sections:
         sections = [
             PortfolioSection(
-                title="Cover Page",
-                status="Draft",
-                body="This server-side PDF export is ready for portfolio content.",
+                title="封面",
+                status="草稿",
+                body="伺服器端 PDF 匯出已準備好，可加入作品集內容。",
             )
         ]
 
     for section in sections:
         story.append(Paragraph(section.title, heading))
-        story.append(Paragraph(f"Status: {section.status}", body))
+        story.append(Paragraph(f"狀態：{section.status}", body))
         story.append(Paragraph(section.body, body))
         story.append(Spacer(1, 8))
 

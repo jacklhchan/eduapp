@@ -1325,29 +1325,57 @@ def teacher_learning_report(token: str) -> TeacherLearningReportResponse:
     return TeacherLearningReportResponse(share=share, child=progress.child, progress=progress)
 
 
+REPORT_LABELS = {
+    "Chinese Language": "中國語文",
+    "Community facilities": "社區設施",
+    "Early Childhood Mathematics": "幼兒數學",
+    "English Language": "英國語文",
+    "Expressing feelings": "情緒表達",
+    "Fractions": "分數",
+    "General Studies": "常識",
+    "Inference": "閱讀推論",
+    "Language": "語文",
+    "Mathematics": "數學",
+    "Number sense": "數感",
+    "Patterns": "規律",
+    "Reading comprehension": "閱讀理解",
+    "Self and Society": "個人與群體",
+    "Self-care routines": "自理常規",
+    "Sentence grammar": "句子文法",
+    "Story retelling": "故事重述",
+    "Taking turns": "輪候與分享",
+    "Two-step word problems": "兩步應用題",
+    "Vocabulary in context": "語境詞彙",
+}
+
+
+def report_label(value: str) -> str:
+    return REPORT_LABELS.get(value, value)
+
+
 def render_teacher_report_html(report: TeacherLearningReportResponse) -> str:
     progress = report.progress
     weak_rows = "".join(
-        f"<li><strong>{escape(topic.topic)}</strong><span>{escape(topic.subject)} · mastery {topic.mastery}% · "
-        f"evidence {topic.evidence_count} · practice {topic.practice_count}</span></li>"
+        f"<li><strong>{escape(report_label(topic.topic))}</strong><span>{escape(report_label(topic.subject))} · 掌握度 {topic.mastery}% · "
+        f"證據 {topic.evidence_count} · 練習 {topic.practice_count}</span></li>"
         for topic in progress.weak_topics
-    ) or "<li><strong>No weak topic yet</strong><span>More OCR reviews or practices are needed.</span></li>"
+    ) or "<li><strong>暫未有弱項主題</strong><span>需要更多 OCR 檢視或練習紀錄。</span></li>"
     improved_rows = "".join(
-        f"<li><strong>{escape(topic.topic)}</strong><span>{escape(topic.subject)} · mastery {topic.mastery}%</span></li>"
+        f"<li><strong>{escape(report_label(topic.topic))}</strong><span>{escape(report_label(topic.subject))} · 掌握度 {topic.mastery}%</span></li>"
         for topic in progress.improved_topics
-    ) or "<li><strong>Not enough history yet</strong><span>Improvement trend will appear after repeated attempts.</span></li>"
+    ) or "<li><strong>歷史紀錄暫時不足</strong><span>重複練習後會顯示改善趨勢。</span></li>"
     trend_bars = "".join(
         f"<span style='height:{max(12, min(96, point))}%'></span>"
         for point in (progress.trend_points or [progress.overall_mastery])
     )
-    teacher = escape(report.share.teacher_name or "Teacher")
+    teacher = escape(report.share.teacher_name or "老師")
     child_name = escape(report.child.name)
     return f"""<!doctype html>
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{child_name} Learning Report</title>
+  <title>{child_name} 學習報告</title>
   <style>
     :root {{ color-scheme: light; --blue:#003d9b; --green:#006e28; --bg:#f7f9fc; --line:#c3c6d6; --text:#191c1e; --muted:#434654; }}
     body {{ margin:0; background:var(--bg); color:var(--text); font-family:Inter, "Noto Sans TC", system-ui, sans-serif; }}
@@ -1371,18 +1399,18 @@ def render_teacher_report_html(report: TeacherLearningReportResponse) -> str:
 <body>
   <main>
     <header>
-      <span class="label">EduPass AI · Teacher View</span>
+      <span class="label">EduPass AI · 教師檢視</span>
       <h1>{child_name} · {escape(progress.report_month)} 學習報告</h1>
-      <p>Shared for {teacher}. This link contains learning summaries only; original uploads are not exposed.</p>
+      <p>分享對象：{teacher}。此連結只包含學習摘要，不會公開原始上載檔案。</p>
     </header>
     <section class="metrics">
-      <div class="metric">{progress.overall_mastery}%<small>Mastery</small></div>
-      <div class="metric">{progress.document_count}<small>Uploads</small></div>
-      <div class="metric">{progress.practice_count}<small>Practices</small></div>
+      <div class="metric">{progress.overall_mastery}%<small>掌握度</small></div>
+      <div class="metric">{progress.document_count}<small>上載</small></div>
+      <div class="metric">{progress.practice_count}<small>練習</small></div>
     </section>
-    <section><h2>Progress curve</h2><div class="trend">{trend_bars}</div></section>
-    <section><h2>Top weak topics</h2><ul>{weak_rows}</ul></section>
-    <section><h2>Improved topics</h2><ul>{improved_rows}</ul></section>
+    <section><h2>進度曲線</h2><div class="trend">{trend_bars}</div></section>
+    <section><h2>主要弱項</h2><ul>{weak_rows}</ul></section>
+    <section><h2>已改善主題</h2><ul>{improved_rows}</ul></section>
   </main>
 </body>
 </html>"""
