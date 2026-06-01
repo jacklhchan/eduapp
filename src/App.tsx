@@ -2,7 +2,6 @@ import { type ChangeEvent, type FormEvent, type RefObject, useEffect, useMemo, u
 import {
   curriculumStages,
   getKlasForGrade,
-  getSourceById,
   getStageForGrade,
   getSubjectsForGrade,
   normalizeGrade,
@@ -1960,10 +1959,6 @@ function CurriculumMapSection({
   const gradeSubjects = useMemo(() => getSubjectsForGrade(profileGrade), [profileGrade]);
   const subjects = useMemo(() => getSubjectsForGrade(profileGrade, selectedKla), [profileGrade, selectedKla]);
   const notices = useMemo(() => gradeNotices(profileGrade), [profileGrade]);
-  const sourceIds = useMemo(
-    () => Array.from(new Set(gradeSubjects.flatMap((subject) => subject.sourceIds))).slice(0, 5),
-    [gradeSubjects],
-  );
 
   useEffect(() => {
     setSelectedKla('all');
@@ -1983,10 +1978,6 @@ function CurriculumMapSection({
           <span className="verified-label"><Icon name="verified" filled /> Official EDB aligned · {profileGrade}</span>
           <h2>{child?.name || '孩子'} 的課程地圖</h2>
         </div>
-        <a href="https://www.edb.gov.hk/en/curriculum-development/kla/overview.html" target="_blank" rel="noreferrer">
-          Source
-          <Icon name="open_in_new" />
-        </a>
       </div>
 
       <div className="profile-grade-lock">
@@ -2044,22 +2035,6 @@ function CurriculumMapSection({
           />
         ))}
       </div>
-
-      <section className="source-strip">
-        <div>
-          <Icon name="policy" />
-          <h3>官方來源</h3>
-        </div>
-        {sourceIds.map((sourceId) => {
-          const source = getSourceById(sourceId);
-          if (!source) return null;
-          return (
-            <a key={source.id} href={source.url} target="_blank" rel="noreferrer">
-              {source.title}
-            </a>
-          );
-        })}
-      </section>
     </section>
   );
 }
@@ -2122,11 +2097,6 @@ function CourseContentSection({
               <span>{topic.subjectNameZh} · {topic.strand}</span>
               <strong>{topic.titleZh}</strong>
             </button>
-            <QuestionStepper
-              count={topicQuestionCounts[topic.id] || 0}
-              label="題"
-              onChange={(count) => setTopicQuestionCounts((current) => ({ ...current, [topic.id]: count }))}
-            />
           </article>
         ))}
       </div>

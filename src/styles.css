@@ -2058,8 +2058,7 @@ p {
 .metric-pill,
 .kla-filter button,
 .strand-tags span,
-.transition-notices > span,
-.source-strip a {
+.transition-notices > span {
   font-family: "Work Sans", "Noto Sans TC", sans-serif;
   font-size: 12px;
   font-weight: 600;
@@ -2074,24 +2073,8 @@ p {
 }
 
 .verified-label .material-symbols-outlined,
-.curriculum-head a .material-symbols-outlined,
-.source-strip .material-symbols-outlined,
 .app-use .material-symbols-outlined {
   font-size: 16px;
-}
-
-.curriculum-head a {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 36px;
-  padding: 0 10px;
-  border: 1px solid rgba(0, 82, 204, 0.18);
-  border-radius: 999px;
-  background: var(--surface-lowest);
-  color: var(--primary);
-  text-decoration: none;
-  box-shadow: var(--shadow-1);
 }
 
 .profile-grade-lock {
@@ -2403,38 +2386,6 @@ p {
   border-radius: 10px;
   background: rgba(255, 221, 179, 0.5);
   color: var(--tertiary);
-}
-
-.source-strip {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 4px;
-}
-
-.source-strip > div {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--primary);
-}
-
-.source-strip h3 {
-  color: var(--on-surface);
-  font-family: "Work Sans", "Noto Sans TC", sans-serif;
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 22px;
-}
-
-.source-strip a {
-  display: block;
-  padding: 10px 12px;
-  border: 1px solid rgba(195, 198, 214, 0.5);
-  border-radius: 10px;
-  background: var(--surface-low);
-  color: var(--primary);
-  text-decoration: none;
 }
 
 .course-planner {
