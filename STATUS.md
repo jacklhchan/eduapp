@@ -154,7 +154,7 @@
   - 本機 Playwright smoke：Coach course content 已跟上方 selected subject 同步；S3 `中國語文` 顯示 `S3 中國語文 Learning Topics`，切到 `數學` 後顯示 `S3 數學 Learning Topics`，topic rail 由 EDB strands 補出 5 個數學 topics：數、量度、圖形與空間、數據處理、代數與函數銜接；transition notice 與 course stats icons 的 computed font 均為 `Material Symbols Outlined`。
   - 本機 in-app browser smoke：`http://localhost:8000/` signup 成功，first-login onboarding 可建立 parent + P3 child profile，Home 顯示新 child，Coach 顯示 `P3 Learning Topics`、`分數概念建構`、`兩步應用題審題`，Profile 可打開 parent / child edit 表單。
 - Backend local：
-  - `.venv312/bin/python -m pytest tests -q`：17 passed，1 warning（ReportLab dependency deprecation warning）。
+  - `.venv312/bin/python -m pytest tests -q`：18 passed，1 warning（ReportLab dependency deprecation warning）。
   - `.venv312/bin/python -m py_compile backend/app/main.py backend/app/schemas.py backend/app/persistence.py backend/app/curriculum_catalog.py scripts/generate_syllabus_docs.py` 通過。
   - `find docs/syllabus -type f | wc -l`：204 files。
   - 本機 PDF render 已檢查，繁中沒有缺字。
