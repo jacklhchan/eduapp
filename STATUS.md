@@ -13,7 +13,7 @@
 - GCP project：`gen-lang-client-0228668877`
 - Project number：`594335170533`
 - Region：`asia-east2`
-- Last verified revision：`edupass-ai-00027-xkn`
+- Last verified revision：`edupass-ai-00028-zjq`
 - Service account：`594335170533-compute@developer.gserviceaccount.com`
 - Storage bucket：`gs://edupass-ai-594335170533-prototype-storage`
 - Firestore database：`(default)` in `asia-east2`
@@ -204,6 +204,7 @@
   - Cloud Run revision `edupass-ai-00025-j8n` 已部署並 serving 100% traffic。
   - Cloud Run revision `edupass-ai-00026-l2b` 已部署並 serving 100% traffic。
   - Cloud Run revision `edupass-ai-00027-xkn` 已部署並 serving 100% traffic。
+  - Cloud Run revision `edupass-ai-00028-zjq` 已部署並 serving 100% traffic。
   - Cloud smoke：`GET /api/health` 回傳 `ok: true`、`gemini_model: gemini-3.5-flash`；demo login `parent@example.com` 成功；`GET /api/auth/me` 成功；React static HTML 回傳 root 與 2 個 asset refs。
   - Cloud smoke：`POST /api/generate-quiz` 產生 2 題 Mathematics multiple-choice 題目，每題 4 個 options，且 answer 均在 options 內。
   - Cloud smoke：`POST /api/practice-attempts` 保存 2 題練習結果，`correct_count: 2`。
@@ -215,6 +216,7 @@
   - Cloud Playwright smoke：390px mobile Home 頁顯示 Stitch Progress Dashboard-style `Learning Progress`、`Daily Goals`、`78%` mastery；`scrollWidth === clientWidth`；Home DOM 帶 `data-stitch-source="projects/10595017015370179580/screens/2cf4c58dda9a400181ac6d8b56c19aea"`。
   - Cloud smoke（revision `edupass-ai-00027-xkn`）：`GET /api/health` 200 / `ok: true`；demo login 成功；Matthew 有 5 個 portfolio sections、Chloe 有 6 個 portfolio sections。
   - Cloud smoke（revision `edupass-ai-00027-xkn`）：Matthew `GET /api/learning/progress` 回傳 subject_scores（Mathematics、Chinese Language、English Language、General Studies）；Chloe 回傳 subject_scores（Language、Self and Society、Early Childhood Mathematics）。
+  - Cloud smoke（revision `edupass-ai-00028-zjq`）：`GET /api/health` 200 / `ok: true`；demo login 成功；Matthew / Chloe portfolio sections 與 subject_scores 均正常 rehydrate。
 - 本次本機驗證：
   - `.venv312/bin/python -m pytest tests -q`：22 passed，1 warning（ReportLab dependency deprecation warning）。
   - `.venv312/bin/python -m py_compile backend/app/main.py backend/app/schemas.py backend/app/persistence.py` 通過。
