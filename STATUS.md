@@ -1,6 +1,6 @@
 # Status
 
-最後更新：2026-06-01 14:18 HKT
+最後更新：2026-06-01 14:21 HKT
 
 ## 目前目標
 
@@ -17,6 +17,13 @@
 - Service account：`594335170533-compute@developer.gserviceaccount.com`
 - Storage bucket：`gs://edupass-ai-594335170533-prototype-storage`
 - Firestore database：`(default)` in `asia-east2`
+
+## GitHub
+
+- Repository：`https://github.com/jacklhchan/eduapp`
+- Working branch：`codex/edupass-prototype`
+- Draft PR：`https://github.com/jacklhchan/eduapp/pull/1`
+- Current local commit：`ab0b345`
 
 ## Demo Login
 
@@ -97,7 +104,7 @@
   - OCR review prompt 會按 child grade 限定 HKEDB-aligned subject list；quiz generation prompt 會帶入 subject / KLA / strands / source ids。
   - 已修正 Stitch MCP API key 設定，並成功用 `generate_screen_from_text` 生成 curriculum source screen `d1423b25c1f5425d80c697265ecacb27`（`HKEDB 課程地圖 (P1-P6)`）。
   - 已用 Stitch MCP `get_screen` 讀取 `d1423b25c1f5425d80c697265ecacb27`，確認 source screen 可直接作後續 UI 對齊來源。
-  - 已用 Stitch MCP `get_screen` 讀取 profile-bound S3 learning map source screen `fe9f34c1c45a4089a8c980dfc16a6c7b`（`Matthew S3 課程地圖 (S3 Curriculum Map)`）。
+  - 已用 Stitch MCP `edit_screens` 生成 profile-bound S3 learning map source screen `fe9f34c1c45a4089a8c980dfc16a6c7b`（`Matthew S3 課程地圖 (S3 Curriculum Map)`）。
   - Frontend 已開始建立 course content / learning topic layer，source workspace id 記錄為 `019e81ae-60ab-7fb1-b131-9f60588a450a`，目前先有 K2 / P3 / P4 / S1 topic seeds。
 
 ## 已驗證
