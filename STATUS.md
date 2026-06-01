@@ -1,6 +1,6 @@
 # Status
 
-最後更新：2026-06-01 14:40 HKT
+最後更新：2026-06-01 14:58 HKT
 
 ## 目前目標
 
@@ -13,7 +13,7 @@
 - GCP project：`gen-lang-client-0228668877`
 - Project number：`594335170533`
 - Region：`asia-east2`
-- Current revision：`edupass-ai-00012-r2g`
+- Current revision：`edupass-ai-00014-55t`
 - Service account：`594335170533-compute@developer.gserviceaccount.com`
 - Storage bucket：`gs://edupass-ai-594335170533-prototype-storage`
 - Firestore database：`(default)` in `asia-east2`
@@ -32,8 +32,8 @@
 
 ## Backend Providers
 
-- Image OCR：Google Cloud Vision `document_text_detection`
-- PDF extraction / OCR review / quiz generation：Vertex AI Gemini `gemini-3.5-flash`
+- Image OCR evidence：Google Cloud Vision `document_text_detection`
+- PDF extraction / multimodal OCR review / quiz generation：Vertex AI Gemini `gemini-3.5-flash`
 - Persistence：Firestore
 - File storage：Cloud Storage
 - Server-side PDF：ReportLab with bundled Noto Sans TC font
@@ -84,10 +84,26 @@
   - Upload preview fullscreen、錯題刪除、reason select 都有前端狀態反應。
   - Coach 加入 Stitch-style `AI 分析中`、`每日 5 分鐘特訓`、`練習完成` flow，完成前需查看所有答案。
   - Profile `Add Child` 接 `POST /api/children`，`Edit Profile` 接 `PATCH /api/children/{child_id}`，settings rows 改為 bottom sheet panels。
+- Learning Passport / Portfolio functions 已補成可操作工作台：
+  - per-child portfolio draft sections：`Cover Page`、`About Me`、`Learning Attitude`、`Self-care`、`Artworks & Activities`。
+  - section cards 可選取並帶 selection transition，editor panel 以 slide-in motion 顯示。
+  - 家長可切換 section status：`Completed` / `AI Ready` / `Drafting`。
+  - 家長可直接編輯 school-ready draft textarea，亦可確認採用 AI draft。
+  - evidence chips 支援新增 / 移除，並有 upload evidence 與 image preview lightbox 入口。
+  - overview progress 會按 status + evidence completion 即時計算。
+  - `Generate PDF` 會使用目前前端已確認的 section draft + evidence，而不是舊 hard-coded content。
+  - 已用 Google Stitch MCP 建立 source project `projects/7550425496525656523`（`EduPass AI Learning Passport Functions`）並送出 Learning Passport screen / motion prompt；該 generation call 120s timeout，Stitch project theme / thumbnail 有更新，但 `list_screens` 暫未回傳 screen id。
 - 加入 OCR document persistence：
   - upload file 存入 Cloud Storage
   - OCR review result 存入 Firestore
   - `POST /api/ocr-review`
+- 加入 Hybrid OCR review pipeline：
+  - image 先用 Cloud Vision `document_text_detection` 建立 OCR evidence。
+  - PDF 先用 Gemini document extraction 建立 text evidence。
+  - review second pass 使用 Gemini `gemini-3.5-flash` multimodal 同時看原始 upload + OCR text。
+  - review schema 保存 `page_count`、`topics`、每題的 `page_number` / `topic_ids`，可支援多頁或 mixed upload。
+  - multimodal 失敗時自動 fallback 到 text-only Gemini review。
+  - API response / document record 保存 `ocr_provider`、`review_mode`、`review_model`、`review_fallback_used`。
 - 加入 server-side Portfolio PDF export：
   - `POST /api/portfolio/export`
   - `GET /api/portfolio/exports/{export_id}/download`
@@ -121,6 +137,7 @@
 
 - Frontend：
   - `npm run build` 通過。
+  - 本機 Playwright smoke：Learning Passport 可選 section、採用 AI draft、加入 evidence、上載作品入口切到 Upload、相片 preview lightbox 可開合、Generate PDF 下載成功；下載 PDF 文字包含新採用 `Learning Attitude` draft 與 evidence。
   - In-app browser 可開 Cloud URL。
   - Login screen 可登入 demo account。
   - Home screen 預設 Matthew。
@@ -133,22 +150,24 @@
   - 本機 Playwright smoke：Coach course content 已跟上方 selected subject 同步；S3 `中國語文` 顯示 `S3 中國語文 Learning Topics`，切到 `數學` 後顯示 `S3 數學 Learning Topics`，topic rail 由 EDB strands 補出 5 個數學 topics：數、量度、圖形與空間、數據處理、代數與函數銜接；transition notice 與 course stats icons 的 computed font 均為 `Material Symbols Outlined`。
   - 本機 in-app browser smoke：`http://localhost:8000/` signup 成功，first-login onboarding 可建立 parent + P3 child profile，Home 顯示新 child，Coach 顯示 `P3 Learning Topics`、`分數概念建構`、`兩步應用題審題`，Profile 可打開 parent / child edit 表單。
 - Backend local：
-  - `.venv312/bin/python -m pytest tests -q`：13 passed，1 warning（ReportLab dependency deprecation warning）。
+  - `.venv312/bin/python -m pytest tests -q`：17 passed，1 warning（ReportLab dependency deprecation warning）。
   - `.venv312/bin/python -m py_compile backend/app/main.py backend/app/schemas.py backend/app/persistence.py backend/app/curriculum_catalog.py scripts/generate_syllabus_docs.py` 通過。
   - `find docs/syllabus -type f | wc -l`：204 files。
   - 本機 PDF render 已檢查，繁中沒有缺字。
 - Cloud Run：
-  - Revision `edupass-ai-00012-r2g` serving 100% traffic。
+  - Revision `edupass-ai-00014-55t` serving 100% traffic。
   - `GET /api/health` 回傳 `gemini_model: gemini-3.5-flash`。
   - `POST /api/auth/login` 成功，children order 為 `child-matthew`, `child-chloe`。
   - `GET /api/auth/me` 成功。
   - `GET /api/privacy` authenticated call 成功，回傳 demo privacy settings、Matthew/Chloe child data counts。
+  - Cloud smoke：`POST /api/portfolio/export` 使用 Learning Passport editor-style section body 成功，下載 PDF 後以 `pypdf` 驗證包含 `Learning Passport`、`Cloud smoke`、`作品相片`。
   - `POST /api/portfolio/export` 成功，回傳 GCS-backed PDF record。
   - `GET /api/portfolio/exports/{id}/download` 回傳 `application/pdf`。
   - 下載雲端 PDF 後用 `pypdf` 驗證文字包含 `封面設計`、`學習態度`、`應用題審題`。
   - 下載雲端 PDF 後用 `pypdfium2` render PNG，繁中正常顯示。
   - `POST /api/generate-quiz` authenticated call 成功，Gemini 3.5 Flash 產生 5 題 P3 fractions 題目。
   - `POST /api/ocr-review` authenticated upload 成功，Vision OCR + Gemini review 回傳 1 個 extracted question，document file 寫入 GCS。
+  - `POST /api/ocr-review` PDF smoke 成功，回傳 `ocr_provider: vertex_gemini_document_extraction`、`review_mode: multimodal_llm`、`review_model: gemini-3.5-flash`、`review_fallback_used: false`。
   - GCS 已看到 portfolio PDFs 和 OCR uploaded document。
 
 ## 下一步

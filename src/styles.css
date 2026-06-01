@@ -442,7 +442,9 @@ p {
 .next-action-card,
 .shortcut-card,
 .portfolio-tip,
+.passport-overview,
 .portfolio-card,
+.passport-editor-panel,
 .ocr-panel,
 .data-card,
 .history-card,
@@ -843,6 +845,113 @@ p {
   line-height: 20px;
 }
 
+.passport-overview {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  padding: 16px;
+  animation: screen-in 0.24s ease both;
+}
+
+.passport-overview::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 44%;
+  background: linear-gradient(135deg, rgba(218, 226, 255, 0), rgba(130, 249, 190, 0.3));
+  content: "";
+  pointer-events: none;
+}
+
+.passport-overview > * {
+  position: relative;
+  z-index: 1;
+}
+
+.passport-overview h2 {
+  margin: 6px 0 4px;
+  color: var(--on-surface);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 34px;
+}
+
+.passport-overview p {
+  overflow: hidden;
+  max-width: 100%;
+  color: var(--on-variant);
+  font-size: 13px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+}
+
+.passport-progress-meter {
+  display: grid;
+  place-items: center;
+  align-self: start;
+  width: 88px;
+  height: 88px;
+  border: 8px solid rgba(130, 249, 190, 0.32);
+  border-top-color: var(--secondary);
+  border-radius: 999px;
+  background: var(--surface-lowest);
+  color: var(--secondary);
+  box-shadow: var(--shadow-1);
+  animation: pulse-pop 1.8s ease-in-out infinite;
+}
+
+.passport-progress-meter strong,
+.passport-progress-meter span,
+.passport-stat-row span,
+.portfolio-card-actions span,
+.editor-title span,
+.evidence-head span,
+.draft-textarea,
+.ai-draft-panel span,
+.evidence-chip,
+.empty-evidence {
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.passport-progress-meter strong {
+  font-size: 22px;
+  line-height: 24px;
+}
+
+.passport-progress-meter span {
+  color: var(--on-variant);
+  font-size: 10px;
+}
+
+.passport-stat-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.passport-stat-row span {
+  min-width: 0;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(248, 249, 251, 0.88);
+  color: var(--on-variant);
+}
+
+.passport-stat-row b {
+  display: block;
+  color: var(--primary);
+  font-size: 18px;
+  line-height: 22px;
+}
+
 .page-intro h2 {
   margin-bottom: 8px;
   color: var(--on-surface);
@@ -861,13 +970,26 @@ p {
 }
 
 .portfolio-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
   padding: 16px;
   cursor: pointer;
+  color: inherit;
+  text-align: left;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.portfolio-card.active {
+  border-color: rgba(0, 82, 204, 0.5);
+  background: linear-gradient(180deg, var(--surface-lowest), rgba(218, 226, 255, 0.24));
+  box-shadow: 0 0 0 3px rgba(0, 82, 204, 0.08), var(--shadow-1);
+  transform: translateY(-1px);
 }
 
 .portfolio-card-top {
   align-items: flex-start;
-  margin-bottom: 16px;
 }
 
 .portfolio-icon {
@@ -880,6 +1002,30 @@ p {
 
 .portfolio-card h3 {
   margin-bottom: 4px;
+}
+
+.portfolio-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.portfolio-card-actions span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: var(--surface-low);
+  color: var(--on-variant);
+}
+
+.portfolio-card-actions .material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-size: 16px;
+  font-weight: normal;
 }
 
 .art-row {
@@ -919,11 +1065,199 @@ p {
   font-size: 12px;
 }
 
+.passport-editor-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  animation: sheet-in 0.24s ease both;
+}
+
+.editor-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+
+.editor-title {
+  min-width: 0;
+}
+
+.editor-title span {
+  display: block;
+  overflow: hidden;
+  color: var(--on-variant);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-title h2 {
+  margin-top: 2px;
+  color: var(--on-surface);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 28px;
+}
+
+.status-segments {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.status-segments button {
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 8px;
+  border: 1px solid var(--outline-variant);
+  border-radius: 999px;
+  background: var(--surface-lowest);
+  color: var(--on-variant);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-segments button.active {
+  border-color: rgba(0, 82, 204, 0.38);
+  background: var(--primary-fixed);
+  color: var(--primary);
+}
+
+.draft-textarea {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--on-variant);
+}
+
+.draft-textarea textarea {
+  width: 100%;
+  min-height: 132px;
+  resize: vertical;
+  border: 1px solid var(--outline-variant);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--surface-lowest);
+  color: var(--on-surface);
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.draft-textarea textarea:focus {
+  outline: 2px solid rgba(0, 82, 204, 0.18);
+  border-color: var(--primary-container);
+}
+
+.ai-draft-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(0, 82, 204, 0.2);
+  border-radius: 12px;
+  background: rgba(218, 226, 255, 0.26);
+}
+
+.ai-draft-panel span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--primary);
+}
+
+.ai-draft-panel span .material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-size: 18px;
+  font-weight: normal;
+  animation: pulse-pop 1.4s ease-in-out infinite;
+}
+
+.ai-draft-panel p {
+  margin-top: 4px;
+  color: var(--on-surface);
+  font-size: 13px;
+  line-height: 21px;
+}
+
+.evidence-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.evidence-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.evidence-head h3 {
+  color: var(--on-surface);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 18px;
+  line-height: 24px;
+}
+
+.evidence-head span {
+  color: var(--secondary);
+}
+
+.evidence-list,
+.editor-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.evidence-chip,
+.empty-evidence {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 7px 9px;
+  border-radius: 999px;
+  background: rgba(130, 249, 190, 0.24);
+  color: var(--secondary);
+}
+
+.empty-evidence {
+  background: var(--surface-low);
+  color: var(--on-variant);
+}
+
+.evidence-chip button {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(0, 108, 71, 0.12);
+  color: inherit;
+}
+
+.evidence-chip .material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-size: 14px;
+  font-weight: normal;
+}
+
+.editor-button-row .material-symbols-outlined,
+.generate-fab .material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+}
+
+.editor-button-row .secondary-action {
+  flex: 1 1 128px;
+}
+
 .generate-fab {
-  position: fixed;
-  right: 16px;
-  bottom: 96px;
-  z-index: 40;
+  align-self: flex-end;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1051,6 +1385,45 @@ p {
   font-family: "Work Sans", "Noto Sans TC", sans-serif;
   font-size: 12px;
   font-weight: 600;
+}
+
+.ocr-pipeline-card {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(0, 82, 204, 0.18);
+  border-radius: 12px;
+  background: rgba(218, 226, 255, 0.36);
+}
+
+.ocr-pipeline-card > span {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--primary-container);
+  color: var(--on-primary);
+}
+
+.ocr-pipeline-card strong,
+.ocr-pipeline-card p {
+  display: block;
+}
+
+.ocr-pipeline-card strong {
+  color: var(--on-surface);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.ocr-pipeline-card p {
+  color: var(--on-variant);
+  font-size: 12px;
+  line-height: 17px;
 }
 
 .form-display {
@@ -1207,6 +1580,13 @@ p {
   animation: screen-in 0.24s ease both;
 }
 
+.practice-progress-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .analyzing-card,
 .completion-card,
 .practice-card {
@@ -1299,6 +1679,13 @@ p {
   padding: 16px;
 }
 
+.practice-card.answered {
+  border-color: rgba(0, 108, 71, 0.24);
+  background:
+    linear-gradient(180deg, rgba(130, 249, 190, 0.1), rgba(255, 255, 255, 0.92)),
+    var(--surface-lowest);
+}
+
 .practice-meta {
   display: flex;
   align-items: center;
@@ -1323,9 +1710,45 @@ p {
   line-height: 28px;
 }
 
-.answer-panel {
+.student-answer-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--on-variant);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.student-answer-field textarea {
+  min-height: 104px;
+  resize: vertical;
   padding: 12px;
-  border-radius: 12px;
+  border: 1px solid rgba(195, 198, 214, 0.75);
+  border-radius: 10px;
+  background: var(--surface-low);
+  color: var(--on-surface);
+  font: 500 14px/22px "Noto Sans TC", "Work Sans", sans-serif;
+}
+
+.student-answer-field textarea:focus {
+  border-color: var(--primary);
+  outline: 2px solid rgba(0, 82, 204, 0.12);
+}
+
+.student-answer-field textarea:disabled {
+  color: var(--outline);
+  cursor: default;
+}
+
+.answer-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(0, 108, 71, 0.16);
+  border-radius: 10px;
   background: rgba(130, 249, 190, 0.22);
 }
 
@@ -1334,6 +1757,32 @@ p {
   color: var(--secondary);
   font-size: 13px;
   line-height: 20px;
+}
+
+.student-answer-review,
+.answer-panel small {
+  color: var(--on-variant);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.student-answer-review {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.student-answer-review .material-symbols-outlined {
+  flex: 0 0 auto;
+  color: var(--primary);
+  font-size: 16px;
+}
+
+.answer-panel small {
+  padding-top: 8px;
+  border-top: 1px solid rgba(0, 108, 71, 0.16);
 }
 
 .completion-badge {
@@ -1796,7 +2245,8 @@ p {
 .topic-stats > span,
 .outcome-chips > span,
 .lesson-list > span,
-.topic-rail button {
+.topic-select,
+.question-stepper {
   font-family: "Work Sans", "Noto Sans TC", sans-serif;
 }
 
@@ -1850,8 +2300,15 @@ p {
   display: none;
 }
 
-.topic-rail button {
+.topic-tile {
   flex: 0 0 152px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.topic-select {
+  width: 100%;
   min-height: 72px;
   padding: 10px;
   border: 1px solid rgba(195, 198, 214, 0.58);
@@ -1861,14 +2318,14 @@ p {
   text-align: left;
 }
 
-.topic-rail button.active {
+.topic-tile.active .topic-select {
   border-color: rgba(0, 108, 71, 0.32);
   background: var(--secondary-container);
   color: var(--on-secondary-container);
   box-shadow: 0 0 0 2px rgba(0, 108, 71, 0.08);
 }
 
-.topic-rail span {
+.topic-select > span {
   display: block;
   overflow: hidden;
   font-size: 11px;
@@ -1879,11 +2336,57 @@ p {
   white-space: nowrap;
 }
 
-.topic-rail strong {
+.topic-select > strong {
   display: block;
   margin-top: 5px;
   font-size: 14px;
   line-height: 18px;
+}
+
+.question-stepper {
+  display: grid;
+  grid-template-columns: 32px minmax(42px, 1fr) 32px;
+  align-items: center;
+  min-height: 36px;
+  padding: 2px;
+  border: 1px solid rgba(195, 198, 214, 0.55);
+  border-radius: 10px;
+  background: var(--surface-low);
+}
+
+.question-stepper button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--primary);
+}
+
+.question-stepper button:hover {
+  background: rgba(0, 82, 204, 0.08);
+}
+
+.question-stepper .material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-size: 18px;
+  font-weight: normal;
+  letter-spacing: normal;
+  line-height: 1;
+}
+
+.question-stepper span {
+  color: var(--on-surface);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+.question-stepper b {
+  margin-right: 2px;
+  color: var(--primary);
+  font-size: 15px;
 }
 
 .topic-detail-card {
@@ -1950,6 +2453,79 @@ p {
   font-weight: normal;
   letter-spacing: normal;
   line-height: 1;
+}
+
+.practice-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(0, 82, 204, 0.12);
+  border-radius: 10px;
+  background: rgba(218, 226, 255, 0.3);
+}
+
+.builder-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.builder-head span,
+.allocation-row button span {
+  color: var(--primary);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
+}
+
+.builder-head h4 {
+  margin-top: 2px;
+  color: var(--on-surface);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 22px;
+}
+
+.allocation-list {
+  display: grid;
+  gap: 8px;
+}
+
+.allocation-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 118px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(195, 198, 214, 0.4);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.allocation-row.active {
+  border-color: rgba(0, 108, 71, 0.24);
+  background: rgba(130, 249, 190, 0.18);
+}
+
+.allocation-row > button {
+  min-width: 0;
+  text-align: left;
+}
+
+.allocation-row button strong {
+  display: block;
+  overflow: hidden;
+  color: var(--on-surface);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .outcome-chips > span {

@@ -22,11 +22,19 @@ npm run dev
 
 Backend 使用：
 
-- Google Cloud Vision：image OCR
-- Vertex AI Gemini `gemini-3.5-flash`：PDF text extraction / OCR review / quiz generation
+- Google Cloud Vision：image OCR evidence extraction
+- Vertex AI Gemini `gemini-3.5-flash`：PDF text extraction / multimodal OCR review / quiz generation
 - Firestore：demo parent / per-child profile / OCR document / Portfolio export records
 - Cloud Storage：uploaded homework files and generated Portfolio PDFs
 - Cloud Run：FastAPI backend + React static frontend
+
+OCR review pipeline：
+
+- image upload 先用 Cloud Vision `document_text_detection` 建立 raw OCR evidence。
+- PDF upload 先用 Vertex AI Gemini document extraction 建立 text evidence。
+- Review second pass 使用 Gemini multimodal，把原始 upload 與 OCR text 一起送入 model；若 multimodal review 失敗，會 fallback 到 text-only Gemini review。
+- Review schema 會保留 page count、topic detection、question-to-topic/page mapping，支援多頁 upload。
+- 可用 `EDUPASS_OCR_REVIEW_MODE=text_only` 暫時關閉 multimodal review。
 
 Demo login：
 

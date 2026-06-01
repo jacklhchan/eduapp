@@ -31,10 +31,19 @@ Cloud service：
 
 GCP provider：
 
-- Google Cloud Vision：image OCR
-- Vertex AI Gemini `gemini-3.5-flash`：PDF OCR extraction、review generation、quiz generation
+- Google Cloud Vision：image OCR evidence extraction
+- Vertex AI Gemini `gemini-3.5-flash`：PDF OCR extraction、multimodal OCR review、quiz generation
 - Firestore：parent / child / document / portfolio export records
 - Cloud Storage：uploaded homework and generated PDF files
+
+OCR review pipeline：
+
+- image upload：Cloud Vision `document_text_detection` 先抽 raw text evidence。
+- PDF upload：Gemini document extraction 先抽 text evidence。
+- review：Gemini `gemini-3.5-flash` multimodal second pass 同時看原始檔案與 OCR text，並回傳 structured `OcrReviewResult`。
+- schema：review result 保存 `page_count`、`topics`、每題的 `page_number` / `topic_ids`，支援多頁或 mixed upload。
+- fallback：multimodal review 失敗時自動改用 text-only Gemini review；API response / document record 會保存 `ocr_provider`、`review_mode`、`review_model`、`review_fallback_used`。
+- override：`EDUPASS_OCR_REVIEW_MODE=text_only` 可強制使用 text-only review。
 
 已加入：
 

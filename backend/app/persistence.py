@@ -331,8 +331,11 @@ class Persistence:
         storage_deleted = 0
         if delete_storage:
             for record in [*documents.values(), *exports.values()]:
-                storage_uri = record.get("storage_uri")
-                if storage_uri:
+                storage_uris = record.get("storage_uris") if isinstance(record.get("storage_uris"), list) else []
+                storage_uri_values = [*storage_uris]
+                if record.get("storage_uri"):
+                    storage_uri_values.append(record["storage_uri"])
+                for storage_uri in set(str(uri) for uri in storage_uri_values if uri):
                     storage_deleted += self.delete_storage_uri(str(storage_uri))
 
         db = self.firestore

@@ -1,6 +1,6 @@
 # Next Phase Implementation Notes
 
-最後更新：2026-06-01 14:34 HKT
+最後更新：2026-06-01 14:53 HKT
 
 ## 已落地範圍
 
@@ -14,8 +14,9 @@
   - `/api/generate-quiz`
 - GCP backend 已部署到 Cloud Run：`https://edupass-ai-594335170533.asia-east2.run.app/`
 - OCR / LLM provider 已改用 GCP：
-  - Google Cloud Vision：image OCR
-  - Vertex AI Gemini：PDF OCR extraction、review generation、quiz generation
+  - Google Cloud Vision：image OCR evidence extraction
+  - Vertex AI Gemini：PDF OCR extraction、multimodal OCR review、quiz generation
+  - OCR review 採 hybrid pipeline：先抽 raw OCR text，再用 Gemini multimodal 同時看原始 upload + OCR text；multimodal 失敗時 fallback 到 text-only review。
 - 已加入 iPhone 友善的 web app manifest / icon / mobile metadata。
 - 已加入 demo auth：
   - `POST /api/auth/login`
@@ -51,6 +52,8 @@
 - 已新增 tests：
   - Pydantic schema coercion
   - AI provider JSON output validator
+  - Hybrid OCR prompt / output parser validator
+  - Practice plan question allocation validator
   - PDF export smoke / text extraction
 
 ## API 接線方向
@@ -77,5 +80,5 @@
 
 - 目前 auth 是 prototype demo PIN，不是正式 Firebase Auth / Identity Platform。
 - Cloud Run service 仍是 `--allow-unauthenticated`，真正保護在 app-level cookie；production 要再加正式身份與 consent flow。
-- Upload 已可送到 GCP OCR endpoint，但仍需要真實功課相片 QA，尤其是手寫、陰影、旋轉、中文題目。
+- Upload 已可送到 GCP hybrid OCR endpoint，但仍需要真實功課相片 QA，尤其是手寫、陰影、旋轉、中文題目。
 - PDF 目前是 server-side generated layout，不是完整學校 submission template；下一階段可加封面圖、作品相片與家長確認欄位。

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.main import build_ocr_review_prompt, parse_ocr_review_response
 from app.ai_validation import AIOutputValidationError, extract_json_object, validate_ai_json
 from app.schemas import GeneratedQuiz, MistakeType, OcrReviewResult
 
@@ -65,3 +66,41 @@ def test_validate_ocr_review_normalizes_string_tags() -> None:
 def test_invalid_ai_json_raises_clear_error() -> None:
     with pytest.raises(AIOutputValidationError):
         extract_json_object("not-json")
+
+
+def test_multimodal_ocr_prompt_uses_visual_and_ocr_evidence() -> None:
+    prompt = build_ocr_review_prompt(
+        extracted_text="1/2 + 1/4 = 2/6",
+        child_profile_id="child-matthew",
+        grade="P3",
+        file_kind="image",
+    )
+    assert "original upload" in prompt
+    assert "OCR text" in prompt
+    assert "requires_parent_confirmation true" in prompt
+    assert "P3" in prompt
+
+
+def test_parse_ocr_review_response_enforces_parent_confirmation() -> None:
+    review = parse_ocr_review_response(
+        """
+        {
+          "subject": "Mathematics",
+          "grade": "P3",
+          "extracted_questions": [{
+            "id": "q1",
+            "question_text": "1/2 + 1/4 = ?",
+            "confidence": 0.61,
+            "mistake_tags": ["concept"]
+          }],
+          "requires_parent_confirmation": false,
+          "pii_redacted_before_ai": false
+        }
+        """,
+        child_profile_id="child-matthew",
+        file_kind="image",
+    )
+    assert review.child_profile_id == "child-matthew"
+    assert review.file_kind == "image"
+    assert review.requires_parent_confirmation is True
+    assert review.pii_redacted_before_ai is True

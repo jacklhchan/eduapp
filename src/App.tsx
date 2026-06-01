@@ -21,9 +21,31 @@ type BackendStatus = {
 
 type OcrResult = {
   ok?: boolean;
+  ocr_provider?: string;
   ocr_text_preview?: string;
+  page_count?: number;
+  uploaded_page_count?: number;
+  filenames?: string[];
+  review_mode?: string;
+  review_model?: string;
+  review_fallback_used?: boolean;
   review?: {
-    extracted_questions?: Array<{ question_text: string; confidence: number }>;
+    page_count?: number;
+    topics?: Array<{
+      id?: string;
+      subject?: string;
+      topic: string;
+      strand?: string | null;
+      confidence?: number;
+      page_numbers?: number[];
+    }>;
+    extracted_questions?: Array<{
+      question_text: string;
+      confidence: number;
+      page_number?: number | null;
+      topic?: string | null;
+      topic_ids?: string[];
+    }>;
   };
   detail?: string;
 };
@@ -86,11 +108,32 @@ type AuthState = 'loading' | 'anonymous' | 'authenticated';
 
 type ExportState = 'idle' | 'running' | 'done' | 'error';
 
+type PortfolioStatus = 'Completed' | 'AI Ready' | 'Drafting';
+type PortfolioTone = 'complete' | 'ready' | 'draft';
+
+type PortfolioSectionDraft = {
+  id: string;
+  icon: string;
+  title: string;
+  shortTitle: string;
+  copy: string;
+  status: PortfolioStatus;
+  body: string;
+  aiDraft: string;
+  evidence: string[];
+  requiredEvidence: number;
+  image?: string;
+  updatedAt: string;
+};
+
 type QuizItem = {
   id: string;
+  grade: string;
+  topic: string;
   question_text: string;
   answer: string;
   explanation: string;
+  marking_scheme: string;
   target_mistake: string;
   estimated_time_seconds: number;
 };
@@ -98,6 +141,21 @@ type QuizItem = {
 type GeneratedQuiz = {
   items: QuizItem[];
   parent_visible_rationale: string;
+};
+
+type PracticePlanItem = {
+  topic_id: string;
+  title: string;
+  title_zh: string;
+  strand: string;
+  question_count: number;
+};
+
+type PracticeStartOptions = {
+  practicePlan?: PracticePlanItem[];
+  questionCount?: number;
+  subject?: string;
+  weakTopic?: string;
 };
 
 type PracticeState = 'idle' | 'generating' | 'ready' | 'complete' | 'error';
@@ -152,12 +210,118 @@ const navItems: Array<{ id: View; label: string; icon: string }> = [
 
 const gradeOptions = ['K1', 'K2', 'K3', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6'];
 
+const evidenceSuggestions = ['作品相片', '家長觀察', '課堂紀錄', '功課 evidence', '活動證書'];
+
 function preferredChildId(parent: ParentProfile): string {
   return parent.children.find((child) => child.id === 'child-matthew')?.id || parent.children[0]?.id || 'child-matthew';
 }
 
 function Icon({ name, filled = false }: { name: string; filled?: boolean }) {
   return <span className={filled ? 'material-symbols-outlined icon-filled' : 'material-symbols-outlined'}>{name}</span>;
+}
+
+function portfolioTone(status: PortfolioStatus): PortfolioTone {
+  if (status === 'Completed') return 'complete';
+  if (status === 'AI Ready') return 'ready';
+  return 'draft';
+}
+
+function formatPortfolioDate() {
+  return new Date().toLocaleDateString('en-HK', { day: 'numeric', month: 'short' });
+}
+
+function createPortfolioSections(child: ChildProfile | null): PortfolioSectionDraft[] {
+  const childName = child?.name || 'Matthew';
+  const grade = child?.grade || 'P3';
+  const focus = child?.focus || '小學數學 + 升小 Portfolio';
+
+  return [
+    {
+      id: 'cover',
+      icon: 'book',
+      title: '封面設計 (Cover Page)',
+      shortTitle: 'Cover',
+      copy: '基本資料與封面照片。',
+      status: 'Completed',
+      body: `${childName} 的 Learning Passport 封面已整理基本資料、年級 ${grade}、學習焦點及代表相片，可作學校提交草稿。`,
+      aiDraft: `${childName} is a curious and steady learner. This Learning Passport introduces the child through selected work samples, parent observations, and school-ready evidence.`,
+      evidence: ['學生相片', '基本資料'],
+      requiredEvidence: 2,
+      image: images.portfolioChild,
+      updatedAt: formatPortfolioDate(),
+    },
+    {
+      id: 'about',
+      icon: 'face',
+      title: '關於我 (About Me)',
+      shortTitle: 'About',
+      copy: '性格特徵、興趣及家庭背景。',
+      status: 'Completed',
+      body: `${childName} 喜歡主動發問，能把新知識連繫到日常生活。家長觀察到孩子在 ${focus} 方面有清晰興趣，願意用例子分享自己的想法。`,
+      aiDraft: `${childName} enjoys explaining ideas in simple steps and shows confidence when describing interests, routines, and family-supported learning habits.`,
+      evidence: ['家長觀察', '興趣紀錄'],
+      requiredEvidence: 2,
+      updatedAt: formatPortfolioDate(),
+    },
+    {
+      id: 'attitude',
+      icon: 'menu_book',
+      title: '學習態度 (Learning Attitude)',
+      shortTitle: 'Attitude',
+      copy: '課堂表現與學習目標。',
+      status: 'AI Ready',
+      body: `近期上載紀錄顯示 ${childName} 能保持練習節奏，在分數概念上有進步；應用題審題仍需要每日短練習支援。`,
+      aiDraft: `${childName} demonstrates persistence during multi-step questions. Recent evidence suggests stronger number sense, while word-problem reading remains the next growth target.`,
+      evidence: ['數學小測', 'AI 學習摘要'],
+      requiredEvidence: 3,
+      updatedAt: formatPortfolioDate(),
+    },
+    {
+      id: 'self-care',
+      icon: 'health_and_safety',
+      title: '自理能力 (Self-care)',
+      shortTitle: 'Self-care',
+      copy: '日常生活技能及獨立性展現。',
+      status: 'Drafting',
+      body: `${childName} 正在建立更穩定的日常整理習慣，包括準備功課、收拾學習用品，以及在需要協助時清楚表達。`,
+      aiDraft: `${childName} is developing independent routines and can follow familiar steps with gentle reminders, especially around school bag organization and homework preparation.`,
+      evidence: ['日常觀察'],
+      requiredEvidence: 2,
+      updatedAt: formatPortfolioDate(),
+    },
+    {
+      id: 'artworks',
+      icon: 'palette',
+      title: '藝術作品與活動 (Artworks & Activities)',
+      shortTitle: 'Activities',
+      copy: '展示學生的創造力及參與過的課外活動。',
+      status: 'Drafting',
+      body: `${childName} 的作品可展示創意、手眼協調和完成作品的耐性。下一步可補充活動相片及家長短評，令 portfolio 更完整。`,
+      aiDraft: `${childName}'s artwork and activity evidence shows creativity, fine-motor development, and willingness to participate in guided group tasks.`,
+      evidence: ['視藝作品'],
+      requiredEvidence: 4,
+      image: images.artwork,
+      updatedAt: formatPortfolioDate(),
+    },
+  ];
+}
+
+function calculatePortfolioProgress(sections: PortfolioSectionDraft[]) {
+  if (!sections.length) return 0;
+  const score = sections.reduce((total, section) => {
+    const evidenceScore = Math.min(section.evidence.length / Math.max(section.requiredEvidence, 1), 1) * 0.25;
+    const statusScore = section.status === 'Completed' ? 0.75 : section.status === 'AI Ready' ? 0.5 : 0.25;
+    return total + statusScore + evidenceScore;
+  }, 0);
+  return Math.min(100, Math.round((score / sections.length) * 100));
+}
+
+function buildPortfolioExportSections(sections: PortfolioSectionDraft[]) {
+  return sections.map((section) => ({
+    title: section.title,
+    status: section.status,
+    body: `${section.body.trim()} Evidence: ${section.evidence.join(', ') || 'To be added.'}`,
+  }));
 }
 
 function App() {
@@ -174,15 +338,17 @@ function App() {
     state: 'checking',
     detail: 'Checking GCP',
   });
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [ocrState, setOcrState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
   const [ocrResult, setOcrResult] = useState<OcrResult | null>(null);
   const [exportState, setExportState] = useState<ExportState>('idle');
   const [exportError, setExportError] = useState<string | null>(null);
+  const [portfolioDrafts, setPortfolioDrafts] = useState<Record<string, PortfolioSectionDraft[]>>({});
   const [practiceState, setPracticeState] = useState<PracticeState>('idle');
   const [practiceQuiz, setPracticeQuiz] = useState<GeneratedQuiz | null>(null);
   const [practiceError, setPracticeError] = useState<string | null>(null);
+  const [lastPracticeOptions, setLastPracticeOptions] = useState<PracticeStartOptions>({});
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [profileSheet, setProfileSheet] = useState<ProfileSheet>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -257,6 +423,11 @@ function App() {
     () => parent?.children.find((child) => child.id === selectedChildId) || parent?.children[0] || null,
     [parent, selectedChildId],
   );
+  const portfolioChildKey = currentChild?.id || 'child-matthew';
+  const currentPortfolioSections = useMemo(
+    () => portfolioDrafts[portfolioChildKey] || createPortfolioSections(currentChild),
+    [currentChild, portfolioChildKey, portfolioDrafts],
+  );
 
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -321,17 +492,18 @@ function App() {
   }
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
     if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setSelectedFile(file);
-    setPreviewUrl(file.type.startsWith('image/') ? URL.createObjectURL(file) : null);
+    const previewFile = files.find((item) => item.type.startsWith('image/'));
+    setSelectedFiles(files);
+    setPreviewUrl(previewFile ? URL.createObjectURL(previewFile) : null);
     setOcrResult(null);
     setOcrState('idle');
   }
 
   async function analyzeUpload() {
-    if (!selectedFile) {
+    if (!selectedFiles.length) {
       inputRef.current?.click();
       return;
     }
@@ -340,7 +512,7 @@ function App() {
     setOcrResult(null);
 
     const form = new FormData();
-    form.append('file', selectedFile);
+    selectedFiles.forEach((file) => form.append('files', file));
     form.append('child_id', currentChild?.id || 'child-matthew');
     form.append('child_profile_id', currentChild?.id || 'child-matthew');
     form.append('grade', currentChild?.grade || 'P3');
@@ -357,11 +529,19 @@ function App() {
     }
   }
 
-  async function startPractice(weakTopic = 'Fractions word problems', subject = 'Mathematics') {
+  async function startPractice(options: PracticeStartOptions = {}) {
     setActiveView('coach');
     setPracticeState('generating');
     setPracticeQuiz(null);
     setPracticeError(null);
+
+    const practicePlan = (options.practicePlan || []).filter((item) => item.question_count > 0);
+    const plannedQuestionCount = practicePlan.reduce((total, item) => total + item.question_count, 0);
+    const questionCount = Math.max(1, Math.min(options.questionCount || plannedQuestionCount || 5, 20));
+    const subject = options.subject || 'Mathematics';
+    const weakTopic = options.weakTopic || practicePlan.map((item) => item.title_zh || item.title).join(' / ') || 'Fractions word problems';
+    const requestOptions = { practicePlan, questionCount, subject, weakTopic };
+    setLastPracticeOptions(requestOptions);
 
     try {
       const response = await fetch('/api/generate-quiz', {
@@ -371,6 +551,8 @@ function App() {
         body: JSON.stringify({
           child_profile_id: currentChild?.id || 'child-matthew',
           grade: currentChild?.grade || 'P3',
+          practice_plan: practicePlan,
+          question_count: questionCount,
           subject,
           weak_topic: weakTopic,
         }),
@@ -383,6 +565,10 @@ function App() {
       setPracticeError(error instanceof Error ? error.message : 'Practice generation failed');
       setPracticeState('error');
     }
+  }
+
+  function restartPractice() {
+    void startPractice(lastPracticeOptions);
   }
 
   async function updateSelectedChild(updates: Partial<ChildProfile>) {
@@ -493,6 +679,60 @@ function App() {
     setToast('Learning profile ready');
   }
 
+  function updatePortfolioSection(sectionId: string, updates: Partial<PortfolioSectionDraft>) {
+    const childKey = currentChild?.id || 'child-matthew';
+    setPortfolioDrafts((previous) => {
+      const sections = previous[childKey] || createPortfolioSections(currentChild);
+      return {
+        ...previous,
+        [childKey]: sections.map((section) => (
+          section.id === sectionId
+            ? { ...section, ...updates, updatedAt: formatPortfolioDate() }
+            : section
+        )),
+      };
+    });
+  }
+
+  function addPortfolioEvidence(sectionId: string) {
+    const childKey = currentChild?.id || 'child-matthew';
+    setPortfolioDrafts((previous) => {
+      const sections = previous[childKey] || createPortfolioSections(currentChild);
+      return {
+        ...previous,
+        [childKey]: sections.map((section) => {
+          if (section.id !== sectionId) return section;
+          const nextEvidence = evidenceSuggestions.find((item) => !section.evidence.includes(item))
+            || `家長補充 ${section.evidence.length + 1}`;
+          return {
+            ...section,
+            evidence: [...section.evidence, nextEvidence],
+            updatedAt: formatPortfolioDate(),
+          };
+        }),
+      };
+    });
+  }
+
+  function removePortfolioEvidence(sectionId: string, evidence: string) {
+    const childKey = currentChild?.id || 'child-matthew';
+    setPortfolioDrafts((previous) => {
+      const sections = previous[childKey] || createPortfolioSections(currentChild);
+      return {
+        ...previous,
+        [childKey]: sections.map((section) => (
+          section.id === sectionId
+            ? {
+                ...section,
+                evidence: section.evidence.filter((item) => item !== evidence),
+                updatedAt: formatPortfolioDate(),
+              }
+            : section
+        )),
+      };
+    });
+  }
+
   async function exportPortfolio() {
     setExportState('running');
     setExportError(null);
@@ -503,28 +743,7 @@ function App() {
         credentials: 'include',
         body: JSON.stringify({
           child_id: currentChild?.id || 'child-matthew',
-          sections: [
-            {
-              title: 'Cover Page',
-              status: 'Completed',
-              body: 'Basic profile, selected student photo, and Learning Passport introduction.',
-            },
-            {
-              title: 'About Me',
-              status: 'Completed',
-              body: 'Matthew is curious, steady, and enjoys explaining maths steps with examples.',
-            },
-            {
-              title: 'Learning Attitude',
-              status: 'AI Ready',
-              body: 'Recent uploads show stronger fraction concept understanding and a need for daily word-problem practice.',
-            },
-            {
-              title: 'Artworks & Activities',
-              status: 'Drafting',
-              body: 'Portfolio evidence can include scanned homework, artwork, activities, and parent-confirmed reflections.',
-            },
-          ],
+          sections: buildPortfolioExportSections(currentPortfolioSections),
         }),
       });
       const record = await response.json();
@@ -592,12 +811,19 @@ function App() {
         <MainHeader activeView={activeView} child={currentChild} onSwitchChild={switchChild} />
       )}
 
-      {activeView === 'home' && <HomeView setActiveView={setActiveView} onStartPractice={startPractice} />}
+      {activeView === 'home' && <HomeView setActiveView={setActiveView} onStartPractice={() => startPractice()} />}
       {activeView === 'portfolio' && (
         <PortfolioView
+          child={currentChild}
           exportError={exportError}
           exportState={exportState}
+          sections={currentPortfolioSections}
+          onAddEvidence={addPortfolioEvidence}
           onExport={exportPortfolio}
+          onOpenUpload={() => setActiveView('upload')}
+          onPreviewEvidence={(image) => setLightboxSrc(image)}
+          onRemoveEvidence={removePortfolioEvidence}
+          onUpdateSection={updatePortfolioSection}
         />
       )}
       {activeView === 'upload' && (
@@ -607,7 +833,7 @@ function App() {
           ocrResult={ocrResult}
           ocrState={ocrState}
           previewUrl={uploadPreview}
-          selectedFile={selectedFile}
+          selectedFiles={selectedFiles}
           analyzeUpload={analyzeUpload}
           handleFileChange={handleFileChange}
           onViewPreview={() => setLightboxSrc(uploadPreview)}
@@ -620,8 +846,8 @@ function App() {
           practiceQuiz={practiceQuiz}
           practiceState={practiceState}
           onCompletePractice={() => setPracticeState('complete')}
-          onStartPractice={startPractice}
-          onStartTopic={(topic) => startPractice(topic.practicePrompt, topic.subjectName)}
+          onStartPractice={restartPractice}
+          onStartTopic={(options) => startPractice(options)}
           onResetPractice={() => {
             setPracticeQuiz(null);
             setPracticeState('idle');
@@ -1019,20 +1245,42 @@ function RecentThumb({ image, title, time }: { image: string; title: string; tim
 }
 
 function PortfolioView({
+  child,
   exportError,
   exportState,
+  onAddEvidence,
   onExport,
+  onOpenUpload,
+  onPreviewEvidence,
+  onRemoveEvidence,
+  onUpdateSection,
+  sections,
 }: {
+  child: ChildProfile | null;
   exportError: string | null;
   exportState: ExportState;
+  onAddEvidence: (sectionId: string) => void;
   onExport: () => void;
+  onOpenUpload: () => void;
+  onPreviewEvidence: (image: string) => void;
+  onRemoveEvidence: (sectionId: string, evidence: string) => void;
+  onUpdateSection: (sectionId: string, updates: Partial<PortfolioSectionDraft>) => void;
+  sections: PortfolioSectionDraft[];
 }) {
-  const sections = [
-    { icon: 'book', title: '封面設計 (Cover Page)', copy: '基本資料與封面照片。', status: 'Completed', tone: 'complete' },
-    { icon: 'face', title: '關於我 (About Me)', copy: '性格特徵、興趣及家庭背景。', status: 'Completed', tone: 'complete' },
-    { icon: 'menu_book', title: '學習態度 (Learning Attitude)', copy: '課堂表現與學習目標。', status: 'AI Ready', tone: 'ready' },
-    { icon: 'health_and_safety', title: '自理能力 (Self-care)', copy: '日常生活技能及獨立性展現。', status: 'Drafting', tone: 'draft' },
-  ];
+  const [activeSectionId, setActiveSectionId] = useState(sections[0]?.id || '');
+  const activeSection = sections.find((section) => section.id === activeSectionId) || sections[0];
+  const progress = calculatePortfolioProgress(sections);
+  const completedCount = sections.filter((section) => section.status === 'Completed').length;
+  const readyCount = sections.filter((section) => section.status === 'AI Ready').length;
+  const evidenceCount = sections.reduce((total, section) => total + section.evidence.length, 0);
+  const statusOptions: PortfolioStatus[] = ['Completed', 'AI Ready', 'Drafting'];
+
+  useEffect(() => {
+    if (!sections.length) return;
+    if (!sections.some((section) => section.id === activeSectionId)) {
+      setActiveSectionId(sections[0].id);
+    }
+  }, [activeSectionId, sections]);
 
   return (
     <main className="content-stack portfolio-view">
@@ -1040,51 +1288,150 @@ function PortfolioView({
         <Icon name="auto_awesome" />
         <div>
           <h3>AI 協助中</h3>
-          <p>AI 正在根據您上載的 5 張作品相片生成文案...</p>
+          <p>{readyCount ? `${readyCount} 個 section 已有 AI 草稿，可由家長確認。` : '所有 section 已可直接匯出 PDF。'}</p>
         </div>
       </section>
 
-      <section className="page-intro">
-        <h2>個人檔案建立</h2>
-        <p>為您的孩子建立一份引人注目的學習歷程檔案。完成各部分以生成最終的 PDF。</p>
+      <section className="passport-overview">
+        <div>
+          <span className="verified-label"><Icon name="verified" filled /> School-ready draft</span>
+          <h2>{child?.passport || 'Learning Passport'}</h2>
+          <p>{child?.name || '孩子'} · {child?.grade || 'P3'} · {child?.focus || 'Portfolio Builder'}</p>
+        </div>
+        <div className="passport-progress-meter" aria-label={`Passport progress ${progress}%`}>
+          <strong>{progress}%</strong>
+          <span>PDF ready</span>
+        </div>
+        <div className="passport-stat-row">
+          <span><b>{completedCount}</b> Completed</span>
+          <span><b>{evidenceCount}</b> Evidence</span>
+          <span><b>{sections.length}</b> Sections</span>
+        </div>
       </section>
 
       <section className="portfolio-grid">
         {sections.map((section) => (
-          <article className="portfolio-card" key={section.title}>
+          <button
+            className={`portfolio-card ${section.id === activeSectionId ? 'active' : ''} ${section.id === 'artworks' ? 'wide' : ''}`}
+            key={section.id}
+            type="button"
+            onClick={() => setActiveSectionId(section.id)}
+          >
             <div className="portfolio-card-top">
               <span className="portfolio-icon">
                 <Icon name={section.icon} filled />
               </span>
-              <StatusChip status={section.status} tone={section.tone} />
+              <StatusChip status={section.status} tone={portfolioTone(section.status)} />
             </div>
-            <h3>{section.title}</h3>
-            <p>{section.copy}</p>
-          </article>
+            <div className={section.id === 'artworks' ? 'art-row' : undefined}>
+              <div>
+                <h3>{section.title}</h3>
+                <p>{section.copy}</p>
+              </div>
+              {section.image ? (
+                <div className="art-thumbs">
+                  <img src={section.image} alt={section.title} />
+                  <span>
+                    <img src={section.id === 'artworks' ? images.blocks : section.image} alt="" />
+                    <b>+{Math.max(section.evidence.length - 1, 1)}</b>
+                  </span>
+                </div>
+              ) : null}
+            </div>
+            <div className="portfolio-card-actions">
+              <span><Icon name="edit_note" /> 編輯</span>
+              <span>{section.evidence.length}/{section.requiredEvidence} evidence</span>
+            </div>
+          </button>
         ))}
-
-        <article className="portfolio-card wide">
-          <div className="portfolio-card-top">
-            <span className="portfolio-icon">
-              <Icon name="palette" filled />
-            </span>
-            <StatusChip status="Drafting" tone="draft" />
-          </div>
-          <div className="art-row">
-            <div>
-              <h3>藝術作品與活動 (Artworks & Activities)</h3>
-              <p>展示學生的創造力及參與過的課外活動。</p>
-            </div>
-            <div className="art-thumbs">
-              <img src={images.artwork} alt="Child artwork" />
-              <span>
-                <img src={images.blocks} alt="Blocks" />
-                <b>+3</b>
-              </span>
-            </div>
-          </div>
-        </article>
       </section>
+
+      {activeSection ? (
+        <section className="passport-editor-panel" aria-label={`${activeSection.title} editor`}>
+          <div className="editor-head">
+            <span className="portfolio-icon">
+              <Icon name={activeSection.icon} filled />
+            </span>
+            <div className="editor-title">
+              <span>{activeSection.shortTitle} · Updated {activeSection.updatedAt}</span>
+              <h2>{activeSection.title}</h2>
+            </div>
+            <StatusChip status={activeSection.status} tone={portfolioTone(activeSection.status)} />
+          </div>
+
+          <div className="status-segments" role="group" aria-label="Portfolio section status">
+            {statusOptions.map((status) => (
+              <button
+                className={activeSection.status === status ? 'active' : ''}
+                key={status}
+                type="button"
+                onClick={() => onUpdateSection(activeSection.id, { status })}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+
+          <label className="draft-textarea">
+            School-ready draft
+            <textarea
+              value={activeSection.body}
+              onChange={(event) => onUpdateSection(activeSection.id, { body: event.target.value })}
+            />
+          </label>
+
+          <div className="ai-draft-panel">
+            <div>
+              <span><Icon name="auto_awesome" filled /> AI draft</span>
+              <p>{activeSection.aiDraft}</p>
+            </div>
+            <button
+              className="secondary-action"
+              type="button"
+              onClick={() => onUpdateSection(activeSection.id, { body: activeSection.aiDraft, status: 'Completed' })}
+            >
+              <Icon name="task_alt" />
+              確認採用
+            </button>
+          </div>
+
+          <div className="evidence-tools">
+            <div className="evidence-head">
+              <h3>Evidence bank</h3>
+              <span>{activeSection.evidence.length}/{activeSection.requiredEvidence}</span>
+            </div>
+            <div className="evidence-list">
+              {activeSection.evidence.length ? activeSection.evidence.map((item) => (
+                <span className="evidence-chip" key={item}>
+                  {item}
+                  <button type="button" aria-label={`Remove ${item}`} onClick={() => onRemoveEvidence(activeSection.id, item)}>
+                    <Icon name="close" />
+                  </button>
+                </span>
+              )) : (
+                <span className="empty-evidence">No evidence yet</span>
+              )}
+            </div>
+
+            <div className="editor-button-row">
+              <button className="secondary-action" type="button" onClick={() => onAddEvidence(activeSection.id)}>
+                <Icon name="add_circle" />
+                新增 evidence
+              </button>
+              <button className="secondary-action" type="button" onClick={onOpenUpload}>
+                <Icon name="upload_file" />
+                上載作品
+              </button>
+              {activeSection.image ? (
+                <button className="secondary-action" type="button" onClick={() => onPreviewEvidence(activeSection.image || '')}>
+                  <Icon name="fullscreen" />
+                  預覽相片
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {exportState === 'done' || exportState === 'error' ? (
         <div className={`export-toast ${exportState}`}>
@@ -1094,7 +1441,7 @@ function PortfolioView({
 
       <button className="generate-fab" type="button" onClick={onExport} disabled={exportState === 'running'}>
         <Icon name="picture_as_pdf" filled />
-        {exportState === 'running' ? 'Generating' : 'Generate'}
+        {exportState === 'running' ? 'Generating' : 'Generate PDF'}
       </button>
     </main>
   );
@@ -1135,6 +1482,11 @@ function UploadView({
     { id: 'm2', title: '分數約分未完成', question: '第 8 題', reason: '概念不清 (Conceptual)' },
   ]);
   const detectedQuestion = ocrResult?.review?.extracted_questions?.[0]?.question_text;
+  const pipelineLabel = ocrResult?.review_mode === 'multimodal_llm'
+    ? 'Vision + Gemini multimodal'
+    : ocrResult?.review_mode === 'text_only_llm'
+      ? 'OCR + Gemini text review'
+      : 'GCP OCR + Gemini';
 
   return (
     <>
@@ -1154,7 +1506,19 @@ function UploadView({
         <section className="ocr-panel">
           <div className="ocr-panel-head">
             <h2><Icon name="document_scanner" filled /> 擷取資料</h2>
-            <span>{ocrState === 'done' ? 'GCP 已校正' : '自動辨識完成'}</span>
+            <span>{ocrState === 'done' ? 'Hybrid 已校正' : '自動辨識完成'}</span>
+          </div>
+
+          <div className="ocr-pipeline-card">
+            <span><Icon name="hub" filled /></span>
+            <div>
+              <strong>{pipelineLabel}</strong>
+              <p>
+                {ocrState === 'done'
+                  ? `${ocrResult?.ocr_provider || 'OCR'} → ${ocrResult?.review_model || 'Gemini'}${ocrResult?.review_fallback_used ? ' · fallback used' : ''}`
+                  : 'OCR extracts evidence first; Gemini reviews the original upload and text together.'}
+              </p>
+            </div>
           </div>
 
           <FormDisplay icon="category" label="學習主題 (自動辨識)" value="分數 (Fractions)" />
@@ -1183,7 +1547,7 @@ function UploadView({
 
             {ocrState === 'done' && detectedQuestion ? (
               <div className="analysis-result success">
-                <strong>GCP OCR Review</strong>
+                <strong>Hybrid OCR Review</strong>
                 <p>{detectedQuestion}</p>
               </div>
             ) : null}
@@ -1275,7 +1639,7 @@ function CoachView({
   onCompletePractice: () => void;
   onResetPractice: () => void;
   onStartPractice: () => void;
-  onStartTopic: (topic: CourseTopic) => void;
+  onStartTopic: (options: PracticeStartOptions) => void;
   practiceError: string | null;
   practiceQuiz: GeneratedQuiz | null;
   practiceState: PracticeState;
@@ -1304,7 +1668,7 @@ function CoachView({
   }
 
   if (practiceState === 'complete') {
-    return <PracticeCompleteView onBack={onResetPractice} onRestart={onStartPractice} />;
+    return <PracticeCompleteView onBack={onResetPractice} onRestart={onStartPractice} quiz={practiceQuiz} />;
   }
 
   return (
@@ -1320,7 +1684,11 @@ function CoachView({
         onSelectSubject={setSelectedSubjectId}
       />
 
-      <CourseContentSection child={child} selectedSubject={selectedSubject} onStartTopic={onStartTopic} />
+      <CourseContentSection
+        child={child}
+        selectedSubject={selectedSubject}
+        onStartPractice={onStartTopic}
+      />
 
       <section className="coach-hero">
         <div>
@@ -1401,37 +1769,62 @@ function DailyPracticeView({
   onRestart: () => void;
   quiz: GeneratedQuiz;
 }) {
-  const [revealed, setRevealed] = useState<Record<string, boolean>>({});
-  const allRevealed = quiz.items.every((item) => revealed[item.id]);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [submitted, setSubmitted] = useState<Record<string, boolean>>({});
+  const submittedCount = quiz.items.filter((item) => submitted[item.id]).length;
+  const allSubmitted = quiz.items.length > 0 && submittedCount === quiz.items.length;
 
   return (
     <main className="content-stack practice-screen">
       <section className="page-intro tight">
-        <h2>每日 5 分鐘特訓</h2>
+        <h2>互動練習</h2>
         <p>{quiz.parent_visible_rationale}</p>
+        <div className="practice-progress-strip">
+          <Metric value={`${submittedCount}/${quiz.items.length}`} label="Submitted" />
+          <Metric value={`${Math.ceil(quiz.items.reduce((total, item) => total + item.estimated_time_seconds, 0) / 60)}`} label="Mins" />
+          <Metric value={quiz.items[0]?.grade || 'HK'} label="Level" />
+        </div>
       </section>
 
       <section className="practice-list">
         {quiz.items.map((item, index) => (
-          <article className="practice-card" key={item.id}>
+          <article className={submitted[item.id] ? 'practice-card answered' : 'practice-card'} key={item.id}>
             <div className="practice-meta">
               <span>Q{index + 1}</span>
+              <span>{item.topic}</span>
               <b>{Math.round(item.estimated_time_seconds / 60)} min</b>
             </div>
             <h3>{item.question_text}</h3>
-            {revealed[item.id] ? (
+
+            <label className="student-answer-field">
+              <span>你的答案</span>
+              <textarea
+                disabled={submitted[item.id]}
+                value={answers[item.id] || ''}
+                placeholder="在這裡作答；提交後才會顯示參考答案。"
+                onChange={(event) => setAnswers((current) => ({ ...current, [item.id]: event.target.value }))}
+              />
+            </label>
+
+            {submitted[item.id] ? (
               <div className="answer-panel">
-                <strong>答案：{item.answer}</strong>
+                <span className="student-answer-review">
+                  <Icon name="edit_note" />
+                  你的答案：{answers[item.id]}
+                </span>
+                <strong>參考答案：{item.answer}</strong>
                 <p>{item.explanation}</p>
+                <small>{item.marking_scheme}</small>
               </div>
             ) : null}
             <button
               className="secondary-action"
               type="button"
-              onClick={() => setRevealed((current) => ({ ...current, [item.id]: !current[item.id] }))}
+              disabled={!answers[item.id]?.trim()}
+              onClick={() => setSubmitted((current) => ({ ...current, [item.id]: true }))}
             >
-              <Icon name={revealed[item.id] ? 'visibility_off' : 'visibility'} />
-              {revealed[item.id] ? '隱藏答案' : '查看答案'}
+              <Icon name={submitted[item.id] ? 'task_alt' : 'check_circle'} />
+              {submitted[item.id] ? '已提交' : '提交本題'}
             </button>
           </article>
         ))}
@@ -1441,7 +1834,7 @@ function DailyPracticeView({
         <button className="secondary-action" type="button" onClick={onRestart}>
           <Icon name="refresh" /> 重新生成
         </button>
-        <button className="primary-action" type="button" onClick={onComplete} disabled={!allRevealed}>
+        <button className="primary-action" type="button" onClick={onComplete} disabled={!allSubmitted}>
           <Icon name="check_circle" filled /> 完成練習
         </button>
       </div>
@@ -1449,7 +1842,17 @@ function DailyPracticeView({
   );
 }
 
-function PracticeCompleteView({ onBack, onRestart }: { onBack: () => void; onRestart: () => void }) {
+function PracticeCompleteView({
+  onBack,
+  onRestart,
+  quiz,
+}: {
+  onBack: () => void;
+  onRestart: () => void;
+  quiz: GeneratedQuiz | null;
+}) {
+  const itemCount = quiz?.items.length || 0;
+  const grade = quiz?.items[0]?.grade || 'HK';
   return (
     <main className="content-stack practice-screen">
       <section className="completion-card">
@@ -1459,9 +1862,9 @@ function PracticeCompleteView({ onBack, onRestart }: { onBack: () => void; onRes
         <h2>練習完成</h2>
         <p>已完成今日 5 分鐘特訓。系統會把這次練習加入學習軌跡，供下次推薦使用。</p>
         <div className="completion-stats">
-          <Metric value="5" label="Items" />
+          <Metric value={`${itemCount}`} label="Items" />
           <Metric value="+8%" label="Focus" />
-          <Metric value="P3" label="Level" />
+          <Metric value={grade} label="Level" />
         </div>
         <div className="practice-actions">
           <button className="secondary-action" type="button" onClick={onBack}>
@@ -1599,11 +2002,11 @@ function CurriculumMapSection({
 
 function CourseContentSection({
   child,
-  onStartTopic,
+  onStartPractice,
   selectedSubject,
 }: {
   child: ChildProfile | null;
-  onStartTopic: (topic: CourseTopic) => void;
+  onStartPractice: (options: PracticeStartOptions) => void;
   selectedSubject: CurriculumSubject | null;
 }) {
   const profileGrade = normalizeGrade(child?.grade);
@@ -1612,10 +2015,19 @@ function CourseContentSection({
     [profileGrade, selectedSubject],
   );
   const [selectedTopicId, setSelectedTopicId] = useState(topics[0]?.id || '');
+  const [topicQuestionCounts, setTopicQuestionCounts] = useState<Record<string, number>>({});
   const selectedTopic = topics.find((topic) => topic.id === selectedTopicId) || topics[0];
+  const totalQuestions = topics.reduce((total, topic) => total + (topicQuestionCounts[topic.id] || 0), 0);
+  const activePlan = topics
+    .map((topic) => ({
+      topic,
+      questionCount: topicQuestionCounts[topic.id] || 0,
+    }))
+    .filter((item) => item.questionCount > 0);
 
   useEffect(() => {
     setSelectedTopicId(topics[0]?.id || '');
+    setTopicQuestionCounts(defaultTopicCounts(topics));
   }, [topics]);
 
   if (!selectedTopic) return null;
@@ -1632,17 +2044,26 @@ function CourseContentSection({
 
       <div className="topic-rail" role="tablist" aria-label="Course topics">
         {topics.map((topic) => (
-          <button
+          <article
             key={topic.id}
-            className={topic.id === selectedTopic.id ? 'active' : ''}
-            type="button"
-            role="tab"
-            aria-selected={topic.id === selectedTopic.id}
-            onClick={() => setSelectedTopicId(topic.id)}
+            className={topic.id === selectedTopic.id ? 'topic-tile active' : 'topic-tile'}
           >
-            <span>{topic.subjectNameZh} · {topic.strand}</span>
-            <strong>{topic.titleZh}</strong>
-          </button>
+            <button
+              className="topic-select"
+              type="button"
+              role="tab"
+              aria-selected={topic.id === selectedTopic.id}
+              onClick={() => setSelectedTopicId(topic.id)}
+            >
+              <span>{topic.subjectNameZh} · {topic.strand}</span>
+              <strong>{topic.titleZh}</strong>
+            </button>
+            <QuestionStepper
+              count={topicQuestionCounts[topic.id] || 0}
+              label="題"
+              onChange={(count) => setTopicQuestionCounts((current) => ({ ...current, [topic.id]: count }))}
+            />
+          </article>
         ))}
       </div>
 
@@ -1662,6 +2083,31 @@ function CourseContentSection({
           <span><Icon name="sell" /> {selectedTopic.evidenceTag}</span>
         </div>
 
+        <section className="practice-builder" aria-label="Practice question allocation">
+          <div className="builder-head">
+            <div>
+              <span>Practice setup</span>
+              <h4>按 topic / area 分配題數</h4>
+            </div>
+            <Metric value={`${totalQuestions}`} label="Questions" />
+          </div>
+          <div className="allocation-list">
+            {topics.map((topic) => (
+              <div className={topic.id === selectedTopic.id ? 'allocation-row active' : 'allocation-row'} key={topic.id}>
+                <button type="button" onClick={() => setSelectedTopicId(topic.id)}>
+                  <span>{topic.strand}</span>
+                  <strong>{topic.titleZh}</strong>
+                </button>
+                <QuestionStepper
+                  count={topicQuestionCounts[topic.id] || 0}
+                  label="題"
+                  onChange={(count) => setTopicQuestionCounts((current) => ({ ...current, [topic.id]: count }))}
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+
         <div className="outcome-chips">
           {selectedTopic.outcomes.map((outcome) => (
             <span key={outcome}>{outcome}</span>
@@ -1677,13 +2123,64 @@ function CourseContentSection({
           ))}
         </div>
 
-        <button className="primary-action full" type="button" onClick={() => onStartTopic(selectedTopic)}>
+        <button
+          className="primary-action full"
+          type="button"
+          disabled={!totalQuestions}
+          onClick={() => onStartPractice(buildPracticeOptions(selectedSubject, activePlan))}
+        >
           <Icon name="play_lesson" filled />
-          Start topic practice
+          Generate {totalQuestions || 0} questions
         </button>
       </article>
     </section>
   );
+}
+
+function QuestionStepper({
+  count,
+  label,
+  onChange,
+}: {
+  count: number;
+  label: string;
+  onChange: (count: number) => void;
+}) {
+  return (
+    <div className="question-stepper" aria-label={`Question count ${count}`}>
+      <button type="button" aria-label="Decrease questions" onClick={() => onChange(Math.max(0, count - 1))}>
+        <Icon name="remove" />
+      </button>
+      <span><b>{count}</b>{label}</span>
+      <button type="button" aria-label="Increase questions" onClick={() => onChange(Math.min(10, count + 1))}>
+        <Icon name="add" />
+      </button>
+    </div>
+  );
+}
+
+function defaultTopicCounts(topics: CourseTopic[]) {
+  return Object.fromEntries(topics.map((topic) => [topic.id, 1]));
+}
+
+function buildPracticeOptions(
+  selectedSubject: CurriculumSubject | null,
+  activePlan: Array<{ topic: CourseTopic; questionCount: number }>,
+): PracticeStartOptions {
+  const practicePlan = activePlan.map(({ questionCount, topic }) => ({
+    question_count: questionCount,
+    strand: topic.strand,
+    title: topic.title,
+    title_zh: topic.titleZh,
+    topic_id: topic.id,
+  }));
+
+  return {
+    practicePlan,
+    questionCount: practicePlan.reduce((total, item) => total + item.question_count, 0),
+    subject: selectedSubject?.name || activePlan[0]?.topic.subjectName || 'Mathematics',
+    weakTopic: practicePlan.map((item) => item.title_zh).join(' / '),
+  };
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

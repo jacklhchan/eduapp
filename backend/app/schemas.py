@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class Subject(str, Enum):
@@ -210,8 +210,22 @@ class ExtractedQuestion(BaseModel):
     score: int | None = Field(default=None, ge=0)
     max_score: int | None = Field(default=None, ge=1)
     confidence: float = Field(..., ge=0, le=1)
+    page_number: int | None = Field(default=None, ge=1)
+    topic: str | None = None
+    topic_ids: list[str] = Field(default_factory=list)
     curriculum_node_id: str | None = None
     mistake_tags: list[MistakeType] = Field(default_factory=list)
+
+    @field_validator("topic_ids", mode="before")
+    @classmethod
+    def normalize_topic_ids(cls, value: Any) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            value = [value]
+        if not isinstance(value, list):
+            return []
+        return [str(item).strip() for item in value if str(item).strip()]
 
     @field_validator("mistake_tags", mode="before")
     @classmethod
@@ -223,15 +237,75 @@ class ExtractedQuestion(BaseModel):
         return [coerce_mistake_type(item) for item in value]
 
 
+class DetectedTopic(BaseModel):
+    id: str
+    subject: Subject
+    topic: str
+    strand: str | None = None
+    curriculum_node_id: str | None = None
+    confidence: float = Field(..., ge=0, le=1)
+    page_numbers: list[int] = Field(default_factory=list)
+
+    @field_validator("page_numbers", mode="before")
+    @classmethod
+    def normalize_page_numbers(cls, value: Any) -> list[int]:
+        if value is None:
+            return []
+        if isinstance(value, int | str):
+            value = [value]
+        if not isinstance(value, list):
+            return []
+        page_numbers: list[int] = []
+        for item in value:
+            try:
+                page_number = int(item)
+            except (TypeError, ValueError):
+                continue
+            if page_number > 0:
+                page_numbers.append(page_number)
+        return page_numbers
+
+
 class OcrReviewResult(BaseModel):
     document_id: str
     child_profile_id: str
-    file_kind: Literal["image", "pdf"]
+    file_kind: Literal["image", "pdf", "mixed"]
     subject: Subject
     grade: str
+    page_count: int = Field(default=1, ge=1)
+    topics: list[DetectedTopic] = Field(default_factory=list)
     extracted_questions: list[ExtractedQuestion]
     requires_parent_confirmation: bool = True
     pii_redacted_before_ai: bool = True
+
+    @model_validator(mode="after")
+    def populate_topics_from_questions(self) -> "OcrReviewResult":
+        if self.topics:
+            return self
+
+        topics: dict[str, DetectedTopic] = {}
+        for question in self.extracted_questions:
+            label = (question.topic or question.curriculum_node_id or "").strip()
+            if not label:
+                continue
+            topic_id = question.topic_ids[0] if question.topic_ids else f"t{len(topics) + 1}"
+            topic = topics.get(topic_id)
+            if topic is None:
+                topic = DetectedTopic(
+                    id=topic_id,
+                    subject=self.subject,
+                    topic=label,
+                    curriculum_node_id=question.curriculum_node_id,
+                    confidence=question.confidence,
+                    page_numbers=[],
+                )
+                topics[topic_id] = topic
+            topic.confidence = max(topic.confidence, question.confidence)
+            if question.page_number and question.page_number not in topic.page_numbers:
+                topic.page_numbers.append(question.page_number)
+
+        self.topics = list(topics.values())
+        return self
 
 
 class DocumentRecord(BaseModel):
@@ -239,9 +313,16 @@ class DocumentRecord(BaseModel):
     parent_id: str
     child_id: str
     filename: str
+    filenames: list[str] = Field(default_factory=list)
     mime_type: str
-    file_kind: Literal["image", "pdf"]
+    file_kind: Literal["image", "pdf", "mixed"]
+    page_count: int = Field(default=1, ge=1)
     storage_uri: str | None = None
+    storage_uris: list[str] = Field(default_factory=list)
+    ocr_provider: str = "unknown"
+    review_mode: str = "text_only_llm"
+    review_model: str = "unknown"
+    review_fallback_used: bool = False
     ocr_text_preview: str = ""
     review: OcrReviewResult
     created_at: str
