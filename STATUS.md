@@ -217,6 +217,9 @@
   - Cloud smoke（revision `edupass-ai-00027-xkn`）：`GET /api/health` 200 / `ok: true`；demo login 成功；Matthew 有 5 個 portfolio sections、Chloe 有 6 個 portfolio sections。
   - Cloud smoke（revision `edupass-ai-00027-xkn`）：Matthew `GET /api/learning/progress` 回傳 subject_scores（Mathematics、Chinese Language、English Language、General Studies）；Chloe 回傳 subject_scores（Language、Self and Society、Early Childhood Mathematics）。
   - Cloud smoke（revision `edupass-ai-00028-zjq`）：`GET /api/health` 200 / `ok: true`；demo login 成功；Matthew / Chloe portfolio sections 與 subject_scores 均正常 rehydrate。
+  - Cloud Run revision `edupass-ai-00029-8v4` 已部署並 serving 100% traffic。
+  - Cloud smoke（revision `edupass-ai-00029-8v4`）：`GET /api/health` 200 / `ok: true`；demo login 成功；Matthew focus 已更新為繁中；`GET /api/learning/progress` 正常回傳；`POST /api/reports/share` 產生教師連結，teacher report HTML 包含 `教師檢視` / `分數` / `掌握度`，且不再包含 `Teacher View` / `Mastery` / `Top weak topics`。
+  - Cloud Playwright smoke（revision `edupass-ai-00029-8v4`）：390px mobile Home / Portfolio / Progress / Profile 抽查，`Home` / `Portfolio` / `Upload` / `Progress` / `Profile` / `Daily Goals` / `Academic Progress` / `Progress Report` / `Evidence bank` / `Completed` / `Drafting` / `Generate PDF` / `Settings` / `Data & Privacy` 等舊英文 UI label 均未再出現；`scrollWidth === clientWidth`。
 - 本次本機驗證：
   - `.venv312/bin/python -m pytest tests -q`：22 passed，1 warning（ReportLab dependency deprecation warning）。
   - `.venv312/bin/python -m py_compile backend/app/main.py backend/app/schemas.py backend/app/persistence.py` 通過。
