@@ -1,6 +1,6 @@
 # Next Phase Implementation Notes
 
-最後更新：2026-06-01 14:10 HKT
+最後更新：2026-06-01 14:34 HKT
 
 ## 已落地範圍
 
@@ -25,6 +25,13 @@
   - `PATCH /api/parent`
   - signed `edupass_session` cookie
 - 已加入 first-login onboarding，可建立 parent display name 與第一個 child profile。
+- 已加入 parent consent / privacy foundation：
+  - `GET /api/privacy`
+  - `PATCH /api/privacy/consent`
+  - `GET /api/audit-log`
+  - `DELETE /api/children/{child_id}`
+  - OCR review / quiz generation / Portfolio PDF export 會檢查對應 consent flag。
+  - Profile `Data & Privacy` sheet 依 Stitch Data Privacy Center screen `c1523b2bbe15450f9473922e40e7e3e8` 接線。
 - 已加入 Firestore / Cloud Storage persistence：
   - parent / children records
   - uploaded OCR documents
@@ -54,9 +61,13 @@
 - `POST /api/auth/signup`
 - `GET /api/auth/me`
 - `PATCH /api/parent`
+- `GET /api/privacy`
+- `PATCH /api/privacy/consent`
+- `GET /api/audit-log`
 - `GET /api/children`
 - `POST /api/children`
 - `PATCH /api/children/{child_id}`
+- `DELETE /api/children/{child_id}`
 - `POST /api/ocr-review`
 - `POST /api/generate-quiz`
 - `POST /api/portfolio/export`

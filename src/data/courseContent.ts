@@ -1,3 +1,5 @@
+import { normalizeGrade, type CurriculumSubject } from './curriculum';
+
 export type CourseTopic = {
   id: string;
   grade: string;
@@ -146,10 +148,161 @@ export const courseTopics: CourseTopic[] = [
     evidenceTag: 'learning: scientific investigation',
     sourceWorkspaceId: syllabusWorkspaceId,
   },
+  {
+    id: 's3-math-algebra-functions',
+    grade: 'S3',
+    subjectId: 'mathematics',
+    subjectName: 'Mathematics',
+    subjectNameZh: '數學',
+    title: 'Algebra and Function Readiness',
+    titleZh: '代數與函數銜接',
+    strand: 'algebra',
+    level: 'Core',
+    durationMinutes: 50,
+    lessonCount: 5,
+    outcomes: ['整理代數式與方程步驟', '用坐標/圖像連結數量關係', '為高中函數學習建立前備概念'],
+    lessons: ['代數式化簡', '一元方程檢查', '坐標與圖像', '數量關係建模', '高中銜接題'],
+    practicePrompt: 'S3 algebra and function readiness',
+    evidenceTag: 'learning: algebra readiness',
+    sourceWorkspaceId: syllabusWorkspaceId,
+  },
+  {
+    id: 's3-science-investigation',
+    grade: 'S3',
+    subjectId: 'science',
+    subjectName: 'Science',
+    subjectNameZh: '科學',
+    title: 'Investigation and STSE',
+    titleZh: '科學探究與 STSE',
+    strand: 'scientific investigation',
+    level: 'Core',
+    durationMinutes: 55,
+    lessonCount: 5,
+    outcomes: ['設計公平測試', '分析實驗數據與誤差', '把科學概念連結社會與環境議題'],
+    lessons: ['研究問題與假設', '控制變項', '數據表與圖表', '結果解釋', 'STSE 議題短評'],
+    practicePrompt: 'S3 science investigation and STSE practice',
+    evidenceTag: 'learning: scientific investigation',
+    sourceWorkspaceId: syllabusWorkspaceId,
+  },
+  {
+    id: 's3-ces-citizenship-economics',
+    grade: 'S3',
+    subjectId: 'citizenship-economics-society',
+    subjectName: 'Citizenship, Economics and Society',
+    subjectNameZh: '公民、經濟與社會',
+    title: 'Citizenship and Economic Choices',
+    titleZh: '公民責任與經濟選擇',
+    strand: 'citizenship',
+    level: 'Core',
+    durationMinutes: 45,
+    lessonCount: 4,
+    outcomes: ['辨認社會議題中的持份者', '以資源與選擇分析個人/社會決策', '用資料支持觀點並分辨事實與意見'],
+    lessons: ['持份者與公民責任', '資源與取捨', '個人理財情境', '資料研習與短答'],
+    practicePrompt: 'S3 CES citizenship economics source-based questions',
+    evidenceTag: 'learning: CES source inquiry',
+    sourceWorkspaceId: syllabusWorkspaceId,
+  },
 ];
 
 export function getCourseTopicsForGrade(grade: string) {
-  const normalized = grade.trim().toUpperCase();
-  const exact = courseTopics.filter((topic) => topic.grade === normalized);
-  return exact.length ? exact : courseTopics.filter((topic) => topic.grade === 'P3');
+  const normalized = normalizeGrade(grade);
+  return courseTopics.filter((topic) => topic.grade === normalized);
+}
+
+export function getCourseTopicsForGradeAndSubject(grade: string, subject?: CurriculumSubject | null) {
+  const normalized = normalizeGrade(grade);
+  if (!subject) return getCourseTopicsForGrade(normalized);
+
+  const exact = courseTopics.filter((topic) => topic.grade === normalized && topic.subjectId === subject.id);
+  const generated = deriveTopicsFromSubject(normalized, subject);
+  const exactStrands = new Set(exact.map((topic) => topic.strand));
+  const generatedForMissingStrands = generated.filter((topic) => !exactStrands.has(topic.strand));
+
+  return sortTopicsBySubjectStrands([...exact, ...generatedForMissingStrands], subject);
+}
+
+function deriveTopicsFromSubject(grade: string, subject: CurriculumSubject): CourseTopic[] {
+  return subject.strands.map((strand, index) => {
+    const topicTitle = titleize(strand);
+    return {
+      id: `${grade.toLowerCase()}-${subject.id}-${slugify(strand)}`,
+      grade,
+      subjectId: subject.id,
+      subjectName: subject.name,
+      subjectNameZh: subject.displayNameZh,
+      title: topicTitle,
+      titleZh: `${subject.displayNameZh}：${strandLabel(strand)}`,
+      strand,
+      level: index === 0 ? 'Foundation' : index === 1 ? 'Core' : 'Stretch',
+      durationMinutes: 35 + index * 5,
+      lessonCount: index === 0 ? 3 : 4,
+      outcomes: [
+        `理解 ${subject.displayNameZh}「${strandLabel(strand)}」的核心概念`,
+        `把功課 / 課堂 evidence 標記到 ${subject.name} · ${strand}`,
+        `用原創練習檢查 ${grade} ${subject.displayNameZh} 的學習弱點`,
+      ],
+      lessons: [
+        `${strandLabel(strand)} 概念導入`,
+        '課堂例子與資料整理',
+        '常見錯因 / misconception 檢查',
+        '家長可讀的 evidence summary',
+      ].slice(0, index === 0 ? 3 : 4),
+      practicePrompt: `${grade} ${subject.name} ${strand} practice`,
+      evidenceTag: `learning: ${subject.id} ${strand}`,
+      sourceWorkspaceId: syllabusWorkspaceId,
+    };
+  });
+}
+
+function sortTopicsBySubjectStrands(topics: CourseTopic[], subject: CurriculumSubject) {
+  const strandOrder = new Map(subject.strands.map((strand, index) => [strand, index]));
+  return [...topics].sort((left, right) => {
+    const leftOrder = strandOrder.get(left.strand) ?? Number.MAX_SAFE_INTEGER;
+    const rightOrder = strandOrder.get(right.strand) ?? Number.MAX_SAFE_INTEGER;
+    if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+    return left.titleZh.localeCompare(right.titleZh, 'zh-Hant');
+  });
+}
+
+function slugify(value: string) {
+  return value.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function titleize(value: string) {
+  return value
+    .split(/[\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function strandLabel(strand: string) {
+  const labels: Record<string, string> = {
+    algebra: '代數',
+    citizenship: '公民',
+    'critical response': '批判回應',
+    'data handling': '數據處理',
+    economics: '經濟',
+    geography: '地理探究',
+    'health and fitness': '健康與體適能',
+    listening: '聆聽',
+    'literature and culture': '文學與文化',
+    measure: '量度',
+    'motor skills': '運動技能',
+    number: '數',
+    'performing': '演奏與表演',
+    phonetics: '語音',
+    'place and space': '地方與空間',
+    reading: '閱讀',
+    science: '科學探究',
+    'scientific investigation': '科學探究',
+    'shape and space': '圖形與空間',
+    society: '社會',
+    'sports knowledge': '運動知識',
+    speaking: '說話',
+    'systems and control': '系統與控制',
+    'values and attitudes': '價值觀與態度',
+    writing: '寫作',
+  };
+  return labels[strand] || strand;
 }

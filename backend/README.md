@@ -17,9 +17,13 @@ Cloud service：
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
 - `PATCH /api/parent`
+- `GET /api/privacy`
+- `PATCH /api/privacy/consent`
+- `GET /api/audit-log`
 - `GET /api/children`
 - `POST /api/children`
 - `PATCH /api/children/{child_id}`
+- `DELETE /api/children/{child_id}`
 - `POST /api/ocr-review`
 - `POST /api/generate-quiz`
 - `POST /api/portfolio/export`
@@ -37,6 +41,7 @@ GCP provider：
 - signed cookie demo auth
 - prototype signup with hashed PIN storage
 - first-login parent / child onboarding support
+- parent consent, retention preference, audit log, and child data deletion foundation
 - per-child persistence
 - AI provider output validator
 - Pydantic schema tests

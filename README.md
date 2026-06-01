@@ -36,7 +36,7 @@ Demo login：
 UI alignment：
 
 - Google Stitch project：`EduPass AI`
-- Source screens：Dashboard、Portfolio、Refined Recognition、Math Coach、Profile & Settings、animated practice screens、HKEDB 課程地圖 (`d1423b25c1f5425d80c697265ecacb27`)、profile-bound S3 課程地圖 (`fe9f34c1c45a4089a8c980dfc16a6c7b`)
+- Source screens：Dashboard、Portfolio、Refined Recognition、Math Coach、Profile & Settings、animated practice screens、HKEDB 課程地圖 (`d1423b25c1f5425d80c697265ecacb27`)、profile-bound S3 課程地圖 (`fe9f34c1c45a4089a8c980dfc16a6c7b`)、Data Privacy Center (`c1523b2bbe15450f9473922e40e7e3e8`)
 - React prototype now follows Stitch-generated HTML structure, Material Symbols, image assets, spacing tokens, top app bars, and bottom navigation patterns.
 - The active prototype now wires core buttons for child switching, upload review, practice generation, profile editing, child creation, settings sheets, and stable five-tab navigation.
 
@@ -51,6 +51,7 @@ UI alignment：
 
 - `docs/app-blueprint.md`：產品與技術設計 Markdown
 - `docs/hkedb-k12-syllabus-reference.md`：HKEDB K1-S6 全科 curriculum / syllabus reference
+- `docs/iphone-qa-checklist.md`：iPhone Safari / PWA / prototype feature QA checklist
 - `docs/syllabus/`：按年級及科目拆分的 syllabus Markdown reference，含 EDB-derived 課程內容摘要與 evidence mapping
 - `docs/next-phase-implementation.md`：下一階段 prototype 接線筆記
 - `STATUS.md`：目前實作狀態、驗證與下一步

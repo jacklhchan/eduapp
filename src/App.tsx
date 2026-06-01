@@ -9,7 +9,7 @@ import {
   type CurriculumSubject,
   type KlaId,
 } from './data/curriculum';
-import { getCourseTopicsForGrade, type CourseTopic } from './data/courseContent';
+import { getCourseTopicsForGradeAndSubject, type CourseTopic } from './data/courseContent';
 
 type View = 'home' | 'portfolio' | 'upload' | 'coach' | 'profile';
 type AuthMode = 'login' | 'signup';
@@ -39,12 +39,46 @@ type ChildProfile = {
   avatar_url?: string | null;
 };
 
+type PrivacySettings = {
+  ai_processing_consent: boolean;
+  upload_storage_consent: boolean;
+  portfolio_export_consent: boolean;
+  product_updates_consent: boolean;
+  retention_days: number;
+  consent_version: string;
+  consent_updated_at?: string | null;
+};
+
+type ChildDataSummary = {
+  child_id: string;
+  child_name: string;
+  grade: string;
+  document_count: number;
+  portfolio_export_count: number;
+};
+
+type AuditEvent = {
+  id: string;
+  event_type: string;
+  child_id?: string | null;
+  created_at: string;
+  details: Record<string, unknown>;
+};
+
+type PrivacyCenterResponse = {
+  parent: ParentProfile;
+  privacy_settings: PrivacySettings;
+  children: ChildDataSummary[];
+  audit_events: AuditEvent[];
+};
+
 type ParentProfile = {
   id: string;
   email: string;
   display_name: string;
   avatar_url?: string | null;
   onboarding_complete: boolean;
+  privacy_settings: PrivacySettings;
   children: ChildProfile[];
 };
 
@@ -389,6 +423,35 @@ function App() {
     setToast('Profile saved');
   }
 
+  async function updatePrivacySettings(updates: Partial<PrivacySettings>) {
+    const response = await fetch('/api/privacy/consent', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(updates),
+    });
+    const summary = await response.json();
+    if (!response.ok) throw new Error(summary.detail || `HTTP ${response.status}`);
+    setParent(summary.parent);
+    setToast('Privacy settings saved');
+    return summary as PrivacyCenterResponse;
+  }
+
+  async function deleteChildData(childId: string, confirmationName: string) {
+    const response = await fetch(`/api/children/${childId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ confirmation_name: confirmationName, delete_storage: true }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.detail || `HTTP ${response.status}`);
+    setParent(result.parent);
+    setSelectedChildId(preferredChildId(result.parent));
+    setToast('Child data deleted');
+    return result as { parent: ParentProfile };
+  }
+
   async function addChild(payload: Omit<ChildProfile, 'id'>) {
     const response = await fetch('/api/children', {
       method: 'POST',
@@ -590,6 +653,8 @@ function App() {
           parent={parent}
           onAddChild={addChild}
           onClose={() => setProfileSheet(null)}
+          onDeleteChild={deleteChildData}
+          onPrivacySave={updatePrivacySettings}
           onUpdateParent={updateParentProfile}
           onUpdateChild={updateSelectedChild}
         />
@@ -1215,6 +1280,21 @@ function CoachView({
   practiceQuiz: GeneratedQuiz | null;
   practiceState: PracticeState;
 }) {
+  const profileGrade = normalizeGrade(child?.grade);
+  const gradeSubjects = useMemo(() => getSubjectsForGrade(profileGrade), [profileGrade]);
+  const [selectedSubjectId, setSelectedSubjectId] = useState(gradeSubjects[0]?.id || '');
+  const selectedSubject = gradeSubjects.find((subject) => subject.id === selectedSubjectId) || gradeSubjects[0] || null;
+
+  useEffect(() => {
+    if (!gradeSubjects.length) {
+      setSelectedSubjectId('');
+      return;
+    }
+    if (!gradeSubjects.some((subject) => subject.id === selectedSubjectId)) {
+      setSelectedSubjectId(gradeSubjects[0].id);
+    }
+  }, [gradeSubjects, selectedSubjectId]);
+
   if (practiceState === 'generating') {
     return <PracticeAnalyzingView child={child} />;
   }
@@ -1234,9 +1314,13 @@ function CoachView({
         <p>{child?.name || 'Matthew'} 本週完成 3 份練習，整體正確率提升 <strong>8%</strong>。</p>
       </section>
 
-      <CurriculumMapSection child={child} />
+      <CurriculumMapSection
+        child={child}
+        selectedSubjectId={selectedSubject?.id || ''}
+        onSelectSubject={setSelectedSubjectId}
+      />
 
-      <CourseContentSection child={child} onStartTopic={onStartTopic} />
+      <CourseContentSection child={child} selectedSubject={selectedSubject} onStartTopic={onStartTopic} />
 
       <section className="coach-hero">
         <div>
@@ -1392,7 +1476,15 @@ function PracticeCompleteView({ onBack, onRestart }: { onBack: () => void; onRes
   );
 }
 
-function CurriculumMapSection({ child }: { child: ChildProfile | null }) {
+function CurriculumMapSection({
+  child,
+  onSelectSubject,
+  selectedSubjectId,
+}: {
+  child: ChildProfile | null;
+  onSelectSubject: (subjectId: string) => void;
+  selectedSubjectId: string;
+}) {
   const [selectedKla, setSelectedKla] = useState<KlaId | 'all'>('all');
   const profileGrade = normalizeGrade(child?.grade);
   const selectedStage = getStageForGrade(profileGrade);
@@ -1409,6 +1501,13 @@ function CurriculumMapSection({ child }: { child: ChildProfile | null }) {
   useEffect(() => {
     setSelectedKla('all');
   }, [profileGrade]);
+
+  useEffect(() => {
+    if (!subjects.length) return;
+    if (!subjects.some((subject) => subject.id === selectedSubjectId)) {
+      onSelectSubject(subjects[0].id);
+    }
+  }, [onSelectSubject, selectedSubjectId, subjects]);
 
   return (
     <section className="curriculum-map" aria-label="HKEDB curriculum map">
@@ -1469,7 +1568,13 @@ function CurriculumMapSection({ child }: { child: ChildProfile | null }) {
 
       <div className="subject-list">
         {subjects.map((subject) => (
-          <CurriculumSubjectCard key={subject.id} grade={profileGrade} subject={subject} />
+          <CurriculumSubjectCard
+            key={subject.id}
+            grade={profileGrade}
+            selected={subject.id === selectedSubjectId}
+            subject={subject}
+            onSelect={() => onSelectSubject(subject.id)}
+          />
         ))}
       </div>
 
@@ -1495,11 +1600,17 @@ function CurriculumMapSection({ child }: { child: ChildProfile | null }) {
 function CourseContentSection({
   child,
   onStartTopic,
+  selectedSubject,
 }: {
   child: ChildProfile | null;
   onStartTopic: (topic: CourseTopic) => void;
+  selectedSubject: CurriculumSubject | null;
 }) {
-  const topics = useMemo(() => getCourseTopicsForGrade(child?.grade || 'P3'), [child?.grade]);
+  const profileGrade = normalizeGrade(child?.grade);
+  const topics = useMemo(
+    () => getCourseTopicsForGradeAndSubject(profileGrade, selectedSubject),
+    [profileGrade, selectedSubject],
+  );
   const [selectedTopicId, setSelectedTopicId] = useState(topics[0]?.id || '');
   const selectedTopic = topics.find((topic) => topic.id === selectedTopicId) || topics[0];
 
@@ -1514,7 +1625,7 @@ function CourseContentSection({
       <div className="course-head">
         <div>
           <span><Icon name="auto_stories" filled /> Course content draft</span>
-          <h2>{normalizeGrade(child?.grade)} Learning Topics</h2>
+          <h2>{profileGrade} {selectedSubject?.displayNameZh || ''} Learning Topics</h2>
         </div>
         <b>019e81ae</b>
       </div>
@@ -1529,7 +1640,7 @@ function CourseContentSection({
             aria-selected={topic.id === selectedTopic.id}
             onClick={() => setSelectedTopicId(topic.id)}
           >
-            <span>{topic.subjectNameZh}</span>
+            <span>{topic.subjectNameZh} · {topic.strand}</span>
             <strong>{topic.titleZh}</strong>
           </button>
         ))}
@@ -1584,9 +1695,24 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function CurriculumSubjectCard({ grade, subject }: { grade: string; subject: CurriculumSubject }) {
+function CurriculumSubjectCard({
+  grade,
+  onSelect,
+  selected,
+  subject,
+}: {
+  grade: string;
+  onSelect: () => void;
+  selected: boolean;
+  subject: CurriculumSubject;
+}) {
   return (
-    <article className="curriculum-subject-card">
+    <button
+      className={selected ? 'curriculum-subject-card selected' : 'curriculum-subject-card'}
+      type="button"
+      aria-pressed={selected}
+      onClick={onSelect}
+    >
       <div className="subject-card-top">
         <div>
           <span>{subject.klaName}</span>
@@ -1602,7 +1728,7 @@ function CurriculumSubjectCard({ grade, subject }: { grade: string; subject: Cur
       </div>
       <p className="app-use"><Icon name="auto_awesome" /> {subject.appUse}</p>
       {subject.status ? <p className="subject-status">{subject.status}</p> : null}
-    </article>
+    </button>
   );
 }
 
@@ -1817,6 +1943,8 @@ function ProfileSheetModal({
   parent,
   onAddChild,
   onClose,
+  onDeleteChild,
+  onPrivacySave,
   onUpdateParent,
   onUpdateChild,
 }: {
@@ -1825,6 +1953,8 @@ function ProfileSheetModal({
   parent: ParentProfile;
   onAddChild: (payload: Omit<ChildProfile, 'id'>) => Promise<void>;
   onClose: () => void;
+  onDeleteChild: (childId: string, confirmationName: string) => Promise<{ parent: ParentProfile }>;
+  onPrivacySave: (updates: Partial<PrivacySettings>) => Promise<PrivacyCenterResponse>;
   onUpdateParent: (updates: ParentProfileUpdates) => Promise<void>;
   onUpdateChild: (updates: Partial<ChildProfile>) => Promise<void>;
 }) {
@@ -1883,10 +2013,11 @@ function ProfileSheetModal({
         ) : null}
 
         {kind === 'privacy' ? (
-          <SettingPanel
-            icon="security"
-            title="Uploads and consent"
-            text="Homework files, OCR text, AI review records, and PDF exports are stored per child in GCP. Production should add parent consent, retention period, and delete child data controls."
+          <PrivacyCenterPanel
+            currentChild={currentChild}
+            parent={parent}
+            onDeleteChild={onDeleteChild}
+            onPrivacySave={onPrivacySave}
           />
         ) : null}
 
@@ -2041,6 +2172,255 @@ function SettingPanel({ icon, text, title }: { icon: string; text: string; title
       <p>{text}</p>
     </div>
   );
+}
+
+function PrivacyCenterPanel({
+  currentChild,
+  onDeleteChild,
+  onPrivacySave,
+  parent,
+}: {
+  currentChild: ChildProfile | null;
+  onDeleteChild: (childId: string, confirmationName: string) => Promise<{ parent: ParentProfile }>;
+  onPrivacySave: (updates: Partial<PrivacySettings>) => Promise<PrivacyCenterResponse>;
+  parent: ParentProfile;
+}) {
+  const activeChild = currentChild || parent.children[0] || null;
+  const [summary, setSummary] = useState<PrivacyCenterResponse | null>(null);
+  const [settings, setSettings] = useState<PrivacySettings>(parent.privacy_settings);
+  const [deleteName, setDeleteName] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadPrivacy() {
+    const response = await fetch('/api/privacy', { credentials: 'include' });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+    setSummary(data);
+    setSettings(data.privacy_settings);
+  }
+
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/privacy', { credentials: 'include' })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+        if (!alive) return;
+        setSummary(data);
+        setSettings(data.privacy_settings);
+      })
+      .catch((privacyError) => {
+        if (!alive) return;
+        setError(privacyError instanceof Error ? privacyError.message : 'Privacy settings unavailable');
+      });
+    return () => {
+      alive = false;
+    };
+  }, [parent.id]);
+
+  function updateSetting<K extends keyof PrivacySettings>(key: K, value: PrivacySettings[K]) {
+    setSettings((previous) => ({ ...previous, [key]: value }));
+  }
+
+  async function savePrivacy() {
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await onPrivacySave(settings);
+      setSummary(updated);
+      setSettings(updated.privacy_settings);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!activeChild) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await onDeleteChild(activeChild.id, deleteName);
+      setDeleteName('');
+      await loadPrivacy();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Delete failed');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const childSummary = summary?.children.find((item) => item.child_id === activeChild?.id);
+  const auditEvents = summary?.audit_events || [];
+  const deleteReady = Boolean(activeChild && deleteName.trim() === activeChild.name);
+  const canDelete = Boolean(activeChild && (summary?.children.length || parent.children.length) > 1);
+  const consentSaved = Boolean(settings.consent_updated_at);
+
+  return (
+    <div className="privacy-center-panel">
+      <section className="privacy-hero-card">
+        <span className="privacy-shield"><Icon name="security" filled /></span>
+        <h3>Parent consent & child data</h3>
+        <p>Control AI processing, upload storage, portfolio export and retention for {activeChild?.name || 'your child'}.</p>
+        <span className={consentSaved ? 'privacy-status saved' : 'privacy-status'}>
+          <Icon name={consentSaved ? 'check_circle' : 'pending'} filled />
+          {consentSaved ? 'Consent saved' : 'Consent pending'}
+        </span>
+      </section>
+
+      <section className="privacy-card">
+        <h3>Data Processing</h3>
+        <ConsentSwitch
+          checked={settings.ai_processing_consent}
+          description="AI 分析處理：allow OCR text and homework review to be processed by Vertex AI."
+          label="AI review processing"
+          onChange={(checked) => updateSetting('ai_processing_consent', checked)}
+        />
+        <ConsentSwitch
+          checked={settings.upload_storage_consent}
+          description="作業上傳儲存：store homework images or PDFs in the child workspace."
+          label="Homework upload storage"
+          onChange={(checked) => updateSetting('upload_storage_consent', checked)}
+        />
+        <ConsentSwitch
+          checked={settings.portfolio_export_consent}
+          description="作品集 PDF 導出：save generated portfolio PDFs for download history."
+          label="Portfolio PDF export"
+          onChange={(checked) => updateSetting('portfolio_export_consent', checked)}
+        />
+        <ConsentSwitch
+          checked={settings.product_updates_consent}
+          description="產品更新：receive prototype progress and testing reminders."
+          label="Product updates"
+          onChange={(checked) => updateSetting('product_updates_consent', checked)}
+        />
+      </section>
+
+      <section className="privacy-card">
+        <div className="privacy-card-head">
+          <h3>Data Retention</h3>
+          <Icon name="info" />
+        </div>
+        <p>Automatically delete child data and activity history after a set period.</p>
+        <div className="retention-segments" role="group" aria-label="Data retention period">
+          {[
+            { label: '90 days', value: 90 },
+            { label: '180 days', value: 180 },
+            { label: '1 year', value: 365 },
+            { label: 'Until deleted', value: 3650 },
+          ].map((option) => (
+            <button
+              className={settings.retention_days === option.value ? 'active' : ''}
+              key={option.value}
+              type="button"
+              onClick={() => updateSetting('retention_days', option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {activeChild ? (
+        <section className="privacy-child-summary">
+          <span>{activeChild.name.charAt(0).toUpperCase()}</span>
+          <div>
+            <h3>{activeChild.name} • {activeChild.grade}</h3>
+            <p>
+              <Icon name="description" /> Documents: {childSummary?.document_count ?? 0}
+              <Icon name="picture_as_pdf" /> Portfolio PDFs: {childSummary?.portfolio_export_count ?? 0}
+            </p>
+          </div>
+        </section>
+      ) : null}
+
+      <section className="privacy-card">
+        <h3>Audit activity</h3>
+        <div className="audit-list">
+          {auditEvents.length ? auditEvents.slice(0, 3).map((event) => (
+            <div className="audit-row" key={event.id}>
+              <Icon name={event.event_type === 'child_data_deleted' ? 'delete_forever' : 'verified_user'} />
+              <div>
+                <strong>{auditEventLabel(event.event_type)}</strong>
+                <span>{formatAuditTime(event.created_at)}</span>
+              </div>
+            </div>
+          )) : (
+            <p>No privacy activity yet.</p>
+          )}
+        </div>
+      </section>
+
+      {activeChild ? (
+        <section className="danger-zone-card">
+          <div className="danger-zone-head">
+            <Icon name="warning" filled />
+            <div>
+              <h3>Danger Zone</h3>
+              <p>Permanently delete all data, generated portfolios, and settings for {activeChild.name}. This action cannot be undone.</p>
+            </div>
+          </div>
+          <label>
+            To confirm, type "{activeChild.name}"
+            <input value={deleteName} onChange={(event) => setDeleteName(event.target.value)} placeholder={`Type ${activeChild.name}`} />
+          </label>
+          {!canDelete ? <small>Keep at least one child profile in this prototype account.</small> : null}
+          <button className="danger-action" type="button" disabled={!deleteReady || !canDelete || deleting} onClick={confirmDelete}>
+            <Icon name={deleting ? 'sync' : 'delete_forever'} />
+            {deleting ? 'Deleting...' : `Delete ${activeChild.name} data`}
+          </button>
+        </section>
+      ) : null}
+
+      {error ? <strong className="login-error">{error}</strong> : null}
+
+      <div className="privacy-save-bar">
+        <button className={saving ? 'primary-action full saving' : 'primary-action full'} type="button" onClick={savePrivacy} disabled={saving}>
+          <span />
+          {saving ? 'Saving...' : 'Save privacy settings'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ConsentSwitch({
+  checked,
+  description,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  description: string;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="consent-switch-row">
+      <span>
+        <strong>{label}</strong>
+        <small>{description}</small>
+      </span>
+      <input checked={checked} type="checkbox" onChange={(event) => onChange(event.target.checked)} />
+      <i />
+    </label>
+  );
+}
+
+function auditEventLabel(eventType: string) {
+  if (eventType === 'privacy_settings_updated') return 'Privacy settings updated';
+  if (eventType === 'child_data_deleted') return 'Child data deleted';
+  if (eventType === 'portfolio_exported') return 'Portfolio PDF exported';
+  return eventType.replace(/_/g, ' ');
+}
+
+function formatAuditTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('en-HK', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 function BottomNav({ activeView, setActiveView }: { activeView: View; setActiveView: (view: View) => void }) {

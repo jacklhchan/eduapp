@@ -26,6 +26,7 @@ class Persistence:
         self.project_id = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCP_PROJECT")
         self.bucket_name = os.getenv("EDUPASS_STORAGE_BUCKET", "")
         self._memory: dict[str, dict[str, Any]] = {
+            "audit_events": {},
             "parents": {},
             "children": {},
             "documents": {},
@@ -33,6 +34,17 @@ class Persistence:
         }
         self._firestore = None
         self._storage = None
+
+    def default_privacy_settings(self, consented: bool = False) -> dict[str, Any]:
+        return {
+            "ai_processing_consent": consented,
+            "upload_storage_consent": consented,
+            "portfolio_export_consent": consented,
+            "product_updates_consent": False,
+            "retention_days": 365,
+            "consent_version": "prototype-2026-06-01",
+            "consent_updated_at": now_iso() if consented else None,
+        }
 
     @property
     def firestore(self):
@@ -57,6 +69,7 @@ class Persistence:
             "display_name": "Matthew's Parent",
             "avatar_url": None,
             "onboarding_complete": True,
+            "privacy_settings": self.default_privacy_settings(consented=True),
         }
         children = [
             {
@@ -120,6 +133,7 @@ class Persistence:
             "avatar_url": None,
             "onboarding_complete": False,
             "pin_hash": pin_hash,
+            "privacy_settings": self.default_privacy_settings(consented=False),
             "created_at": now_iso(),
         }
         db = self.firestore
@@ -150,7 +164,9 @@ class Persistence:
     def get_parent_with_children(self, parent_id: str) -> dict[str, Any]:
         db = self.firestore
         if db is None:
-            parent = dict(self._memory["parents"].get(parent_id, {}))
+            if parent_id not in self._memory["parents"]:
+                return {}
+            parent = dict(self._memory["parents"][parent_id])
             children = [
                 dict(child)
                 for child in self._memory["children"].values()
@@ -165,6 +181,7 @@ class Persistence:
                 snapshot.to_dict() or {}
                 for snapshot in db.collection("children").where("parent_id", "==", parent_id).stream()
             ]
+        parent.setdefault("privacy_settings", self.default_privacy_settings(consented=False))
         children.sort(key=lambda child: (int(child.get("sort_order", 999)), str(child.get("name", ""))))
         parent["children"] = children
         return parent
@@ -213,6 +230,162 @@ class Persistence:
             db.collection("parents").document(parent_id).set({"onboarding_complete": True}, merge=True)
         return clean
 
+    def update_privacy_settings(self, parent_id: str, updates: dict[str, Any]) -> dict[str, Any]:
+        allowed = {
+            "ai_processing_consent",
+            "upload_storage_consent",
+            "portfolio_export_consent",
+            "product_updates_consent",
+            "retention_days",
+        }
+        parent = self.get_parent_with_children(parent_id)
+        if not parent:
+            return {}
+        privacy = {
+            **self.default_privacy_settings(consented=False),
+            **dict(parent.get("privacy_settings") or {}),
+        }
+        for key, value in updates.items():
+            if key in allowed and value is not None:
+                privacy[key] = value
+        privacy["consent_version"] = "prototype-2026-06-01"
+        privacy["consent_updated_at"] = now_iso()
+
+        db = self.firestore
+        if db is None:
+            memory_parent = self._memory["parents"].get(parent_id)
+            if not memory_parent:
+                return {}
+            memory_parent["privacy_settings"] = privacy
+        else:
+            db.collection("parents").document(parent_id).set({"privacy_settings": privacy}, merge=True)
+        self.record_audit_event(parent_id, "privacy_settings_updated", details={"privacy_settings": privacy})
+        return self.get_parent_with_children(parent_id)
+
+    def list_child_data_summaries(self, parent_id: str) -> list[dict[str, Any]]:
+        parent = self.get_parent_with_children(parent_id)
+        summaries = []
+        for child in parent.get("children", []):
+            child_id = str(child.get("id", ""))
+            summaries.append(
+                {
+                    "child_id": child_id,
+                    "child_name": str(child.get("name", "")),
+                    "grade": str(child.get("grade", "")),
+                    "document_count": len(self._records_for_child("documents", parent_id, child_id)),
+                    "portfolio_export_count": len(self._records_for_child("portfolio_exports", parent_id, child_id)),
+                }
+            )
+        return summaries
+
+    def record_audit_event(
+        self,
+        parent_id: str,
+        event_type: str,
+        child_id: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        record = {
+            "id": f"audit-{uuid.uuid4().hex[:10]}",
+            "parent_id": parent_id,
+            "event_type": event_type,
+            "child_id": child_id,
+            "details": details or {},
+            "created_at": now_iso(),
+        }
+        db = self.firestore
+        if db is None:
+            self._memory["audit_events"][record["id"]] = record
+        else:
+            db.collection("audit_events").document(record["id"]).set(record)
+        return record
+
+    def list_audit_events(self, parent_id: str, limit: int = 20) -> list[dict[str, Any]]:
+        db = self.firestore
+        if db is None:
+            records = [
+                dict(record)
+                for record in self._memory["audit_events"].values()
+                if record.get("parent_id") == parent_id
+            ]
+        else:
+            records = [
+                snapshot.to_dict() or {}
+                for snapshot in db.collection("audit_events").where("parent_id", "==", parent_id).stream()
+            ]
+        records.sort(key=lambda record: str(record.get("created_at", "")), reverse=True)
+        return records[:limit]
+
+    def delete_child_data(self, parent_id: str, child_id: str, confirmation_name: str, delete_storage: bool = True) -> dict[str, Any]:
+        parent = self.get_parent_with_children(parent_id)
+        child = next((item for item in parent.get("children", []) if item.get("id") == child_id), None)
+        if not child:
+            raise ValueError("Child not found")
+        if len(parent.get("children", [])) <= 1:
+            raise ValueError("Cannot delete the only child profile")
+        if str(child.get("name", "")).strip() != confirmation_name.strip():
+            raise ValueError("Child name confirmation does not match")
+
+        documents = self._records_for_child("documents", parent_id, child_id)
+        exports = self._records_for_child("portfolio_exports", parent_id, child_id)
+        storage_deleted = 0
+        if delete_storage:
+            for record in [*documents.values(), *exports.values()]:
+                storage_uri = record.get("storage_uri")
+                if storage_uri:
+                    storage_deleted += self.delete_storage_uri(str(storage_uri))
+
+        db = self.firestore
+        if db is None:
+            self._memory["children"].pop(child_id, None)
+            for record_id in documents:
+                self._memory["documents"].pop(record_id, None)
+            for record_id in exports:
+                self._memory["portfolio_exports"].pop(record_id, None)
+        else:
+            db.collection("children").document(child_id).delete()
+            for record_id in documents:
+                db.collection("documents").document(record_id).delete()
+            for record_id in exports:
+                db.collection("portfolio_exports").document(record_id).delete()
+
+        self.record_audit_event(
+            parent_id,
+            "child_data_deleted",
+            child_id=child_id,
+            details={
+                "child_name": child.get("name"),
+                "deleted_documents": len(documents),
+                "deleted_portfolio_exports": len(exports),
+                "deleted_storage_objects": storage_deleted,
+            },
+        )
+        return {
+            "parent": self.get_parent_with_children(parent_id),
+            "deleted_child_id": child_id,
+            "deleted_documents": len(documents),
+            "deleted_portfolio_exports": len(exports),
+            "deleted_storage_objects": storage_deleted,
+        }
+
+    def _records_for_child(self, collection: str, parent_id: str, child_id: str) -> dict[str, dict[str, Any]]:
+        db = self.firestore
+        if db is None:
+            return {
+                record_id: dict(record)
+                for record_id, record in self._memory[collection].items()
+                if record.get("parent_id") == parent_id and record.get("child_id") == child_id
+            }
+        return {
+            snapshot.id: snapshot.to_dict() or {}
+            for snapshot in (
+                db.collection(collection)
+                .where("parent_id", "==", parent_id)
+                .where("child_id", "==", child_id)
+                .stream()
+            )
+        }
+
     def upload_bytes(self, path: str, content: bytes, content_type: str) -> str | None:
         client = self.storage
         if client is None:
@@ -234,6 +407,22 @@ class Persistence:
             raise ValueError("Cloud storage is not configured")
         bucket_name, blob_path = storage_uri.removeprefix("gs://").split("/", 1)
         return self.storage.bucket(bucket_name).blob(blob_path).download_as_bytes()
+
+    def delete_storage_uri(self, storage_uri: str) -> int:
+        if storage_uri.startswith("file://"):
+            path = Path(storage_uri.removeprefix("file://"))
+            if path.exists():
+                path.unlink()
+                return 1
+            return 0
+        if not storage_uri.startswith("gs://") or self.storage is None:
+            return 0
+        bucket_name, blob_path = storage_uri.removeprefix("gs://").split("/", 1)
+        blob = self.storage.bucket(bucket_name).blob(blob_path)
+        if not blob.exists():
+            return 0
+        blob.delete()
+        return 1
 
     def save_document(self, record: dict[str, Any]) -> dict[str, Any]:
         db = self.firestore

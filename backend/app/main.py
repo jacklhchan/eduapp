@@ -29,7 +29,11 @@ from .pdf_export import build_portfolio_pdf
 from .persistence import DEMO_CHILD_ID, DEMO_PARENT_ID, now_iso, persistence
 from .schemas import (
     AuthResponse,
+    AuditEvent,
+    ChildDataSummary,
     ChildCreateRequest,
+    ChildDeleteRequest,
+    ChildDeleteResponse,
     ChildProfile,
     DocumentRecord,
     GeneratedQuiz,
@@ -37,6 +41,9 @@ from .schemas import (
     OcrReviewResult,
     ParentUpdateRequest,
     ParentProfile,
+    PrivacyCenterResponse,
+    PrivacySettings,
+    PrivacyUpdateRequest,
     PortfolioExportRecord,
     PortfolioExportRequest,
     SignupRequest,
@@ -242,6 +249,49 @@ def update_parent(payload: ParentUpdateRequest, parent_id: str = Depends(require
     return ParentProfile.model_validate(parent)
 
 
+def build_privacy_center_response(parent_id: str) -> PrivacyCenterResponse:
+    parent = persistence.get_parent_with_children(parent_id)
+    if not parent:
+        raise HTTPException(status_code=404, detail="Parent profile not found")
+    parent_profile = ParentProfile.model_validate(parent)
+    return PrivacyCenterResponse(
+        parent=parent_profile,
+        privacy_settings=PrivacySettings.model_validate(parent_profile.privacy_settings),
+        children=[ChildDataSummary.model_validate(item) for item in persistence.list_child_data_summaries(parent_id)],
+        audit_events=[AuditEvent.model_validate(item) for item in persistence.list_audit_events(parent_id)],
+    )
+
+
+def require_privacy_consent(parent_id: str, consent_key: str, action: str) -> None:
+    parent = persistence.get_parent_with_children(parent_id)
+    if not parent:
+        raise HTTPException(status_code=404, detail="Parent profile not found")
+    settings = PrivacySettings.model_validate(parent.get("privacy_settings") or {})
+    if not getattr(settings, consent_key):
+        raise HTTPException(status_code=403, detail=f"Parent consent required for {action}")
+
+
+@app.get("/api/privacy", response_model=PrivacyCenterResponse)
+def privacy_center(parent_id: str = Depends(require_parent_id)) -> PrivacyCenterResponse:
+    return build_privacy_center_response(parent_id)
+
+
+@app.patch("/api/privacy/consent", response_model=PrivacyCenterResponse)
+def update_privacy_settings(
+    payload: PrivacyUpdateRequest,
+    parent_id: str = Depends(require_parent_id),
+) -> PrivacyCenterResponse:
+    parent = persistence.update_privacy_settings(parent_id, payload.model_dump(mode="json", exclude_unset=True))
+    if not parent:
+        raise HTTPException(status_code=404, detail="Parent profile not found")
+    return build_privacy_center_response(parent_id)
+
+
+@app.get("/api/audit-log", response_model=list[AuditEvent])
+def audit_log(parent_id: str = Depends(require_parent_id)) -> list[AuditEvent]:
+    return [AuditEvent.model_validate(item) for item in persistence.list_audit_events(parent_id)]
+
+
 @app.get("/api/children")
 def list_children(parent_id: str = Depends(require_parent_id)) -> dict[str, Any]:
     parent = persistence.get_parent_with_children(parent_id)
@@ -264,6 +314,34 @@ async def update_child(child_id: str, payload: dict[str, Any], parent_id: str = 
     return ChildProfile.model_validate(child)
 
 
+@app.delete("/api/children/{child_id}", response_model=ChildDeleteResponse)
+async def delete_child(
+    child_id: str,
+    payload: ChildDeleteRequest,
+    parent_id: str = Depends(require_parent_id),
+) -> ChildDeleteResponse:
+    try:
+        result = persistence.delete_child_data(
+            parent_id,
+            child_id,
+            confirmation_name=payload.confirmation_name,
+            delete_storage=payload.delete_storage,
+        )
+    except ValueError as exc:
+        detail = str(exc)
+        status_code = 409 if "only child" in detail else 400
+        if detail == "Child not found":
+            status_code = 404
+        raise HTTPException(status_code=status_code, detail=detail) from exc
+    return ChildDeleteResponse(
+        parent=ParentProfile.model_validate(result["parent"]),
+        deleted_child_id=result["deleted_child_id"],
+        deleted_documents=result["deleted_documents"],
+        deleted_portfolio_exports=result["deleted_portfolio_exports"],
+        deleted_storage_objects=result["deleted_storage_objects"],
+    )
+
+
 @app.post("/api/ocr-review")
 async def ocr_review(
     file: UploadFile = File(...),
@@ -272,6 +350,8 @@ async def ocr_review(
     grade: str = Form("P3"),
     parent_id: str = Depends(require_parent_id),
 ) -> dict[str, Any]:
+    require_privacy_consent(parent_id, "upload_storage_consent", "homework upload storage")
+    require_privacy_consent(parent_id, "ai_processing_consent", "AI homework review")
     content = await file.read()
     if not content:
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
@@ -329,6 +409,7 @@ async def generate_quiz(
     payload: dict[str, Any],
     parent_id: str = Depends(require_parent_id),
 ) -> dict[str, Any]:
+    require_privacy_consent(parent_id, "ai_processing_consent", "AI practice generation")
     client = get_genai_client()
     child_profile_id = str(payload.get("child_profile_id", "prototype-child"))
     weak_topic = str(payload.get("weak_topic", "Fractions"))
@@ -389,6 +470,7 @@ async def export_portfolio(
     payload: PortfolioExportRequest,
     parent_id: str = Depends(require_parent_id),
 ) -> PortfolioExportRecord:
+    require_privacy_consent(parent_id, "portfolio_export_consent", "Portfolio PDF export")
     parent = persistence.get_parent_with_children(parent_id)
     child_data = next((child for child in parent.get("children", []) if child.get("id") == payload.child_id), None)
     if not child_data:
@@ -413,6 +495,12 @@ async def export_portfolio(
         created_at=now_iso(),
     )
     persistence.save_portfolio_export(record.model_dump(mode="json"))
+    persistence.record_audit_event(
+        parent_id,
+        "portfolio_exported",
+        child_id=child.id,
+        details={"export_id": export_id, "filename": filename},
+    )
     return record
 
 

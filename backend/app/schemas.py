@@ -114,6 +114,46 @@ class ChildCreateRequest(BaseModel):
     avatar_url: str | None = None
 
 
+class PrivacySettings(BaseModel):
+    ai_processing_consent: bool = False
+    upload_storage_consent: bool = False
+    portfolio_export_consent: bool = False
+    product_updates_consent: bool = False
+    retention_days: int = Field(default=365, ge=30, le=3650)
+    consent_version: str = "prototype-2026-06-01"
+    consent_updated_at: str | None = None
+
+
+class PrivacyUpdateRequest(BaseModel):
+    ai_processing_consent: bool | None = None
+    upload_storage_consent: bool | None = None
+    portfolio_export_consent: bool | None = None
+    product_updates_consent: bool | None = None
+    retention_days: int | None = Field(default=None, ge=30, le=3650)
+
+
+class ChildDeleteRequest(BaseModel):
+    confirmation_name: str
+    delete_storage: bool = True
+
+
+class ChildDataSummary(BaseModel):
+    child_id: str
+    child_name: str
+    grade: str
+    document_count: int = 0
+    portfolio_export_count: int = 0
+
+
+class AuditEvent(BaseModel):
+    id: str
+    parent_id: str
+    event_type: str
+    child_id: str | None = None
+    details: dict[str, Any] = Field(default_factory=dict)
+    created_at: str
+
+
 class ParentUpdateRequest(BaseModel):
     display_name: str | None = None
     avatar_url: str | None = None
@@ -126,6 +166,7 @@ class ParentProfile(BaseModel):
     display_name: str
     avatar_url: str | None = None
     onboarding_complete: bool = False
+    privacy_settings: PrivacySettings = Field(default_factory=PrivacySettings)
     children: list[ChildProfile] = Field(default_factory=list)
 
 
@@ -143,6 +184,23 @@ class SignupRequest(BaseModel):
 class AuthResponse(BaseModel):
     ok: bool = True
     parent: ParentProfile
+
+
+class PrivacyCenterResponse(BaseModel):
+    ok: bool = True
+    parent: ParentProfile
+    privacy_settings: PrivacySettings
+    children: list[ChildDataSummary]
+    audit_events: list[AuditEvent] = Field(default_factory=list)
+
+
+class ChildDeleteResponse(BaseModel):
+    ok: bool = True
+    parent: ParentProfile
+    deleted_child_id: str
+    deleted_documents: int = 0
+    deleted_portfolio_exports: int = 0
+    deleted_storage_objects: int = 0
 
 
 class ExtractedQuestion(BaseModel):
