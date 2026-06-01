@@ -58,6 +58,7 @@ from .schemas import (
     SignupRequest,
     TeacherLearningReportResponse,
     LearningProgressResponse,
+    SubjectProgressSummary,
     LearningTopicSummary,
 )
 
@@ -71,6 +72,17 @@ DEMO_PARENT_PIN = os.getenv("EDUPASS_DEMO_PIN", "246810")
 OCR_REVIEW_MODE = os.getenv("EDUPASS_OCR_REVIEW_MODE", "multimodal")
 LOCAL_PRACTICE_FALLBACK = os.getenv("EDUPASS_LOCAL_PRACTICE_FALLBACK", "1").lower() not in {"0", "false", "no"}
 ACTIVE_LEARNING_SUBJECT = "Mathematics"
+NON_ACADEMIC_PROGRESS_SUBJECTS = {
+    "arts and creativity",
+    "music",
+    "pe",
+    "physical education",
+    "physical fitness and health",
+    "sport",
+    "sports",
+    "va",
+    "visual arts",
+}
 
 app = FastAPI(title="EduPass AI Backend", version="0.1.0")
 app.add_middleware(
@@ -981,6 +993,15 @@ def enum_text(value: Any) -> str:
     return str(getattr(value, "value", value))
 
 
+def normalize_subject_key(value: Any) -> str:
+    return " ".join(enum_text(value).replace("_", " ").replace("-", " ").strip().lower().split())
+
+
+def is_academic_progress_subject(value: Any) -> bool:
+    subject = normalize_subject_key(value)
+    return bool(subject) and subject not in NON_ACADEMIC_PROGRESS_SUBJECTS
+
+
 def summarize_practice_topics(payload: PracticeAttemptRequest) -> list[PracticeTopicResult]:
     topics: dict[str, dict[str, Any]] = {}
     for answer in payload.answers:
@@ -1016,8 +1037,8 @@ def save_practice_attempt(
     parent_id: str = Depends(require_parent_id),
 ) -> PracticeAttemptRecord:
     require_privacy_consent(parent_id, "ai_processing_consent", "practice result tracking")
-    if enum_text(payload.subject) != ACTIVE_LEARNING_SUBJECT:
-        raise HTTPException(status_code=400, detail="Only Mathematics practice tracking is active; other subjects are roadmap.")
+    if not is_academic_progress_subject(payload.subject):
+        raise HTTPException(status_code=400, detail="Only academic subject scores can be tracked; PE, sport, music and Visual Arts stay as portfolio evidence.")
     parent = persistence.get_parent_with_children(parent_id)
     child = next((item for item in parent.get("children", []) if item.get("id") == payload.child_id), None)
     if not child:
@@ -1072,7 +1093,8 @@ def build_learning_progress(parent_id: str, child_id: str, report_month: str | N
 
     for document in documents:
         review = document.get("review") or {}
-        if enum_text(review.get("subject") or ACTIVE_LEARNING_SUBJECT) != ACTIVE_LEARNING_SUBJECT:
+        review_subject = enum_text(review.get("subject") or ACTIVE_LEARNING_SUBJECT)
+        if not is_academic_progress_subject(review_subject):
             continue
         created_at = str(document.get("created_at") or "")
         recent_activity.append(
@@ -1084,7 +1106,9 @@ def build_learning_progress(parent_id: str, child_id: str, report_month: str | N
             }
         )
         for topic in review.get("topics") or []:
-            subject = str(topic.get("subject") or review.get("subject") or "Mathematics")
+            subject = str(topic.get("subject") or review_subject)
+            if not is_academic_progress_subject(subject):
+                continue
             label = str(topic.get("topic") or "Uncategorised")
             key = topic_key(subject, label)
             stats = topic_stats.setdefault(
@@ -1103,7 +1127,9 @@ def build_learning_progress(parent_id: str, child_id: str, report_month: str | N
             stats["last_seen_at"] = max(str(stats.get("last_seen_at") or ""), created_at)
         for question in review.get("extracted_questions") or []:
             label = str(question.get("topic") or "Uncategorised")
-            subject = str(review.get("subject") or "Mathematics")
+            subject = str(question.get("subject") or review_subject)
+            if not is_academic_progress_subject(subject):
+                continue
             key = topic_key(subject, label)
             stats = topic_stats.setdefault(
                 key,
@@ -1125,7 +1151,8 @@ def build_learning_progress(parent_id: str, child_id: str, report_month: str | N
                     stats["incorrect_count"] += 1
 
     for attempt in attempts:
-        if enum_text(attempt.get("subject") or ACTIVE_LEARNING_SUBJECT) != ACTIVE_LEARNING_SUBJECT:
+        attempt_subject = enum_text(attempt.get("subject") or ACTIVE_LEARNING_SUBJECT)
+        if not is_academic_progress_subject(attempt_subject):
             continue
         created_at = str(attempt.get("created_at") or "")
         total_count = max(int(attempt.get("total_count") or 0), 1)
@@ -1141,7 +1168,9 @@ def build_learning_progress(parent_id: str, child_id: str, report_month: str | N
             }
         )
         for topic_result in attempt.get("topic_results") or []:
-            subject = str(topic_result.get("subject") or attempt.get("subject") or "Mathematics")
+            subject = str(topic_result.get("subject") or attempt_subject)
+            if not is_academic_progress_subject(subject):
+                continue
             label = str(topic_result.get("topic") or "General practice")
             key = topic_key(subject, label)
             stats = topic_stats.setdefault(
@@ -1190,6 +1219,42 @@ def build_learning_progress(parent_id: str, child_id: str, report_month: str | N
         key=lambda item: item.mastery,
         reverse=True,
     )[:3]
+    subject_buckets: dict[str, dict[str, Any]] = {}
+    for item in summaries:
+        bucket = subject_buckets.setdefault(
+            item.subject,
+            {
+                "subject": item.subject,
+                "evidence_count": 0,
+                "practice_count": 0,
+                "correct_count": 0,
+                "incorrect_count": 0,
+                "mastery_total": 0,
+                "topic_count": 0,
+                "last_seen_at": "",
+            },
+        )
+        bucket["evidence_count"] += item.evidence_count
+        bucket["practice_count"] += item.practice_count
+        bucket["correct_count"] += item.correct_count
+        bucket["incorrect_count"] += item.incorrect_count
+        bucket["mastery_total"] += item.mastery
+        bucket["topic_count"] += 1
+        if item.last_seen_at:
+            bucket["last_seen_at"] = max(str(bucket.get("last_seen_at") or ""), item.last_seen_at)
+    subject_scores = [
+        SubjectProgressSummary(
+            subject=str(bucket["subject"]),
+            evidence_count=int(bucket["evidence_count"]),
+            practice_count=int(bucket["practice_count"]),
+            correct_count=int(bucket["correct_count"]),
+            incorrect_count=int(bucket["incorrect_count"]),
+            mastery=round(int(bucket["mastery_total"]) / max(int(bucket["topic_count"]), 1)),
+            last_seen_at=str(bucket.get("last_seen_at") or "") or None,
+        )
+        for bucket in subject_buckets.values()
+    ]
+    subject_scores.sort(key=lambda item: (item.mastery, item.subject))
     overall_mastery = round(sum(item.mastery for item in summaries) / len(summaries)) if summaries else 0
     if not trend_points and overall_mastery:
         trend_points = [max(0, overall_mastery - 12), max(0, overall_mastery - 5), overall_mastery]
@@ -1205,6 +1270,7 @@ def build_learning_progress(parent_id: str, child_id: str, report_month: str | N
         weak_topics=weak_topics,
         improved_topics=improved_topics,
         all_topics=summaries,
+        subject_scores=subject_scores,
         recent_activity=recent_activity[:8],
     )
 

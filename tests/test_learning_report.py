@@ -111,7 +111,7 @@ def test_practice_attempt_updates_progress_and_share_report(monkeypatch) -> None
     assert "Fractions" in teacher_page.text
 
 
-def test_non_math_practice_tracking_is_roadmap_only(monkeypatch) -> None:
+def test_academic_subject_tracking_includes_non_math_and_excludes_non_academic(monkeypatch) -> None:
     monkeypatch.setenv("EDUPASS_STORAGE_BACKEND", "memory")
     client = TestClient(app)
     email = f"roadmap-{uuid.uuid4().hex[:8]}@example.com"
@@ -126,14 +126,41 @@ def test_non_math_practice_tracking_is_roadmap_only(monkeypatch) -> None:
     consent = client.patch("/api/privacy/consent", json={"ai_processing_consent": True})
     assert consent.status_code == 200
 
-    blocked = client.post(
+    chinese_attempt = client.post(
         "/api/practice-attempts",
         json={
             "child_id": child.json()["id"],
             "grade": "P3",
             "subject": "Chinese Language",
-            "answers": [{"question_id": "q1", "topic": "Reading", "subject": "Chinese Language"}],
+            "answers": [
+                {
+                    "question_id": "q1",
+                    "topic": "Reading",
+                    "subject": "Chinese Language",
+                    "submitted_answer": "中心思想",
+                    "expected_answer": "中心思想",
+                    "is_correct": True,
+                }
+            ],
+        },
+    )
+    assert chinese_attempt.status_code == 200
+    assert chinese_attempt.json()["correct_count"] == 1
+
+    blocked = client.post(
+        "/api/practice-attempts",
+        json={
+            "child_id": child.json()["id"],
+            "grade": "P3",
+            "subject": "Visual Arts",
+            "answers": [{"question_id": "q1", "topic": "Drawing", "subject": "Visual Arts"}],
         },
     )
     assert blocked.status_code == 400
-    assert "Only Mathematics" in blocked.json()["detail"]
+    assert "Only academic subject scores" in blocked.json()["detail"]
+
+    progress = client.get(f"/api/learning/progress?child_id={child.json()['id']}")
+    assert progress.status_code == 200
+    subject_scores = {item["subject"]: item for item in progress.json()["subject_scores"]}
+    assert subject_scores["Chinese Language"]["mastery"] == 100
+    assert "Visual Arts" not in subject_scores

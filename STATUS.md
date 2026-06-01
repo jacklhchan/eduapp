@@ -1,6 +1,6 @@
 # Status
 
-最後更新：2026-06-01 17:52 HKT
+最後更新：2026-06-01 18:40 HKT
 
 ## 目前目標
 
@@ -78,11 +78,11 @@
   - OCR review / quiz generation / Portfolio PDF export 會檢查對應 consent flag。
   - audit log 會記錄 privacy update、Portfolio export、child data deletion。
 - 補上 prototype UI button actions：
-  - bottom tab 全 app 固定同一套 `Home / Portfolio / Upload / Coach / Profile`，Profile 不再切換成舊版 tab。
-  - Home `開始練習` 接到 Coach quiz generation；`查看全部` 可展開最近上載記錄。
+  - bottom tab 全 app 固定同一套 `Home / Portfolio / Upload / Progress / Profile`，Profile 不再切換成舊版 tab。
+  - Home `查看進度` 接到 Progress tab；`查看全部` 可展開最近上載記錄。
   - top app bar child switch 可在 Matthew / Chloe 之間切換。
   - Upload preview fullscreen、錯題刪除、reason select 都有前端狀態反應。
-  - Coach 加入 Stitch-style `AI 分析中`、`每日 5 分鐘特訓`、`練習完成` flow，完成前需查看所有答案。
+  - Quiz generation / daily practice UI 目前先從 tab 隱藏，Progress tab 專注各科成績與 evidence tracking。
   - Profile `Add Child` 接 `POST /api/children`，`Edit Profile` 接 `PATCH /api/children/{child_id}`，settings rows 改為 bottom sheet panels。
 - Learning Passport / Portfolio functions 已補成可操作工作台：
   - per-child portfolio draft sections：`Cover Page`、`About Me`、`Learning Attitude`、`Self-care`、`Artworks & Activities`。
@@ -96,7 +96,9 @@
   - 補上 `docs/stitch-screen-map.md`：未來 missing / unclear screen 必須先 reference 使用者現有 Stitch project；如沒有合適既有 screen，需用 Google Stitch MCP 在該 project 生成 missing screen，不能直接在 React 手寫假 source。
   - Learning Passport 依 grade stage 分流：K1-K3 reference `幼稚園面試作品集 (Portfolio)`，使用 whole-child / personal development sections；P1-S6 reference `家長主導學習儀表板 (Progress Dashboard)` 與 `學習態度 (AI Review)`，使用 academic progress / evidence sections。
   - Learning Passport overview 現在提供 `Edit info` 入口，可直接編輯 child name / grade / passport / focus 等 profile info；section draft / status / evidence 會 autosave 到 child profile 的 `portfolio_sections`，再由 Firestore / memory backend rehydrate。
-  - Home tab 已改成 profile / stage aware：K1-K3 顯示成長摘要、幼兒 Portfolio、AI 成長觀察與生活 evidence；P1-S6 顯示 academic learning summary、practice CTA、AI 數學教練與功課 evidence。
+  - Portfolio editor 現在會出現在對應 section card 下方；desktop two-column layout 也會跨欄顯示，不再掉到所有 cards 後面。
+  - Fresh child（例如 Jackson）新增時不再自動寫入 demo passport / focus / language / school type；Learning Passport sections 保持空白 draft，只有 Matthew / Chloe demo profile 保留示例內容。
+  - Home tab 已改成 profile / stage aware：K1-K3 顯示成長摘要、幼兒 Portfolio、AI 成長觀察與生活 evidence；P1-S6 顯示 academic learning summary、Progress CTA、學科進度與功課 evidence。
   - Home tab 已按 Stitch `家長主導學習儀表板 (Progress Dashboard)` / `projects/10595017015370179580/screens/2cf4c58dda9a400181ac6d8b56c19aea` 重構 first screen：mastery ring、progress breakdown、daily goals、recommended practice、Portfolio / Coach cards 與最近上載；K1-K3 仍改寫成 whole-child development，不套學科分數語氣。
   - 修正 AI draft `確認採用` button 內 `task_alt` icon 名稱漏成文字的 CSS 問題，action button icon 會強制用 Material Symbols font。
 - 加入 OCR document persistence：
@@ -129,7 +131,7 @@
   - `docs/syllabus/` 由 `scripts/generate_syllabus_docs.py` 生成 15 個年級、204 個 per-year / per-subject Markdown reference files；每份 subject MD 包含 EDB-derived 課程宗旨、學習內容摘要、年級重點、evidence mapping 與官方來源。
   - `src/data/curriculum.ts` 提供 K1-K3、P1-P6、S1-S3、S4-S6 stage / KLA / subject catalogue，並提供 grade-specific helpers。
   - `backend/app/curriculum_catalog.py` 提供後端 catalogue 與 `GET /api/curriculum/catalog`。
-  - Coach tab 加入 `HKEDB 課程地圖`，現在會綁定目前 child profile grade；例如 child 是 S3 時只顯示 S3 相關科目，再於該年級內按 KLA 篩選。
+  - Progress tab 加入 `HKEDB 課程地圖`，現在會綁定目前 child profile grade；例如 child 是 P3 時顯示 P3 academic subjects，並排除 PE / VA / Music 等非成績追蹤科目。
   - `backend/app/schemas.py` 的 `Subject` enum 已擴展到 HKEDB K1-S6 主要科目。
   - OCR review prompt 會按 child grade 限定 HKEDB-aligned subject list；quiz generation prompt 會帶入 subject / KLA / strands / source ids。
   - 已修正 Stitch MCP API key 設定，並成功用 `generate_screen_from_text` 生成 curriculum source screen `d1423b25c1f5425d80c697265ecacb27`（`HKEDB 課程地圖 (P1-P6)`）。
@@ -137,21 +139,21 @@
   - 已用 Stitch MCP `edit_screens` 生成 profile-bound S3 learning map source screen `fe9f34c1c45a4089a8c980dfc16a6c7b`（`Matthew S3 課程地圖 (S3 Curriculum Map)`）。
   - 已用 Stitch MCP `generate_screen_from_text` 生成 Data Privacy Center source screen `c1523b2bbe15450f9473922e40e7e3e8`（`數據隱私中心 (Data Privacy Center)`），React `Data & Privacy` sheet 按此 screen 的 hero shield pulse、consent switches、retention segments、child data summary、audit list、danger zone 與 save sweep 接線。
   - Frontend 已開始建立 course content / learning topic layer，source workspace id 記錄為 `019e81ae-60ab-7fb1-b131-9f60588a450a`，目前有 K2 / P3 / P4 / S1 / S3 topic seeds；若某年級/科目未有手寫 seed，會由 EDB subject strands 產生同 grade / same subject topic skeleton。
-- Coach practice generation 已支援 per topic / area 題數分配：
+- Practice generation backend 已支援 per topic / area 題數分配，但前端出題入口目前先隱藏：
   - Course content topic rail 和 detail card 均有題數 stepper。
   - `POST /api/generate-quiz` 接收 `question_count` 與 `practice_plan`，prompt 會要求 Gemini 按每個 topic / area 的 `question_count` 分配題目。
   - Practice screen 改為 multiple choice；每題選擇答案後即時自動批改，提交後顯示參考答案、解釋與 marking scheme，所有題目提交後才可完成練習。
   - Coach UI 已收斂為 Mathematics-only：不再顯示其他科目 / KLA filter / roadmap 科目卡；首頁最近上載示例亦改為數學相關。
   - Quiz generation 加入 plain-text math sanitizer；會把 `$\\frac{1}{4}$`、`$\\triangle$`、`$\\square$` 等 LaTeX / Markdown math 清洗為 `1/4`、`△`、`□`，前端顯示層也有同樣防線。
-  - Fresh parent 若未開啟 AI processing consent，開始練習會直接帶到 Data & Privacy；開啟 consent 後即可生成數學 quiz。
+  - Fresh parent 若未開啟 AI processing consent，practice API 仍會擋下 tracking / generation；前端目前不顯示生成 quiz 入口。
   - Fresh child 的 Learning Passport 不再預填 demo evidence / completed sections；只有 Matthew / Chloe demo profile 保留示例內容。
 - 補上原 StudyLens 缺口中除 payment 以外的核心閉環：
   - `POST /api/practice-attempts` 保存每次練習答案、topic、正誤與錯因到 Firestore / memory backend。
   - `POST /api/generate-quiz` prompt / local fallback 要求每題 4 個 options，`answer` 必須對應其中一個 option，方便手機上快速作答。
-  - `GET /api/learning/progress` 從 OCR document + practice attempts 聚合 weak topics、improved topics、overall mastery、trend points 與 recent activity。
-  - Coach tab 加入 `Progress Report` 面板：顯示上載數、練習數、進步曲線、Top 3 weak topics、已改善 topics。
+  - `GET /api/learning/progress` 從 OCR document + subject attempts 聚合 weak topics、improved topics、overall mastery、subject_scores、trend points 與 recent activity。
+  - Progress tab 加入 Stitch `學術發展儀表板 (Academic Development)` / `Animated Progress Dashboard` reference：顯示各 academic subject score rows、上載數、attempts、topics、Top 3 weak topics、已改善 topics。
   - `POST /api/reports/share` 建立老師分享 token；`GET /teacher-report/{token}` 提供無需登入的補習老師月度學習報告頁，預設不公開原始 upload。
-  - HKEDB subject enum / catalogue 保留中文、英文及 K1-S6 科目作 roadmap mapping；目前可操作 OCR review、weakness tracking、quiz generation 先鎖定 Mathematics。
+  - HKEDB subject enum / catalogue 保留中文、英文及 K1-S6 科目作 roadmap mapping；progress / score tracking 已放寬到 academic subjects，PE / sport / VA / Music 保留作 portfolio evidence，不作 score rows。
   - 仍沿用 React + Vite、FastAPI、Firestore、Cloud Storage、Cloud Run 架構；未加入 payment。
 - 新增 `docs/iphone-qa-checklist.md`，覆蓋 Safari Add to Home Screen、auth/onboarding、navigation、privacy、upload/AI、Coach、Portfolio、visual QA。
 
@@ -212,10 +214,11 @@
   - `.venv312/bin/python -m pytest tests -q`：22 passed，1 warning（ReportLab dependency deprecation warning）。
   - `.venv312/bin/python -m py_compile backend/app/main.py backend/app/schemas.py backend/app/persistence.py` 通過。
   - `npm run build` 通過。
-  - 本機 API smoke：`POST /api/generate-quiz` 產生 3 題 Mathematics multiple-choice 題目，每題 4 個 options、answer 均在 options 內，且無 raw LaTeX display text。
-  - 本機 fresh parent Jack + child Jackson smoke：consent 前 quiz 403，開啟 `ai_processing_consent` 後同一 child quiz 200，回 2 題、每題 4 options。
-  - 本機 Playwright smoke：390px mobile Coach 頁已移除 duplicate `每日 5 分鐘特訓 / 開始練習` block，只剩 topic allocation 的 `Generate 6 questions`。
-  - 本機 Playwright smoke：390px mobile Home 頁已套用 Stitch Progress Dashboard pattern；Matthew 顯示 `Learning Progress` academic dashboard，Chloe 顯示 `Whole-child Development`；兩者無 horizontal overflow。
+  - 本機 API test：fresh child Jackson 只帶 `name` / `grade` 建立時，`passport` / `focus` / `language` / `school_type` / `portfolio_sections` 均保持空白。
+  - 本機 API test：`POST /api/practice-attempts` 接受 `Chinese Language` subject score tracking；`Visual Arts` 回 400，且不出現在 `subject_scores`。
+  - 本機 Playwright smoke：390px mobile Progress tab 顯示 `Progress` bottom label、`學科進度`、`Academic Progress`，無 `Generate questions` / `開始練習`。
+  - 本機 Playwright smoke：P3 Progress tab 顯示 5 個 academic subject rows（中國語文、普通話、英國語文、數學、常識），VA / PE / Music 不出現在 subject rows；`scrollWidth === clientWidth`。
+  - 本機 Playwright smoke：Portfolio section editor 會出現在所選 card 下方，Academic Progress card 後面立即接 editor。
 
 ## 下一步
 

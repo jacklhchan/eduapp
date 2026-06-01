@@ -682,6 +682,10 @@ export function getSubjectsForGrade(grade?: string | null, klaId: KlaId | 'all' 
   });
 }
 
+export function isAcademicProgressSubject(subject: CurriculumSubject) {
+  return subject.klaId !== 'arts' && subject.klaId !== 'physical-education';
+}
+
 export function getKlasForStage(stageId: CurriculumStageId) {
   const seen = new Map<KlaId, string>();
   getSubjectsForStage(stageId).forEach((subject) => {

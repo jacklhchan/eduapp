@@ -106,20 +106,20 @@ class ChildProfile(BaseModel):
     name: str
     avatar_url: str | None = None
     grade: str
-    passport: str = "Learning Passport"
-    focus: str = "小學數學 + 升小 Portfolio"
-    language: str = "繁中 / English"
-    school_type: str = "香港主流小學"
+    passport: str = ""
+    focus: str = ""
+    language: str = ""
+    school_type: str = ""
     portfolio_sections: list[PortfolioDraftSection] = Field(default_factory=list)
 
 
 class ChildCreateRequest(BaseModel):
     name: str
     grade: str = "P1"
-    passport: str = "Learning Passport"
-    focus: str = "小學數學 + Portfolio"
-    language: str = "繁中 / English"
-    school_type: str = "香港主流小學"
+    passport: str = ""
+    focus: str = ""
+    language: str = ""
+    school_type: str = ""
     avatar_url: str | None = None
     portfolio_sections: list[PortfolioDraftSection] = Field(default_factory=list)
 
@@ -428,6 +428,16 @@ class LearningTopicSummary(BaseModel):
     last_seen_at: str | None = None
 
 
+class SubjectProgressSummary(BaseModel):
+    subject: str
+    evidence_count: int = 0
+    practice_count: int = 0
+    correct_count: int = 0
+    incorrect_count: int = 0
+    mastery: int = Field(default=0, ge=0, le=100)
+    last_seen_at: str | None = None
+
+
 class LearningProgressResponse(BaseModel):
     ok: bool = True
     child: ChildProfile
@@ -439,6 +449,7 @@ class LearningProgressResponse(BaseModel):
     weak_topics: list[LearningTopicSummary] = Field(default_factory=list)
     improved_topics: list[LearningTopicSummary] = Field(default_factory=list)
     all_topics: list[LearningTopicSummary] = Field(default_factory=list)
+    subject_scores: list[SubjectProgressSummary] = Field(default_factory=list)
     recent_activity: list[dict[str, Any]] = Field(default_factory=list)
 
 

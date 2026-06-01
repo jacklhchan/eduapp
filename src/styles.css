@@ -3342,6 +3342,178 @@ p {
   font-size: 16px;
 }
 
+.academic-progress-panel {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(0, 82, 204, 0.22);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(218, 226, 255, 0.74), rgba(255, 255, 255, 0.96)),
+    var(--surface-lowest);
+  box-shadow: 0 12px 30px rgba(0, 61, 155, 0.1);
+}
+
+.academic-progress-panel::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary-container), var(--secondary), var(--tertiary-fixed-dim));
+  content: "";
+}
+
+.academic-progress-hero,
+.selected-subject-score,
+.subject-score-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.academic-progress-hero {
+  position: relative;
+  z-index: 1;
+  align-items: flex-start;
+}
+
+.academic-progress-hero h2 {
+  margin: 4px 0 2px;
+  color: var(--on-surface);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 30px;
+}
+
+.academic-progress-hero p {
+  color: var(--on-variant);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.subject-score-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.selected-subject-score {
+  padding: 14px;
+  border: 1px solid rgba(0, 82, 204, 0.18);
+  border-radius: 12px;
+  background: var(--surface-lowest);
+}
+
+.selected-subject-score span,
+.selected-subject-score p,
+.subject-score-row span,
+.subject-score-row b {
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+}
+
+.selected-subject-score span {
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.selected-subject-score h3 {
+  margin-top: 3px;
+  color: var(--on-surface);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 28px;
+}
+
+.selected-subject-score p {
+  margin-top: 2px;
+  color: var(--on-variant);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.selected-subject-score > strong {
+  color: var(--primary);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 32px;
+}
+
+.subject-score-list {
+  display: grid;
+  gap: 8px;
+}
+
+.subject-score-row {
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  width: 100%;
+  min-height: 66px;
+  padding: 10px;
+  border: 1px solid rgba(195, 198, 214, 0.5);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.84);
+  color: var(--on-surface);
+  text-align: left;
+}
+
+.subject-score-row.active {
+  border-color: rgba(0, 82, 204, 0.4);
+  background: var(--primary-fixed);
+  box-shadow: 0 0 0 2px rgba(0, 82, 204, 0.08);
+}
+
+.subject-score-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--surface-low);
+  color: var(--primary);
+}
+
+.subject-score-row div {
+  min-width: 0;
+}
+
+.subject-score-row strong,
+.subject-score-row div > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subject-score-row strong {
+  color: var(--on-surface);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 18px;
+}
+
+.subject-score-row div > span {
+  margin-top: 3px;
+  color: var(--on-variant);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 15px;
+}
+
+.subject-score-row b {
+  min-width: 48px;
+  color: var(--primary);
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 20px;
+  text-align: right;
+}
+
 .report-panel-head h2 {
   margin: 4px 0 2px;
   color: var(--on-surface);
@@ -4831,6 +5003,8 @@ p {
   }
 
   .portfolio-card.wide,
+  .passport-editor-panel,
+  .academic-progress-panel,
   .learning-report-panel {
     grid-column: 1 / -1;
   }

@@ -43,6 +43,15 @@ def test_signup_login_and_first_child_onboarding(monkeypatch) -> None:
     assert child.json()["name"] == "Avery"
     child_id = child.json()["id"]
 
+    blank_child = client.post("/api/children", json={"name": "Jackson", "grade": "P3"})
+    assert blank_child.status_code == 200
+    assert blank_child.json()["name"] == "Jackson"
+    assert blank_child.json()["passport"] == ""
+    assert blank_child.json()["focus"] == ""
+    assert blank_child.json()["language"] == ""
+    assert blank_child.json()["school_type"] == ""
+    assert blank_child.json()["portfolio_sections"] == []
+
     passport_update = client.patch(
         f"/api/children/{child_id}",
         json={

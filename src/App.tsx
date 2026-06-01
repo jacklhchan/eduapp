@@ -1,8 +1,9 @@
-import { type ChangeEvent, type FormEvent, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, type ChangeEvent, type FormEvent, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import {
   curriculumStages,
   getStageForGrade,
   getSubjectsForGrade,
+  isAcademicProgressSubject,
   normalizeGrade,
   type CurriculumSubject,
 } from './data/curriculum';
@@ -166,6 +167,16 @@ type LearningTopicSummary = {
   last_seen_at?: string | null;
 };
 
+type SubjectProgressSummary = {
+  subject: string;
+  evidence_count: number;
+  practice_count: number;
+  correct_count: number;
+  incorrect_count: number;
+  mastery: number;
+  last_seen_at?: string | null;
+};
+
 type LearningProgress = {
   child: ChildProfile;
   report_month: string;
@@ -176,6 +187,7 @@ type LearningProgress = {
   weak_topics: LearningTopicSummary[];
   improved_topics: LearningTopicSummary[];
   all_topics: LearningTopicSummary[];
+  subject_scores?: SubjectProgressSummary[];
   recent_activity: Array<Record<string, unknown>>;
 };
 
@@ -250,7 +262,7 @@ const navItems: Array<{ id: View; label: string; icon: string }> = [
   { id: 'home', label: 'Home', icon: 'home' },
   { id: 'portfolio', label: 'Portfolio', icon: 'import_contacts' },
   { id: 'upload', label: 'Upload', icon: 'add_a_photo' },
-  { id: 'coach', label: 'Coach', icon: 'calculate' },
+  { id: 'coach', label: 'Progress', icon: 'monitoring' },
   { id: 'profile', label: 'Profile', icon: 'person' },
 ];
 
@@ -264,7 +276,7 @@ function preferredChildId(parent: ParentProfile): string {
   return parent.children.find((child) => child.id === 'child-matthew')?.id || parent.children[0]?.id || 'child-matthew';
 }
 
-function preferredCoachSubjectId(subjects: CurriculumSubject[]) {
+function preferredProgressSubjectId(subjects: CurriculumSubject[]) {
   return subjects.find((subject) => subject.id === activeCoachSubjectId)?.id || subjects[0]?.id || '';
 }
 
@@ -602,12 +614,12 @@ function homeContentForChild(child: ChildProfile | null) {
         本週上載 <strong>2</strong> 份功課，分數概念有進步，應用題審題仍需練習。繼續保持！
       </>
     ),
-    actionIcon: 'school',
+    actionIcon: 'monitoring',
     actionKicker: '今日建議',
-    actionTitle: '練習：5題兩步應用題',
-    actionLabel: '開始練習',
+    actionTitle: '查看各科成績進度',
+    actionLabel: '查看進度',
     actionView: 'coach' as View,
-    actionDescription: 'Focusing on problem comprehension from recent OCR evidence.',
+    actionDescription: '按學科整理 OCR evidence、測驗分數與弱項 topics。',
     portfolioTitle: '學習歷程檔案',
     portfolioText: '收集並整理學生的學習成果與進步軌跡。',
     progress: 65,
@@ -619,17 +631,17 @@ function homeContentForChild(child: ChildProfile | null) {
     progressItems: [
       { icon: 'calculate', label: 'Math', value: 85, tone: 'primary' },
       { icon: 'menu_book', label: 'Language', value: 72, tone: 'tertiary' },
-      { icon: 'palette', label: 'Arts', value: 60, tone: 'secondary' },
+      { icon: 'science', label: 'Science', value: 60, tone: 'secondary' },
     ],
     goals: [
-      { label: 'Complete 1 Math Exercise', completed: true },
-      { label: 'Upload 1 piece of Artwork', actionLabel: 'Upload', actionView: 'upload' as View },
+      { label: 'Review latest subject scores', completed: true },
+      { label: 'Upload 1 marked homework', actionLabel: 'Upload', actionView: 'upload' as View },
       { label: 'Review Language corrections', actionLabel: 'Review', actionView: 'portfolio' as View },
     ],
-    coachIcon: 'calculate',
-    coachTitle: 'AI 數學教練',
-    coachText: '基礎運算掌握良好，目前專注於應用題解析。',
-    tags: ['分數計算 (優)', '應用題 (需努力)'],
+    coachIcon: 'monitoring',
+    coachTitle: '學科進度',
+    coachText: '集中追蹤各 academic subject 的成績、evidence 與弱項。',
+    tags: ['數學', '語文', '科學'],
     recentUploads: [
       { image: images.homework, title: '數學小測', time: '今天 14:30' },
       { image: images.notebook, title: '分數練習', time: '昨天 18:15' },
@@ -1265,7 +1277,6 @@ function App() {
         <HomeView
           child={currentChild}
           setActiveView={setActiveView}
-          onStartPractice={() => startPractice()}
         />
       )}
       {activeView === 'portfolio' && (
@@ -1303,20 +1314,10 @@ function App() {
         <CoachView
           child={currentChild}
           learningProgress={learningProgress}
-          practiceError={practiceError}
-          practiceQuiz={practiceQuiz}
-          practiceState={practiceState}
           progressState={progressState}
           shareReport={shareReport}
           shareState={shareState}
-          onCompletePractice={completePractice}
           onShareReport={shareLearningReport}
-          onStartPractice={restartPractice}
-          onStartTopic={(options) => startPractice(options)}
-          onResetPractice={() => {
-            setPracticeQuiz(null);
-            setPracticeState('idle');
-          }}
         />
       )}
       {activeView === 'profile' && parent ? (
@@ -1443,9 +1444,9 @@ function OnboardingView({
   const [parentName, setParentName] = useState(parent.display_name || '');
   const [childName, setChildName] = useState('');
   const [grade, setGrade] = useState('P1');
-  const [focus, setFocus] = useState('小學數學 + Portfolio');
-  const [schoolType, setSchoolType] = useState('香港主流小學');
-  const [language, setLanguage] = useState('繁中 / English');
+  const [focus, setFocus] = useState('');
+  const [schoolType, setSchoolType] = useState('');
+  const [language, setLanguage] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1462,7 +1463,7 @@ function OnboardingView({
           grade,
           language,
           name: childName,
-          passport: 'Learning Passport',
+          passport: '',
           school_type: schoolType,
         },
       );
@@ -1509,6 +1510,7 @@ function OnboardingView({
           <label>
             Language
             <select value={language} onChange={(event) => setLanguage(event.target.value)}>
+              <option value="">Not set yet</option>
               <option>繁中 / English</option>
               <option>繁體中文</option>
               <option>English</option>
@@ -1598,25 +1600,17 @@ function SettingsHeader({ onBack, onHelp }: { onBack: () => void; onHelp: () => 
 
 function HomeView({
   child,
-  onStartPractice,
   setActiveView,
 }: {
   child: ChildProfile | null;
-  onStartPractice: () => void;
   setActiveView: (view: View) => void;
 }) {
   const [showAllUploads, setShowAllUploads] = useState(false);
   const content = homeContentForChild(child);
   const recentUploads = content.recentUploads;
-  const handlePrimaryAction = content.actionView === 'coach'
-    ? onStartPractice
-    : () => setActiveView(content.actionView);
+  const handlePrimaryAction = () => setActiveView(content.actionView);
   const completedGoals = content.goals.filter((goal) => goal.completed).length;
   const handleGoalAction = (view: View | undefined) => {
-    if (view === 'coach') {
-      onStartPractice();
-      return;
-    }
     if (view) setActiveView(view);
   };
 
@@ -1702,7 +1696,7 @@ function HomeView({
           </div>
         </div>
         <button className="primary-action" type="button" onClick={handlePrimaryAction}>
-          <Icon name={content.actionView === 'coach' ? 'play_arrow' : 'edit_note'} filled />
+          <Icon name={content.actionView === 'coach' ? 'monitoring' : 'edit_note'} filled />
           {content.actionLabel}
         </button>
       </section>
@@ -1796,13 +1790,98 @@ function PortfolioView({
   sections: PortfolioSectionDraft[];
 }) {
   const [activeSectionId, setActiveSectionId] = useState(sections[0]?.id || '');
-  const activeSection = sections.find((section) => section.id === activeSectionId) || sections[0];
   const progress = calculatePortfolioProgress(sections);
   const completedCount = sections.filter((section) => section.status === 'Completed').length;
   const readyCount = sections.filter((section) => section.status === 'AI Ready').length;
   const evidenceCount = sections.reduce((total, section) => total + section.evidence.length, 0);
   const copy = portfolioStageCopy(child);
   const statusOptions: PortfolioStatus[] = ['Completed', 'AI Ready', 'Drafting'];
+  const renderEditorPanel = (section: PortfolioSectionDraft) => (
+    <section className="passport-editor-panel" aria-label={`${section.title} editor`}>
+      <div className="editor-head">
+        <span className="portfolio-icon">
+          <Icon name={section.icon} filled />
+        </span>
+        <div className="editor-title">
+          <span>{section.shortTitle} · Updated {section.updatedAt}</span>
+          <h2>{section.title}</h2>
+        </div>
+        <StatusChip status={section.status} tone={portfolioTone(section.status)} />
+      </div>
+
+      <div className="status-segments" role="group" aria-label="Portfolio section status">
+        {statusOptions.map((status) => (
+          <button
+            className={section.status === status ? 'active' : ''}
+            key={status}
+            type="button"
+            onClick={() => onUpdateSection(section.id, { status })}
+          >
+            {status}
+          </button>
+        ))}
+      </div>
+
+      <label className="draft-textarea">
+        School-ready draft
+        <textarea
+          value={section.body}
+          onChange={(event) => onUpdateSection(section.id, { body: event.target.value })}
+        />
+      </label>
+
+      <div className="ai-draft-panel">
+        <div>
+          <span><Icon name="auto_awesome" filled /> AI draft</span>
+          <p>{section.aiDraft}</p>
+        </div>
+        <button
+          className="secondary-action"
+          type="button"
+          onClick={() => onUpdateSection(section.id, { body: section.aiDraft, status: 'Completed' })}
+        >
+          <Icon name="task_alt" />
+          確認採用
+        </button>
+      </div>
+
+      <div className="evidence-tools">
+        <div className="evidence-head">
+          <h3>Evidence bank</h3>
+          <span>{section.evidence.length}/{section.requiredEvidence}</span>
+        </div>
+        <div className="evidence-list">
+          {section.evidence.length ? section.evidence.map((item) => (
+            <span className="evidence-chip" key={item}>
+              {item}
+              <button type="button" aria-label={`Remove ${item}`} onClick={() => onRemoveEvidence(section.id, item)}>
+                <Icon name="close" />
+              </button>
+            </span>
+          )) : (
+            <span className="empty-evidence">No evidence yet</span>
+          )}
+        </div>
+
+        <div className="editor-button-row">
+          <button className="secondary-action" type="button" onClick={() => onAddEvidence(section.id)}>
+            <Icon name="add_circle" />
+            新增 evidence
+          </button>
+          <button className="secondary-action" type="button" onClick={onOpenUpload}>
+            <Icon name="upload_file" />
+            上載作品
+          </button>
+          {section.image ? (
+            <button className="secondary-action" type="button" onClick={() => onPreviewEvidence(section.image || '')}>
+              <Icon name="fullscreen" />
+              預覽相片
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
 
   useEffect(() => {
     if (!sections.length) return;
@@ -1846,127 +1925,42 @@ function PortfolioView({
 
       <section className="portfolio-grid">
         {sections.map((section) => (
-          <button
-            className={`portfolio-card ${section.id === activeSectionId ? 'active' : ''} ${section.id === 'artworks' ? 'wide' : ''}`}
-            key={section.id}
-            type="button"
-            onClick={() => setActiveSectionId(section.id)}
-          >
-            <div className="portfolio-card-top">
-              <span className="portfolio-icon">
-                <Icon name={section.icon} filled />
-              </span>
-              <StatusChip status={section.status} tone={portfolioTone(section.status)} />
-            </div>
-            <div className={section.id === 'artworks' ? 'art-row' : undefined}>
-              <div>
-                <h3>{section.title}</h3>
-                <p>{section.copy}</p>
+          <Fragment key={section.id}>
+            <button
+              className={`portfolio-card ${section.id === activeSectionId ? 'active' : ''} ${section.id === 'artworks' ? 'wide' : ''}`}
+              type="button"
+              onClick={() => setActiveSectionId(section.id)}
+            >
+              <div className="portfolio-card-top">
+                <span className="portfolio-icon">
+                  <Icon name={section.icon} filled />
+                </span>
+                <StatusChip status={section.status} tone={portfolioTone(section.status)} />
               </div>
-              {section.image ? (
-                <div className="art-thumbs">
-                  <img src={section.image} alt={section.title} />
-                  <span>
-                    <img src={section.id === 'artworks' ? images.blocks : section.image} alt="" />
-                    <b>+{Math.max(section.evidence.length - 1, 1)}</b>
-                  </span>
+              <div className={section.id === 'artworks' ? 'art-row' : undefined}>
+                <div>
+                  <h3>{section.title}</h3>
+                  <p>{section.copy}</p>
                 </div>
-              ) : null}
-            </div>
-            <div className="portfolio-card-actions">
-              <span><Icon name="edit_note" /> 編輯</span>
-              <span>{section.evidence.length}/{section.requiredEvidence} evidence</span>
-            </div>
-          </button>
+                {section.image ? (
+                  <div className="art-thumbs">
+                    <img src={section.image} alt={section.title} />
+                    <span>
+                      <img src={section.id === 'artworks' ? images.blocks : section.image} alt="" />
+                      <b>+{Math.max(section.evidence.length - 1, 1)}</b>
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+              <div className="portfolio-card-actions">
+                <span><Icon name="edit_note" /> 編輯</span>
+                <span>{section.evidence.length}/{section.requiredEvidence} evidence</span>
+              </div>
+            </button>
+            {section.id === activeSectionId ? renderEditorPanel(section) : null}
+          </Fragment>
         ))}
       </section>
-
-      {activeSection ? (
-        <section className="passport-editor-panel" aria-label={`${activeSection.title} editor`}>
-          <div className="editor-head">
-            <span className="portfolio-icon">
-              <Icon name={activeSection.icon} filled />
-            </span>
-            <div className="editor-title">
-              <span>{activeSection.shortTitle} · Updated {activeSection.updatedAt}</span>
-              <h2>{activeSection.title}</h2>
-            </div>
-            <StatusChip status={activeSection.status} tone={portfolioTone(activeSection.status)} />
-          </div>
-
-          <div className="status-segments" role="group" aria-label="Portfolio section status">
-            {statusOptions.map((status) => (
-              <button
-                className={activeSection.status === status ? 'active' : ''}
-                key={status}
-                type="button"
-                onClick={() => onUpdateSection(activeSection.id, { status })}
-              >
-                {status}
-              </button>
-            ))}
-          </div>
-
-          <label className="draft-textarea">
-            School-ready draft
-            <textarea
-              value={activeSection.body}
-              onChange={(event) => onUpdateSection(activeSection.id, { body: event.target.value })}
-            />
-          </label>
-
-          <div className="ai-draft-panel">
-            <div>
-              <span><Icon name="auto_awesome" filled /> AI draft</span>
-              <p>{activeSection.aiDraft}</p>
-            </div>
-            <button
-              className="secondary-action"
-              type="button"
-              onClick={() => onUpdateSection(activeSection.id, { body: activeSection.aiDraft, status: 'Completed' })}
-            >
-              <Icon name="task_alt" />
-              確認採用
-            </button>
-          </div>
-
-          <div className="evidence-tools">
-            <div className="evidence-head">
-              <h3>Evidence bank</h3>
-              <span>{activeSection.evidence.length}/{activeSection.requiredEvidence}</span>
-            </div>
-            <div className="evidence-list">
-              {activeSection.evidence.length ? activeSection.evidence.map((item) => (
-                <span className="evidence-chip" key={item}>
-                  {item}
-                  <button type="button" aria-label={`Remove ${item}`} onClick={() => onRemoveEvidence(activeSection.id, item)}>
-                    <Icon name="close" />
-                  </button>
-                </span>
-              )) : (
-                <span className="empty-evidence">No evidence yet</span>
-              )}
-            </div>
-
-            <div className="editor-button-row">
-              <button className="secondary-action" type="button" onClick={() => onAddEvidence(activeSection.id)}>
-                <Icon name="add_circle" />
-                新增 evidence
-              </button>
-              <button className="secondary-action" type="button" onClick={onOpenUpload}>
-                <Icon name="upload_file" />
-                上載作品
-              </button>
-              {activeSection.image ? (
-                <button className="secondary-action" type="button" onClick={() => onPreviewEvidence(activeSection.image || '')}>
-                  <Icon name="fullscreen" />
-                  預覽相片
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </section>
-      ) : null}
 
       {exportState === 'done' || exportState === 'error' ? (
         <div className={`export-toast ${exportState}`}>
@@ -2260,35 +2254,24 @@ function MistakeCard({
 function CoachView({
   child,
   learningProgress,
-  onCompletePractice,
-  onResetPractice,
   onShareReport,
-  onStartPractice,
-  onStartTopic,
-  practiceError,
-  practiceQuiz,
-  practiceState,
   progressState,
   shareReport,
   shareState,
 }: {
   child: ChildProfile | null;
   learningProgress: LearningProgress | null;
-  onCompletePractice: (answers: PracticeSubmission) => void;
-  onResetPractice: () => void;
   onShareReport: () => void;
-  onStartPractice: () => void;
-  onStartTopic: (options: PracticeStartOptions) => void;
-  practiceError: string | null;
-  practiceQuiz: GeneratedQuiz | null;
-  practiceState: PracticeState;
   progressState: 'idle' | 'loading' | 'ready' | 'error';
   shareReport: ShareReport | null;
   shareState: 'idle' | 'running' | 'done' | 'error';
 }) {
   const profileGrade = normalizeGrade(child?.grade);
-  const gradeSubjects = useMemo(() => getSubjectsForGrade(profileGrade), [profileGrade]);
-  const [selectedSubjectId, setSelectedSubjectId] = useState(preferredCoachSubjectId(gradeSubjects));
+  const gradeSubjects = useMemo(
+    () => getSubjectsForGrade(profileGrade).filter(isAcademicProgressSubject),
+    [profileGrade],
+  );
+  const [selectedSubjectId, setSelectedSubjectId] = useState(preferredProgressSubjectId(gradeSubjects));
   const selectedSubject = gradeSubjects.find((subject) => subject.id === selectedSubjectId)
     || gradeSubjects.find((subject) => subject.id === activeCoachSubjectId)
     || gradeSubjects[0]
@@ -2300,39 +2283,33 @@ function CoachView({
       return;
     }
     if (!gradeSubjects.some((subject) => subject.id === selectedSubjectId)) {
-      setSelectedSubjectId(preferredCoachSubjectId(gradeSubjects));
+      setSelectedSubjectId(preferredProgressSubjectId(gradeSubjects));
     }
   }, [gradeSubjects, selectedSubjectId]);
 
-  if (practiceState === 'generating') {
-    return <PracticeAnalyzingView child={child} />;
-  }
-
-  if (practiceState === 'ready' && practiceQuiz) {
-    return <DailyPracticeView onComplete={onCompletePractice} onRestart={onStartPractice} quiz={practiceQuiz} />;
-  }
-
-  if (practiceState === 'complete') {
-    return <PracticeCompleteView onBack={onResetPractice} onRestart={onStartPractice} quiz={practiceQuiz} />;
-  }
-
   return (
-    <main className="content-stack coach-view">
+    <main
+      className="content-stack coach-view"
+      data-stitch-source="projects/10595017015370179580/screens/a592e20bc97e4cbfb85986527e821d31 projects/10595017015370179580/screens/14d41f421d024aac915984de00d1dea0"
+    >
       <section className="page-intro tight">
-        <h2>數學學習分析</h2>
-        <p>{child?.name || 'Matthew'} 目前集中數學弱項、OCR evidence 與針對練習。</p>
+        <h2>學科進度</h2>
+        <p>{child?.name || 'Matthew'} 的 academic subject score、OCR evidence 與弱項 topic。</p>
       </section>
+
+      <AcademicSubjectProgressPanel
+        child={child}
+        progress={learningProgress}
+        progressState={progressState}
+        selectedSubject={selectedSubject}
+        subjects={gradeSubjects}
+        onSelectSubject={setSelectedSubjectId}
+      />
 
       <CurriculumMapSection
         child={child}
         selectedSubjectId={selectedSubject?.id || ''}
         onSelectSubject={setSelectedSubjectId}
-      />
-
-      <CourseContentSection
-        child={child}
-        selectedSubject={selectedSubject}
-        onStartPractice={onStartTopic}
       />
 
       <LearningReportPanel
@@ -2344,45 +2321,170 @@ function CoachView({
         onShareReport={onShareReport}
       />
 
-      {practiceState === 'error' ? (
-        <div className="analysis-result error">
-          <strong>練習生成失敗</strong>
-          <p>{practiceError || '請稍後再試。'}</p>
-        </div>
-      ) : null}
-
       <section className="coach-grid">
         <article className="data-card">
           <div className="card-title-row">
-            <h3>主題掌握度</h3>
+            <h3>弱項 topic</h3>
             <Icon name="bar_chart" />
           </div>
-          <Mastery label="分數" value={92} tone="green" />
-          <Mastery label="時間" value={85} tone="mint" />
-          <Mastery label="幾何" value={70} tone="amber" />
-          <Mastery label="應用題" value={45} tone="red" />
+          {(learningProgress?.weak_topics || []).slice(0, 4).map((topic) => (
+            <Mastery
+              key={`${topic.subject}-${topic.topic}`}
+              label={topic.topic}
+              value={topic.mastery}
+              tone={topic.mastery >= 75 ? 'green' : topic.mastery >= 60 ? 'amber' : 'red'}
+            />
+          ))}
+          {learningProgress?.weak_topics?.length ? null : <p>暫時未有已評分 academic topic。</p>}
         </article>
 
         <article className="data-card">
           <div className="card-title-row">
-            <h3>需注意的錯誤類型</h3>
-            <Icon name="warning" />
+            <h3>Score source</h3>
+            <Icon name="fact_check" />
           </div>
-          <p>基於近期 5 次測驗的 AI 分析：</p>
+          <p>基於已上載並確認的 OCR review、測驗分數及已保存的 subject attempts。</p>
           <div className="mistake-tags">
-            <span className="danger"><Icon name="search" /> 看漏關鍵字</span>
-            <span>計算錯誤</span>
-            <span className="amber"><Icon name="straighten" /> 單位換算</span>
+            <span><Icon name="upload_file" /> {learningProgress?.document_count || 0} uploads</span>
+            <span><Icon name="edit_note" /> {learningProgress?.practice_count || 0} attempts</span>
+            <span className="amber"><Icon name="visibility_off" /> PE / VA excluded</span>
           </div>
         </article>
       </section>
 
       <section className="history-section">
-        <h3>近期練習記錄</h3>
-        <HistoryCard score="85" title="週末綜合卷" date="10/12" text="進步神速！但在『長度單位換算』上要更小心，建議再複習一次口訣。" tone="green" />
-        <HistoryCard score="92" title="課堂小測：幾何" date="10/10" text="完美的幾何理解，面積公式運用得非常熟練，繼續保持！" tone="gray" />
+        <h3>近期紀錄</h3>
+        {(learningProgress?.recent_activity || []).slice(0, 3).map((activity, index) => (
+          <HistoryCard
+            key={`${activity.created_at || index}-${activity.title || 'activity'}`}
+            score={`${activity.score ?? learningProgress?.overall_mastery ?? 0}`}
+            title={String(activity.title || 'Learning evidence')}
+            date={String(activity.created_at || '').slice(5, 10) || 'Now'}
+            text={`${activity.type === 'practice_attempt' ? 'Subject attempt' : 'OCR evidence'} · ${activity.count || 0} item(s)`}
+            tone={Number(activity.score || learningProgress?.overall_mastery || 0) >= 75 ? 'green' : 'gray'}
+          />
+        ))}
+        {learningProgress?.recent_activity?.length ? null : <p className="empty-report-note">上載有分數的 academic work 後，這裡會顯示最新紀錄。</p>}
       </section>
     </main>
+  );
+}
+
+type AcademicSubjectProgressRow = {
+  subject: CurriculumSubject;
+  mastery: number | null;
+  evidenceCount: number;
+  practiceCount: number;
+  topicCount: number;
+  lastSeenAt?: string | null;
+};
+
+function normalizeSubjectLabel(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function buildAcademicSubjectRows(
+  progress: LearningProgress | null,
+  subjects: CurriculumSubject[],
+): AcademicSubjectProgressRow[] {
+  const scoreBySubject = new Map((progress?.subject_scores || []).map((score) => [normalizeSubjectLabel(score.subject), score]));
+  return subjects.map((subject) => {
+    const subjectKeys = [subject.id, subject.name, subject.displayNameZh].map(normalizeSubjectLabel);
+    const score = subjectKeys.map((key) => scoreBySubject.get(key)).find(Boolean);
+    const topicMatches = (progress?.all_topics || []).filter((topic) => subjectKeys.includes(normalizeSubjectLabel(topic.subject)));
+    const evidenceCount = score?.evidence_count ?? topicMatches.reduce((total, topic) => total + topic.evidence_count, 0);
+    const practiceCount = score?.practice_count ?? topicMatches.reduce((total, topic) => total + topic.practice_count, 0);
+    const mastery = score?.mastery ?? (
+      topicMatches.length
+        ? Math.round(topicMatches.reduce((total, topic) => total + topic.mastery, 0) / topicMatches.length)
+        : null
+    );
+    const sortedDates = topicMatches.map((topic) => topic.last_seen_at || '').sort();
+    const lastSeenAt = score?.last_seen_at || sortedDates[sortedDates.length - 1] || null;
+    return {
+      subject,
+      mastery,
+      evidenceCount,
+      practiceCount,
+      topicCount: topicMatches.length,
+      lastSeenAt,
+    };
+  });
+}
+
+function AcademicSubjectProgressPanel({
+  child,
+  onSelectSubject,
+  progress,
+  progressState,
+  selectedSubject,
+  subjects,
+}: {
+  child: ChildProfile | null;
+  onSelectSubject: (subjectId: string) => void;
+  progress: LearningProgress | null;
+  progressState: 'idle' | 'loading' | 'ready' | 'error';
+  selectedSubject: CurriculumSubject | null;
+  subjects: CurriculumSubject[];
+}) {
+  const rows = buildAcademicSubjectRows(progress, subjects);
+  const scoredRows = rows.filter((row) => row.mastery !== null);
+  const mastery = progressState === 'loading' ? '...' : `${progress?.overall_mastery || 0}%`;
+  const selectedRow = rows.find((row) => row.subject.id === selectedSubject?.id) || rows[0];
+
+  return (
+    <section
+      className="academic-progress-panel"
+      aria-label="Academic subject score progress"
+      data-stitch-source="projects/10595017015370179580/screens/a592e20bc97e4cbfb85986527e821d31"
+    >
+      <div className="academic-progress-hero">
+        <div>
+          <span className="report-kicker"><Icon name="monitoring" /> Academic Progress</span>
+          <h2>{child?.name || '孩子'} 的各科成績</h2>
+          <p>{progress?.report_month || '今個月'} · {subjects.length} academic subjects · PE / VA portfolio only</p>
+        </div>
+        <div className="report-mastery-card">
+          <strong>{mastery}</strong>
+          <small>Overall</small>
+        </div>
+      </div>
+
+      <div className="subject-score-summary">
+        <Metric value={`${scoredRows.length}/${subjects.length}`} label="Scored" />
+        <Metric value={`${progress?.document_count || 0}`} label="Uploads" />
+        <Metric value={`${progress?.all_topics?.length || 0}`} label="Topics" />
+      </div>
+
+      {selectedRow ? (
+        <article className="selected-subject-score">
+          <div>
+            <span>{selectedRow.subject.klaName}</span>
+            <h3>{selectedRow.subject.displayNameZh}</h3>
+            <p>{selectedRow.subject.name}</p>
+          </div>
+          <strong>{selectedRow.mastery === null ? '--' : `${selectedRow.mastery}%`}</strong>
+        </article>
+      ) : null}
+
+      <div className="subject-score-list">
+        {rows.map((row) => (
+          <button
+            className={row.subject.id === selectedSubject?.id ? 'subject-score-row active' : 'subject-score-row'}
+            key={row.subject.id}
+            type="button"
+            onClick={() => onSelectSubject(row.subject.id)}
+          >
+            <span className="subject-score-icon"><Icon name={row.mastery === null ? 'pending' : 'query_stats'} /></span>
+            <div>
+              <strong>{row.subject.displayNameZh}</strong>
+              <span>{row.evidenceCount} evidence · {row.practiceCount} attempts · {row.topicCount} topics</span>
+            </div>
+            <b>{row.mastery === null ? '--' : `${row.mastery}%`}</b>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -2423,7 +2525,7 @@ function LearningReportPanel({
         <div>
           <span className="report-kicker"><Icon name="analytics" /> Progress Report</span>
           <h2>{child?.name || '孩子'} 的進步報告</h2>
-          <p>{reportMonth} · OCR evidence + practice attempts</p>
+          <p>{reportMonth} · OCR evidence + subject scores</p>
         </div>
         <div className="report-mastery-card" aria-label={`Mastery ${mastery}`}>
           <strong>{mastery}</strong>
@@ -2446,7 +2548,7 @@ function LearningReportPanel({
         </div>
         <div className="report-metrics">
           <Metric value={`${progress?.document_count || 0}`} label="Uploads" />
-          <Metric value={`${progress?.practice_count || 0}`} label="Practices" />
+          <Metric value={`${progress?.practice_count || 0}`} label="Attempts" />
           <Metric value={`${progress?.all_topics?.length || 0}`} label="Topics" />
         </div>
       </div>
@@ -2456,7 +2558,7 @@ function LearningReportPanel({
           <h3><Icon name="flag" /> Top 3 weak topics</h3>
           {weakTopics.length ? weakTopics.map((topic) => (
             <TopicReportRow key={`${topic.subject}-${topic.topic}`} topic={topic} />
-          )) : <p className="empty-report-note">完成 OCR review 或練習後會自動生成弱項。</p>}
+          )) : <p className="empty-report-note">完成 OCR review 或輸入測驗分數後會整理弱項。</p>}
         </article>
         <article>
           <h3><Icon name="trending_up" /> 已改善</h3>
@@ -2470,7 +2572,7 @@ function LearningReportPanel({
         <div>
           <span><Icon name="verified_user" filled /> 家長控制分享</span>
           <h3>分享給補習老師</h3>
-          <p>連結只包含學習弱項、改善項目與練習紀錄摘要；不公開原始相片。</p>
+          <p>連結只包含學習弱項、改善項目與分數紀錄摘要；不公開原始相片。</p>
         </div>
         <div className="teacher-share-actions">
           <button className="primary-action report-share-button" type="button" disabled={shareState === 'running'} onClick={onShareReport}>
@@ -2499,7 +2601,7 @@ function TopicReportRow({ topic }: { topic: LearningTopicSummary }) {
     <div className={`topic-report-row ${topic.trend}`}>
       <div>
         <strong>{topic.topic}</strong>
-        <span>{topic.subject} · evidence {topic.evidence_count} · practice {topic.practice_count}</span>
+        <span>{topic.subject} · evidence {topic.evidence_count} · attempts {topic.practice_count}</span>
       </div>
       <b>{topic.mastery}%</b>
     </div>
@@ -2725,24 +2827,24 @@ function CurriculumMapSection({
   const profileGrade = normalizeGrade(child?.grade);
   const selectedStage = getStageForGrade(profileGrade);
   const stage = curriculumStages.find((item) => item.id === selectedStage) || curriculumStages[1];
-  const mathSubject = useMemo(
-    () => getSubjectsForGrade(profileGrade).find((subject) => subject.id === activeCoachSubjectId) || null,
+  const academicSubjects = useMemo(
+    () => getSubjectsForGrade(profileGrade).filter(isAcademicProgressSubject),
     [profileGrade],
   );
   const notices = useMemo(() => gradeNotices(profileGrade), [profileGrade]);
 
   useEffect(() => {
-    if (mathSubject && selectedSubjectId !== mathSubject.id) {
-      onSelectSubject(mathSubject.id);
+    if (academicSubjects.length && !academicSubjects.some((subject) => subject.id === selectedSubjectId)) {
+      onSelectSubject(preferredProgressSubjectId(academicSubjects));
     }
-  }, [mathSubject, onSelectSubject, selectedSubjectId]);
+  }, [academicSubjects, onSelectSubject, selectedSubjectId]);
 
   return (
     <section className="curriculum-map" aria-label="HKEDB curriculum map">
       <div className="curriculum-head">
         <div>
-          <span className="verified-label"><Icon name="verified" filled /> Active MVP · Mathematics · {profileGrade}</span>
-          <h2>{child?.name || '孩子'} 的課程地圖</h2>
+          <span className="verified-label"><Icon name="verified" filled /> Academic subjects · {profileGrade}</span>
+          <h2>{child?.name || '孩子'} 的學科地圖</h2>
         </div>
       </div>
 
@@ -2750,7 +2852,7 @@ function CurriculumMapSection({
         <span className="grade-token"><Icon name="badge" /> {profileGrade}</span>
         <div>
           <strong>{stage.label} · {stage.caption}</strong>
-          <p>{child?.school_type || '香港學校'} · 目前專注數學練習與弱項追蹤</p>
+          <p>{child?.school_type || '香港學校'} · Academic score tracking excludes PE / VA</p>
         </div>
       </div>
 
@@ -2760,8 +2862,8 @@ function CurriculumMapSection({
           <h3>{stage.learningGoal}</h3>
         </div>
         <div className="curriculum-metrics">
-          <Metric value="Maths" label="Focus" />
-          <Metric value="1" label="Subject" />
+          <Metric value="Score" label="Mode" />
+          <Metric value={`${academicSubjects.length}`} label="Subjects" />
           <Metric value="2025/26" label="EDB" />
         </div>
       </section>
@@ -2774,15 +2876,18 @@ function CurriculumMapSection({
         </div>
       ) : null}
 
-      {mathSubject ? (
+      {academicSubjects.length ? (
         <div className="subject-list">
-          <CurriculumSubjectCard
-            grade={profileGrade}
-            selected={mathSubject.id === selectedSubjectId}
-            subject={mathSubject}
-            roadmap={false}
-            onSelect={() => onSelectSubject(mathSubject.id)}
-          />
+          {academicSubjects.map((subject) => (
+            <CurriculumSubjectCard
+              grade={profileGrade}
+              key={subject.id}
+              selected={subject.id === selectedSubjectId}
+              subject={subject}
+              roadmap={false}
+              onSelect={() => onSelectSubject(subject.id)}
+            />
+          ))}
         </div>
       ) : null}
     </section>
@@ -3034,8 +3139,8 @@ function CurriculumSubjectCard({
 
 function gradeNotices(grade: string) {
   return [
-    { icon: 'calculate', text: `${grade} 數學課程節點` },
-    { icon: 'task_alt', text: '練習、弱項追蹤與報告集中數學' },
+    { icon: 'school', text: `${grade} academic subjects` },
+    { icon: 'visibility_off', text: '體育 / VA 不作 score tracking' },
   ];
 }
 
@@ -3357,10 +3462,10 @@ function ChildProfileForm({
 }) {
   const [name, setName] = useState(initial?.name || '');
   const [grade, setGrade] = useState(initial?.grade || 'P1');
-  const [focus, setFocus] = useState(initial?.focus || '小學數學 + Portfolio');
-  const [schoolType, setSchoolType] = useState(initial?.school_type || '香港主流小學');
-  const [language, setLanguage] = useState(initial?.language || '繁中 / English');
-  const [passport, setPassport] = useState(initial?.passport || 'Learning Passport');
+  const [focus, setFocus] = useState(initial?.focus ?? '');
+  const [schoolType, setSchoolType] = useState(initial?.school_type ?? '');
+  const [language, setLanguage] = useState(initial?.language ?? '');
+  const [passport, setPassport] = useState(initial?.passport ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -3408,6 +3513,7 @@ function ChildProfileForm({
       <label>
         Language
         <select value={language} onChange={(event) => setLanguage(event.target.value)}>
+          <option value="">Not set yet</option>
           <option>繁中 / English</option>
           <option>繁體中文</option>
           <option>English</option>
