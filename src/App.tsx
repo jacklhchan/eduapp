@@ -303,14 +303,29 @@ function portfolioStageCopy(child: ChildProfile | null) {
   };
 }
 
+function usesDemoPortfolioContent(child: ChildProfile | null) {
+  return !child || child.id === 'child-matthew' || child.id === 'child-chloe';
+}
+
+function blankPortfolioSectionsForNewChild(sections: PortfolioSectionDraft[]) {
+  return sections.map((section) => ({
+    ...section,
+    status: 'Drafting' as PortfolioStatus,
+    body: '',
+    evidence: [],
+    image: undefined,
+  }));
+}
+
 function createPortfolioSections(child: ChildProfile | null): PortfolioSectionDraft[] {
   const childName = child?.name || 'Matthew';
   const grade = child?.grade || 'P3';
   const focus = child?.focus || '小學數學 + 升小 Portfolio';
   const earlyYears = isEarlyYearsGrade(grade);
+  const useSeedContent = usesDemoPortfolioContent(child);
 
   if (earlyYears) {
-    return [
+    const sections: PortfolioSectionDraft[] = [
       {
         id: 'cover',
         icon: 'book',
@@ -398,9 +413,10 @@ function createPortfolioSections(child: ChildProfile | null): PortfolioSectionDr
         updatedAt: formatPortfolioDate(),
       },
     ];
+    return useSeedContent ? sections : blankPortfolioSectionsForNewChild(sections);
   }
 
-  return [
+  const sections: PortfolioSectionDraft[] = [
     {
       id: 'cover',
       icon: 'book',
@@ -474,6 +490,7 @@ function createPortfolioSections(child: ChildProfile | null): PortfolioSectionDr
       updatedAt: formatPortfolioDate(),
     },
   ];
+  return useSeedContent ? sections : blankPortfolioSectionsForNewChild(sections);
 }
 
 function normalizePortfolioStatus(value: string | undefined): PortfolioStatus {
@@ -512,7 +529,7 @@ function calculatePortfolioProgress(sections: PortfolioSectionDraft[]) {
   if (!sections.length) return 0;
   const score = sections.reduce((total, section) => {
     const evidenceScore = Math.min(section.evidence.length / Math.max(section.requiredEvidence, 1), 1) * 0.25;
-    const statusScore = section.status === 'Completed' ? 0.75 : section.status === 'AI Ready' ? 0.5 : 0.25;
+    const statusScore = section.status === 'Completed' ? 0.75 : section.status === 'AI Ready' ? 0.5 : 0;
     return total + statusScore + evidenceScore;
   }, 0);
   return Math.min(100, Math.round((score / sections.length) * 100));
@@ -813,6 +830,15 @@ function App() {
   }
 
   async function startPractice(options: PracticeStartOptions = {}) {
+    if (!parent?.privacy_settings.ai_processing_consent) {
+      setActiveView('profile');
+      setProfileSheet('privacy');
+      setPracticeState('idle');
+      setPracticeError('Parent consent required for AI practice generation');
+      setToast('請先在 Data & Privacy 開啟 AI review processing');
+      return;
+    }
+
     setActiveView('coach');
     setPracticeState('generating');
     setPracticeQuiz(null);
@@ -845,7 +871,13 @@ function App() {
       setPracticeQuiz(data.quiz);
       setPracticeState('ready');
     } catch (error) {
-      setPracticeError(error instanceof Error ? error.message : 'Practice generation failed');
+      const message = error instanceof Error ? error.message : 'Practice generation failed';
+      setPracticeError(message);
+      if (message.includes('Parent consent required')) {
+        setActiveView('profile');
+        setProfileSheet('privacy');
+        setToast('請先在 Data & Privacy 開啟 AI review processing');
+      }
       setPracticeState('error');
     }
   }
@@ -2207,14 +2239,6 @@ function CoachView({
         onStartPractice={onStartTopic}
       />
 
-      <section className="coach-hero">
-        <div>
-          <h3><Icon name="lightbulb" filled /> 每日 5 分鐘特訓</h3>
-          <p>系統偵測到『應用題』為當前弱項。開始一次簡短的針對性練習，鞏固解題思路！</p>
-        </div>
-        <button type="button" onClick={onStartPractice}><Icon name="play_arrow" filled /> 開始練習</button>
-      </section>
-
       <LearningReportPanel
         child={child}
         progress={learningProgress}
@@ -2285,26 +2309,44 @@ function LearningReportPanel({
   const weakTopics = progress?.weak_topics || [];
   const improvedTopics = progress?.improved_topics || [];
   const shareHref = shareReport?.share_url ? `${window.location.origin}${shareReport.share_url}` : '';
+  const mastery = progressState === 'loading' ? '...' : `${progress?.overall_mastery || 0}%`;
+  const reportMonth = progress?.report_month || '今個月';
+  const copyShareHref = () => {
+    if (shareHref && navigator.clipboard) {
+      void navigator.clipboard.writeText(shareHref);
+    }
+  };
 
   return (
-    <section className="learning-report-panel" aria-label="Progress report and teacher share">
+    <section
+      className={shareState === 'done' ? 'learning-report-panel share-ready' : 'learning-report-panel'}
+      aria-label="Progress report and teacher share"
+      data-stitch-source="projects/7550425496525656523/screens/1fb93eb80a3b493a96781f530ba50099"
+    >
       <div className="report-panel-head">
         <div>
-          <span><Icon name="ios_share" filled /> Progress Report</span>
+          <span className="report-kicker"><Icon name="analytics" /> Progress Report</span>
           <h2>{child?.name || '孩子'} 的進步報告</h2>
-          <p>{progress?.report_month || '今個月'} · OCR evidence + practice attempts</p>
+          <p>{reportMonth} · OCR evidence + practice attempts</p>
         </div>
-        <Metric value={progressState === 'loading' ? '...' : `${progress?.overall_mastery || 0}%`} label="Mastery" />
+        <div className="report-mastery-card" aria-label={`Mastery ${mastery}`}>
+          <strong>{mastery}</strong>
+          <small>Mastery</small>
+        </div>
       </div>
 
-      <div className="report-trend-card">
-        <div className="trend-line" aria-label="Recent progress trend">
-          {trend.map((point, index) => (
-            <span
-              key={`${point}-${index}`}
-              style={{ height: `${Math.max(14, Math.min(96, point))}%`, animationDelay: `${index * 80}ms` }}
-            />
-          ))}
+      <div className="report-dashboard">
+        <div className="report-trend-card">
+          <span>Overall Mastery</span>
+          <strong>{mastery}</strong>
+          <div className="trend-line" aria-label="Recent progress trend">
+            {trend.map((point, index) => (
+              <i
+                key={`${point}-${index}`}
+                style={{ height: `${Math.max(18, Math.min(96, point))}%`, animationDelay: `${index * 80}ms` }}
+              />
+            ))}
+          </div>
         </div>
         <div className="report-metrics">
           <Metric value={`${progress?.document_count || 0}`} label="Uploads" />
@@ -2315,7 +2357,7 @@ function LearningReportPanel({
 
       <div className="topic-report-grid">
         <article>
-          <h3><Icon name="priority_high" /> Top 3 weak topics</h3>
+          <h3><Icon name="flag" /> Top 3 weak topics</h3>
           {weakTopics.length ? weakTopics.map((topic) => (
             <TopicReportRow key={`${topic.subject}-${topic.topic}`} topic={topic} />
           )) : <p className="empty-report-note">完成 OCR review 或練習後會自動生成弱項。</p>}
@@ -2333,12 +2375,24 @@ function LearningReportPanel({
           <span><Icon name="verified_user" filled /> 家長控制分享</span>
           <h3>分享給補習老師</h3>
           <p>連結只包含學習弱項、改善項目與練習紀錄摘要；不公開原始相片。</p>
-          {shareHref ? <a href={shareHref} target="_blank" rel="noreferrer">{shareHref}</a> : null}
         </div>
-        <button className="primary-action" type="button" disabled={shareState === 'running'} onClick={onShareReport}>
-          <Icon name={shareState === 'done' ? 'task_alt' : 'ios_share'} filled />
-          {shareState === 'running' ? '準備中...' : shareState === 'done' ? 'Link ready' : '分享給補習老師'}
-        </button>
+        <div className="teacher-share-actions">
+          <button className="primary-action report-share-button" type="button" disabled={shareState === 'running'} onClick={onShareReport}>
+            <Icon name={shareState === 'done' ? 'task_alt' : 'ios_share'} filled />
+            {shareState === 'running' ? '準備中...' : shareState === 'done' ? '已分享給老師' : '分享給補習老師'}
+          </button>
+          {shareHref ? (
+            <div className="teacher-share-link-row" aria-label="Teacher report link ready">
+              <button type="button" aria-label="Copy teacher report link" onClick={copyShareHref}>
+                <Icon name="content_copy" />
+              </button>
+              <a href={shareHref} target="_blank" rel="noreferrer">{shareHref}</a>
+              <a className="open-report-link" href={shareHref} target="_blank" rel="noreferrer" aria-label="Open teacher report">
+                <Icon name="open_in_new" />
+              </a>
+            </div>
+          ) : null}
+        </div>
       </div>
     </section>
   );
@@ -2346,7 +2400,7 @@ function LearningReportPanel({
 
 function TopicReportRow({ topic }: { topic: LearningTopicSummary }) {
   return (
-    <div className="topic-report-row">
+    <div className={`topic-report-row ${topic.trend}`}>
       <div>
         <strong>{topic.topic}</strong>
         <span>{topic.subject} · evidence {topic.evidence_count} · practice {topic.practice_count}</span>

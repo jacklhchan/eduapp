@@ -2973,73 +2973,40 @@ p {
   color: var(--secondary);
 }
 
-.coach-hero {
+.learning-report-panel {
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 24px;
-  border-radius: 12px;
-  background: var(--primary-container);
-  color: var(--on-primary-container);
-  box-shadow: var(--shadow-2);
-}
-
-.coach-hero h3 {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-  font-family: "Work Sans", "Noto Sans TC", sans-serif;
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 28px;
-}
-
-.coach-hero p {
-  color: rgba(196, 210, 255, 0.95);
-  font-size: 14px;
-  line-height: 20px;
-}
-
-.coach-hero button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  min-height: 40px;
-  padding: 0 24px;
-  border-radius: 8px;
-  background: var(--primary);
-  color: var(--on-primary);
-  font-family: "Work Sans", "Noto Sans TC", sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.learning-report-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
   padding: 16px;
-  border: 1px solid rgba(195, 198, 214, 0.62);
-  border-radius: 16px;
+  border: 1px solid rgba(195, 198, 214, 0.72);
+  border-radius: 12px;
   background: var(--surface-container-lowest);
-  box-shadow: var(--shadow-1);
+  box-shadow: 0 10px 28px rgba(0, 61, 155, 0.08);
   animation: report-card-in 0.42s ease both;
 }
 
-.report-panel-head,
-.report-trend-card,
-.teacher-share-card {
+.learning-report-panel::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary-container), var(--secondary));
+  content: "";
+}
+
+.report-panel-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
 }
 
-.report-panel-head span,
+.report-panel-head > div:first-child {
+  min-width: 0;
+}
+
+.report-kicker,
 .teacher-share-card span {
   display: inline-flex;
   align-items: center;
@@ -3050,13 +3017,26 @@ p {
   line-height: 16px;
 }
 
-.report-panel-head h2,
-.teacher-share-card h3 {
-  margin: 3px 0;
+.report-kicker .material-symbols-outlined,
+.teacher-share-card span .material-symbols-outlined,
+.topic-report-grid h3 .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.report-panel-head h2 {
+  margin: 4px 0 2px;
   color: var(--on-surface);
   font-family: "Work Sans", "Noto Sans TC", sans-serif;
-  font-size: 18px;
-  line-height: 24px;
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.teacher-share-card h3 {
+  margin: 4px 0;
+  color: var(--on-surface);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 17px;
+  line-height: 23px;
 }
 
 .report-panel-head p,
@@ -3067,38 +3047,101 @@ p {
   line-height: 17px;
 }
 
+.report-mastery-card {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  min-height: 64px;
+  padding: 8px 10px;
+  border: 1px solid rgba(218, 226, 255, 0.82);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(218, 226, 255, 0.72), rgba(255, 255, 255, 0.92));
+}
+
+.report-mastery-card strong {
+  color: var(--primary);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 24px;
+}
+
+.report-mastery-card small {
+  color: var(--on-variant);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
+}
+
+.report-dashboard {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
 .report-trend-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 118px;
   padding: 12px;
   border-radius: 12px;
-  background: linear-gradient(180deg, rgba(218, 226, 255, 0.5), rgba(255, 255, 255, 0.9));
+  background: var(--surface-container-low);
   animation: report-card-in 0.42s 0.08s ease both;
+}
+
+.report-trend-card > span {
+  color: var(--outline);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
+}
+
+.report-trend-card > strong {
+  color: var(--primary);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 28px;
 }
 
 .trend-line {
   display: flex;
   align-items: end;
-  gap: 7px;
-  width: min(42%, 148px);
-  height: 76px;
-  padding: 8px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.72);
+  gap: 6px;
+  width: 100%;
+  height: 48px;
+  padding-top: 4px;
 }
 
-.trend-line span {
+.trend-line i {
   flex: 1;
-  min-width: 8px;
-  border-radius: 999px 999px 4px 4px;
-  background: linear-gradient(180deg, var(--secondary), var(--primary-container));
+  min-width: 9px;
+  border-radius: 8px 8px 3px 3px;
+  background: linear-gradient(180deg, var(--primary-container), var(--secondary));
   transform-origin: bottom;
   animation: trend-draw 0.48s ease both;
 }
 
 .report-metrics {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 8px;
+}
+
+.report-metrics .metric-pill {
+  min-height: 0;
+  padding: 10px;
+  border: 1px solid rgba(195, 198, 214, 0.38);
+  border-radius: 10px;
+  background: var(--surface-container-lowest);
+  box-shadow: 0 2px 8px rgba(0, 61, 155, 0.04);
 }
 
 .topic-report-grid {
@@ -3113,7 +3156,7 @@ p {
   padding: 12px;
   border: 1px solid rgba(195, 198, 214, 0.58);
   border-radius: 12px;
-  background: var(--surface-low);
+  background: var(--surface-container-lowest);
   animation: report-card-in 0.42s 0.16s ease both;
 }
 
@@ -3127,14 +3170,23 @@ p {
   line-height: 20px;
 }
 
+.topic-report-grid article:first-child h3 {
+  color: var(--error);
+}
+
+.topic-report-grid article:nth-child(2) h3 {
+  color: var(--secondary);
+}
+
 .topic-report-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
-  padding: 9px 10px;
+  padding: 10px;
+  border: 1px solid transparent;
   border-radius: 10px;
-  background: white;
+  background: var(--surface-container-low);
 }
 
 .topic-report-row strong,
@@ -3168,12 +3220,25 @@ p {
   font-size: 12px;
 }
 
+.topic-report-row.needs_attention b {
+  background: var(--error-container);
+  color: var(--on-error-container);
+}
+
+.topic-report-row.improving b {
+  background: rgba(114, 254, 136, 0.28);
+  color: var(--secondary);
+}
+
 .teacher-share-card {
-  align-items: stretch;
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 12px;
   padding: 12px;
   border: 1px solid rgba(0, 110, 40, 0.22);
   border-radius: 12px;
-  background: rgba(114, 254, 136, 0.18);
+  background: linear-gradient(180deg, rgba(114, 254, 136, 0.22), rgba(255, 255, 255, 0.92));
   animation: report-card-in 0.42s 0.24s ease both;
 }
 
@@ -3181,11 +3246,43 @@ p {
   min-width: 0;
 }
 
-.teacher-share-card a {
-  display: block;
+.teacher-share-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.report-share-button {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 12px;
+}
+
+.teacher-share-link-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 4px;
+  border: 1px solid rgba(195, 198, 214, 0.72);
+  border-radius: 10px;
+  background: var(--surface-container-lowest);
+}
+
+.teacher-share-link-row button,
+.teacher-share-link-row .open-report-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--primary);
+}
+
+.teacher-share-link-row a:not(.open-report-link) {
   overflow: hidden;
-  max-width: 100%;
-  margin-top: 6px;
   color: var(--primary);
   font-size: 11px;
   line-height: 15px;
@@ -3193,12 +3290,12 @@ p {
   white-space: nowrap;
 }
 
-.teacher-share-card.shared {
-  position: relative;
-  overflow: hidden;
+.share-ready .teacher-share-card {
+  border-color: rgba(0, 110, 40, 0.34);
+  box-shadow: 0 0 0 3px rgba(114, 254, 136, 0.16);
 }
 
-.teacher-share-card.shared::after {
+.share-ready .teacher-share-card::after {
   position: absolute;
   inset: 0;
   background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.7), transparent);
@@ -4404,20 +4501,18 @@ p {
   }
 
   .portfolio-card.wide,
-  .coach-hero {
+  .learning-report-panel {
     grid-column: 1 / -1;
   }
 
   .next-action-card,
-  .coach-hero,
   .art-row {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
   }
 
-  .next-action-card .primary-action,
-  .coach-hero button {
+  .next-action-card .primary-action {
     flex: 0 0 auto;
   }
 }

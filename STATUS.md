@@ -1,6 +1,6 @@
 # Status
 
-最後更新：2026-06-01 16:26 HKT
+最後更新：2026-06-01 17:42 HKT
 
 ## 目前目標
 
@@ -13,7 +13,7 @@
 - GCP project：`gen-lang-client-0228668877`
 - Project number：`594335170533`
 - Region：`asia-east2`
-- Last verified revision：`edupass-ai-00022-bp6`
+- Last verified revision：`edupass-ai-00024-kx2`
 - Service account：`594335170533-compute@developer.gserviceaccount.com`
 - Storage bucket：`gs://edupass-ai-594335170533-prototype-storage`
 - Firestore database：`(default)` in `asia-east2`
@@ -142,6 +142,8 @@
   - Practice screen 改為 multiple choice；每題選擇答案後即時自動批改，提交後顯示參考答案、解釋與 marking scheme，所有題目提交後才可完成練習。
   - Coach UI 已收斂為 Mathematics-only：不再顯示其他科目 / KLA filter / roadmap 科目卡；首頁最近上載示例亦改為數學相關。
   - Quiz generation 加入 plain-text math sanitizer；會把 `$\\frac{1}{4}$`、`$\\triangle$`、`$\\square$` 等 LaTeX / Markdown math 清洗為 `1/4`、`△`、`□`，前端顯示層也有同樣防線。
+  - Fresh parent 若未開啟 AI processing consent，開始練習會直接帶到 Data & Privacy；開啟 consent 後即可生成數學 quiz。
+  - Fresh child 的 Learning Passport 不再預填 demo evidence / completed sections；只有 Matthew / Chloe demo profile 保留示例內容。
 - 補上原 StudyLens 缺口中除 payment 以外的核心閉環：
   - `POST /api/practice-attempts` 保存每次練習答案、topic、正誤與錯因到 Firestore / memory backend。
   - `POST /api/generate-quiz` prompt / local fallback 要求每題 4 個 options，`answer` 必須對應其中一個 option，方便手機上快速作答。
@@ -174,7 +176,7 @@
   - `find docs/syllabus -type f | wc -l`：204 files。
   - 本機 PDF render 已檢查，繁中沒有缺字。
 - Cloud Run：
-  - Last verified revision `edupass-ai-00022-bp6` serving 100% traffic。
+  - Last verified revision `edupass-ai-00024-kx2` serving 100% traffic。
   - `GET /api/health` 回傳 `gemini_model: gemini-3.5-flash`。
   - `POST /api/auth/login` 成功，children order 為 `child-matthew`, `child-chloe`。
   - `GET /api/auth/me` 成功。
@@ -193,17 +195,23 @@
   - GCS 已看到 portfolio PDFs 和 OCR uploaded document。
   - Cloud Run revision `edupass-ai-00020-9v9` 已部署並 serving 100% traffic。
   - Cloud Run revision `edupass-ai-00022-bp6` 已部署並 serving 100% traffic。
+  - Cloud Run revision `edupass-ai-00023-9qp` 已部署並 serving 100% traffic。
+  - Cloud Run revision `edupass-ai-00024-kx2` 已部署並 serving 100% traffic。
   - Cloud smoke：`GET /api/health` 回傳 `ok: true`、`gemini_model: gemini-3.5-flash`；demo login `parent@example.com` 成功；`GET /api/auth/me` 成功；React static HTML 回傳 root 與 2 個 asset refs。
   - Cloud smoke：`POST /api/generate-quiz` 產生 2 題 Mathematics multiple-choice 題目，每題 4 個 options，且 answer 均在 options 內。
   - Cloud smoke：`POST /api/practice-attempts` 保存 2 題練習結果，`correct_count: 2`。
   - Cloud smoke：`GET /api/learning/progress` 回傳 Matthew learning progress，`practice_count >= 1`。
   - Cloud smoke：`POST /api/reports/share` 建立 `/teacher-report/{token}`；該 teacher report HTML 回傳 200 並包含 Matthew / Fractions / Teacher View。
   - Cloud smoke：`POST /api/generate-quiz` 產生 3 題 Mathematics multiple-choice 題目，每題 4 個 options、answer 均在 options 內；display fields（question/options/answer/explanation/marking scheme）不含 `\` 或 `$`。
+  - Cloud smoke：fresh parent Jack + child Jackson 在 consent 前 `POST /api/generate-quiz` 回 403 `Parent consent required for AI practice generation`；`PATCH /api/privacy/consent` 開啟 `ai_processing_consent` 後同一 child 生成 2 題 Mathematics multiple-choice 題目成功，且無 raw LaTeX display text。
+  - Cloud Playwright smoke：390px mobile Coach 頁 `coachHeroCount: 0`，只保留 `Generate 6 questions` 作出題入口，無 duplicate `開始練習`；`scrollWidth === clientWidth`；Progress Report DOM 帶 `data-stitch-source="projects/7550425496525656523/screens/1fb93eb80a3b493a96781f530ba50099"`。
 - 本次本機驗證：
   - `.venv312/bin/python -m pytest tests -q`：22 passed，1 warning（ReportLab dependency deprecation warning）。
   - `.venv312/bin/python -m py_compile backend/app/main.py backend/app/schemas.py backend/app/persistence.py` 通過。
   - `npm run build` 通過。
   - 本機 API smoke：`POST /api/generate-quiz` 產生 3 題 Mathematics multiple-choice 題目，每題 4 個 options、answer 均在 options 內，且無 raw LaTeX display text。
+  - 本機 fresh parent Jack + child Jackson smoke：consent 前 quiz 403，開啟 `ai_processing_consent` 後同一 child quiz 200，回 2 題、每題 4 options。
+  - 本機 Playwright smoke：390px mobile Coach 頁已移除 duplicate `每日 5 分鐘特訓 / 開始練習` block，只剩 topic allocation 的 `Generate 6 questions`。
 
 ## 下一步
 
