@@ -1,6 +1,6 @@
 # Status
 
-最後更新：2026-06-01 15:06 HKT
+最後更新：2026-06-01 15:10 HKT
 
 ## 目前目標
 
@@ -13,7 +13,7 @@
 - GCP project：`gen-lang-client-0228668877`
 - Project number：`594335170533`
 - Region：`asia-east2`
-- Last verified revision：`edupass-ai-00017-gxc`
+- Last verified revision：`edupass-ai-00018-qwn`
 - Service account：`594335170533-compute@developer.gserviceaccount.com`
 - Storage bucket：`gs://edupass-ai-594335170533-prototype-storage`
 - Firestore database：`(default)` in `asia-east2`
@@ -159,7 +159,7 @@
   - `find docs/syllabus -type f | wc -l`：204 files。
   - 本機 PDF render 已檢查，繁中沒有缺字。
 - Cloud Run：
-  - Last verified revision `edupass-ai-00017-gxc` serving 100% traffic。
+  - Last verified revision `edupass-ai-00018-qwn` serving 100% traffic。
   - `GET /api/health` 回傳 `gemini_model: gemini-3.5-flash`。
   - `POST /api/auth/login` 成功，children order 為 `child-matthew`, `child-chloe`。
   - `GET /api/auth/me` 成功。
@@ -170,7 +170,7 @@
   - 下載雲端 PDF 後用 `pypdf` 驗證文字包含 `封面設計`、`學習態度`、`應用題審題`。
   - 下載雲端 PDF 後用 `pypdfium2` render PNG，繁中正常顯示。
   - `POST /api/generate-quiz` authenticated call 成功，Gemini 3.5 Flash 產生 5 題 P3 fractions 題目。
-  - `POST /api/generate-quiz` authenticated call with `practice_plan` 成功；S3 Mathematics 測試要求 3 題，分配為 Number 2 題、Algebra 1 題，Gemini 回傳 3 題且 topics 為 `Number, Number, Algebra`。
+  - `POST /api/generate-quiz` authenticated call with `practice_plan` 成功；S3 Mathematics 測試要求 3 題，分配為 Number 2 題、Algebra 1 題，Gemini 回傳 3 題且 topics 為 `Number, Number, Algebra`（已在 revision `edupass-ai-00018-qwn` 重驗）。
   - Cloud headless Chrome smoke：Coach course planner 顯示 per-topic allocation rows / steppers，Generate 後進入 `互動練習`，6 題均有作答 textarea；提交第一題後出現 answer panel，完成按鈕在未全部提交前保持 disabled；無 horizontal overflow。
   - `POST /api/ocr-review` authenticated upload 成功，Vision OCR + Gemini review 回傳 1 個 extracted question，document file 寫入 GCS。
   - `POST /api/ocr-review` PDF smoke 成功，回傳 `ocr_provider: vertex_gemini_document_extraction`、`review_mode: multimodal_llm`、`review_model: gemini-3.5-flash`、`review_fallback_used: false`、`page_count: 1`、topic `Fractions`。
