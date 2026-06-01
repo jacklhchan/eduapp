@@ -74,9 +74,13 @@ def test_multimodal_ocr_prompt_uses_visual_and_ocr_evidence() -> None:
         child_profile_id="child-matthew",
         grade="P3",
         file_kind="image",
+        page_count_hint=2,
     )
     assert "original upload" in prompt
     assert "OCR text" in prompt
+    assert "multiple pages" in prompt
+    assert "topics" in prompt
+    assert "topic_ids" in prompt
     assert "requires_parent_confirmation true" in prompt
     assert "P3" in prompt
 
@@ -104,3 +108,60 @@ def test_parse_ocr_review_response_enforces_parent_confirmation() -> None:
     assert review.file_kind == "image"
     assert review.requires_parent_confirmation is True
     assert review.pii_redacted_before_ai is True
+
+
+def test_parse_ocr_review_response_accepts_multiple_pages_and_topics() -> None:
+    review = parse_ocr_review_response(
+        """
+        {
+          "subject": "Mathematics",
+          "grade": "P3",
+          "page_count": 2,
+          "topics": [
+            {
+              "id": "fractions",
+              "subject": "Mathematics",
+              "topic": "Fractions",
+              "strand": "Number",
+              "confidence": 0.82,
+              "page_numbers": [1]
+            },
+            {
+              "id": "geometry",
+              "subject": "Mathematics",
+              "topic": "Geometry",
+              "strand": "Shape and Space",
+              "confidence": 0.76,
+              "page_numbers": [2]
+            }
+          ],
+          "extracted_questions": [
+            {
+              "id": "q1",
+              "question_text": "Compare 1/2 and 3/4.",
+              "confidence": 0.82,
+              "page_number": 1,
+              "topic": "Fractions",
+              "topic_ids": ["fractions"],
+              "mistake_tags": ["concept"]
+            },
+            {
+              "id": "q2",
+              "question_text": "Find the perimeter of the rectangle.",
+              "confidence": 0.76,
+              "page_number": 2,
+              "topic": "Geometry",
+              "topic_ids": ["geometry"],
+              "mistake_tags": ["unit_conversion"]
+            }
+          ]
+        }
+        """,
+        child_profile_id="child-matthew",
+        file_kind="image",
+        page_count_hint=2,
+    )
+    assert review.page_count == 2
+    assert [topic.topic for topic in review.topics] == ["Fractions", "Geometry"]
+    assert review.extracted_questions[1].page_number == 2
+    assert review.extracted_questions[1].topic_ids == ["geometry"]

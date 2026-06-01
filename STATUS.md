@@ -1,6 +1,6 @@
 # Status
 
-最後更新：2026-06-01 14:58 HKT
+最後更新：2026-06-01 15:02 HKT
 
 ## 目前目標
 
@@ -13,7 +13,7 @@
 - GCP project：`gen-lang-client-0228668877`
 - Project number：`594335170533`
 - Region：`asia-east2`
-- Current revision：`edupass-ai-00014-55t`
+- Current revision：`edupass-ai-00016-n77`
 - Service account：`594335170533-compute@developer.gserviceaccount.com`
 - Storage bucket：`gs://edupass-ai-594335170533-prototype-storage`
 - Firestore database：`(default)` in `asia-east2`
@@ -131,6 +131,10 @@
   - 已用 Stitch MCP `edit_screens` 生成 profile-bound S3 learning map source screen `fe9f34c1c45a4089a8c980dfc16a6c7b`（`Matthew S3 課程地圖 (S3 Curriculum Map)`）。
   - 已用 Stitch MCP `generate_screen_from_text` 生成 Data Privacy Center source screen `c1523b2bbe15450f9473922e40e7e3e8`（`數據隱私中心 (Data Privacy Center)`），React `Data & Privacy` sheet 按此 screen 的 hero shield pulse、consent switches、retention segments、child data summary、audit list、danger zone 與 save sweep 接線。
   - Frontend 已開始建立 course content / learning topic layer，source workspace id 記錄為 `019e81ae-60ab-7fb1-b131-9f60588a450a`，目前有 K2 / P3 / P4 / S1 / S3 topic seeds；若某年級/科目未有手寫 seed，會由 EDB subject strands 產生同 grade / same subject topic skeleton。
+- Coach practice generation 已支援 per topic / area 題數分配：
+  - Course content topic rail 和 detail card 均有題數 stepper。
+  - `POST /api/generate-quiz` 接收 `question_count` 與 `practice_plan`，prompt 會要求 Gemini 按每個 topic / area 的 `question_count` 分配題目。
+  - Practice screen 改為可輸入答案；每題提交後才顯示參考答案、解釋與 marking scheme，所有題目提交後才可完成練習。
 - 新增 `docs/iphone-qa-checklist.md`，覆蓋 Safari Add to Home Screen、auth/onboarding、navigation、privacy、upload/AI、Coach、Portfolio、visual QA。
 
 ## 已驗證
@@ -155,19 +159,20 @@
   - `find docs/syllabus -type f | wc -l`：204 files。
   - 本機 PDF render 已檢查，繁中沒有缺字。
 - Cloud Run：
-  - Revision `edupass-ai-00014-55t` serving 100% traffic。
+  - Revision `edupass-ai-00016-n77` serving 100% traffic。
   - `GET /api/health` 回傳 `gemini_model: gemini-3.5-flash`。
   - `POST /api/auth/login` 成功，children order 為 `child-matthew`, `child-chloe`。
   - `GET /api/auth/me` 成功。
   - `GET /api/privacy` authenticated call 成功，回傳 demo privacy settings、Matthew/Chloe child data counts。
-  - Cloud smoke：`POST /api/portfolio/export` 使用 Learning Passport editor-style section body 成功，下載 PDF 後以 `pypdf` 驗證包含 `Learning Passport`、`Cloud smoke`、`作品相片`。
+  - Cloud smoke：`POST /api/portfolio/export` 使用 Learning Passport editor-style section body 成功，下載 PDF 後以 `pypdf` 驗證包含 `Learning Passport`、`latest revision`、`作品相片`。
   - `POST /api/portfolio/export` 成功，回傳 GCS-backed PDF record。
   - `GET /api/portfolio/exports/{id}/download` 回傳 `application/pdf`。
   - 下載雲端 PDF 後用 `pypdf` 驗證文字包含 `封面設計`、`學習態度`、`應用題審題`。
   - 下載雲端 PDF 後用 `pypdfium2` render PNG，繁中正常顯示。
   - `POST /api/generate-quiz` authenticated call 成功，Gemini 3.5 Flash 產生 5 題 P3 fractions 題目。
+  - `POST /api/generate-quiz` authenticated call with `practice_plan` 成功；S3 Mathematics 測試要求 3 題，分配為 Number 2 題、Algebra 1 題，Gemini 回傳 3 題且 topics 為 `Number, Number, Algebra`。
   - `POST /api/ocr-review` authenticated upload 成功，Vision OCR + Gemini review 回傳 1 個 extracted question，document file 寫入 GCS。
-  - `POST /api/ocr-review` PDF smoke 成功，回傳 `ocr_provider: vertex_gemini_document_extraction`、`review_mode: multimodal_llm`、`review_model: gemini-3.5-flash`、`review_fallback_used: false`。
+  - `POST /api/ocr-review` PDF smoke 成功，回傳 `ocr_provider: vertex_gemini_document_extraction`、`review_mode: multimodal_llm`、`review_model: gemini-3.5-flash`、`review_fallback_used: false`、`page_count: 1`、topic `Fractions`。
   - GCS 已看到 portfolio PDFs 和 OCR uploaded document。
 
 ## 下一步

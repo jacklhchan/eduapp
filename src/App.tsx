@@ -1465,7 +1465,7 @@ function UploadView({
   ocrResult,
   ocrState,
   previewUrl,
-  selectedFile,
+  selectedFiles,
 }: {
   analyzeUpload: () => void;
   backendStatus: BackendStatus;
@@ -1475,41 +1475,79 @@ function UploadView({
   ocrResult: OcrResult | null;
   ocrState: 'idle' | 'running' | 'done' | 'error';
   previewUrl: string;
-  selectedFile: File | null;
+  selectedFiles: File[];
 }) {
   const [mistakes, setMistakes] = useState([
     { id: 'm1', title: '異分母加減運算', question: '第 3, 5 題', reason: '運算錯誤 (Calculation)' },
     { id: 'm2', title: '分數約分未完成', question: '第 8 題', reason: '概念不清 (Conceptual)' },
   ]);
-  const detectedQuestion = ocrResult?.review?.extracted_questions?.[0]?.question_text;
+  const detectedQuestions = ocrResult?.review?.extracted_questions || [];
+  const detectedTopics = ocrResult?.review?.topics || [];
+  const pageCount = ocrResult?.review?.page_count || ocrResult?.page_count || Math.max(selectedFiles.length, 1);
+  const selectedFileCount = selectedFiles.length;
+  const topicValue = detectedTopics.length
+    ? detectedTopics.map((topic) => topic.topic).join(' / ')
+    : ocrState === 'done'
+      ? '未能穩定判定 topic，請家長確認'
+      : 'AI 會自動辨識多個 topic';
   const pipelineLabel = ocrResult?.review_mode === 'multimodal_llm'
     ? 'Vision + Gemini multimodal'
     : ocrResult?.review_mode === 'text_only_llm'
       ? 'OCR + Gemini text review'
       : 'GCP OCR + Gemini';
+  const statusLabel = ocrState === 'running'
+    ? 'AI 分析中'
+    : ocrState === 'done'
+      ? 'Hybrid 已校正'
+      : selectedFileCount
+        ? '等待分析'
+        : '可多頁上載';
 
   return (
     <>
       <main className="upload-content">
-        <input ref={inputRef} className="hidden-file" type="file" accept="image/*,.pdf" onChange={handleFileChange} />
+        <input ref={inputRef} className="hidden-file" type="file" accept="image/*,.pdf" multiple onChange={handleFileChange} />
 
         <section className="upload-preview">
           <h2>作業預覽</h2>
-          <div className="preview-frame">
+          <div className={ocrState === 'running' ? 'preview-frame scanning' : 'preview-frame'}>
             <img src={previewUrl} alt="Scanned math homework" />
+            {selectedFileCount ? (
+              <span className="page-stack-badge">
+                <Icon name="filter_none" />
+                {selectedFileCount} 頁
+              </span>
+            ) : null}
+            <div className="page-stack-shadow" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
             <button type="button" aria-label="View full image" onClick={onViewPreview}>
               <Icon name="fullscreen" />
             </button>
           </div>
+          {selectedFileCount ? (
+            <div className="selected-file-strip" aria-label="Selected upload pages">
+              {selectedFiles.slice(0, 4).map((file, index) => (
+                <span key={`${file.name}-${index}`}>
+                  <Icon name={file.type === 'application/pdf' ? 'picture_as_pdf' : 'draft'} />
+                  <b>P{index + 1}</b>
+                  {file.name}
+                </span>
+              ))}
+              {selectedFileCount > 4 ? <span>+{selectedFileCount - 4} more</span> : null}
+            </div>
+          ) : null}
         </section>
 
         <section className="ocr-panel">
           <div className="ocr-panel-head">
             <h2><Icon name="document_scanner" filled /> 擷取資料</h2>
-            <span>{ocrState === 'done' ? 'Hybrid 已校正' : '自動辨識完成'}</span>
+            <span>{statusLabel}</span>
           </div>
 
-          <div className="ocr-pipeline-card">
+          <div className={ocrState === 'running' ? 'ocr-pipeline-card pipeline-running' : 'ocr-pipeline-card'}>
             <span><Icon name="hub" filled /></span>
             <div>
               <strong>{pipelineLabel}</strong>
@@ -1518,11 +1556,31 @@ function UploadView({
                   ? `${ocrResult?.ocr_provider || 'OCR'} → ${ocrResult?.review_model || 'Gemini'}${ocrResult?.review_fallback_used ? ' · fallback used' : ''}`
                   : 'OCR extracts evidence first; Gemini reviews the original upload and text together.'}
               </p>
+              <div className="pipeline-steps" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </div>
             </div>
           </div>
 
-          <FormDisplay icon="category" label="學習主題 (自動辨識)" value="分數 (Fractions)" />
-          <FormDisplay icon="grade" label="作業得分" value="85/100" />
+          <FormDisplay icon="stacks" label="頁數 / 檔案" value={selectedFileCount ? `${pageCount} pages from ${selectedFileCount} upload(s)` : '可一次選多張相片或 PDF'} />
+          <FormDisplay icon="category" label="學習主題 (AI 多 topic)" value={topicValue} />
+          <FormDisplay icon="verified_user" label="家長確認" value="AI 結果需確認後才寫入 learning profile" />
+
+          {detectedTopics.length ? (
+            <div className="detected-topic-grid" aria-label="Detected topics">
+              {detectedTopics.map((topic, index) => (
+                <span key={topic.id || `${topic.topic}-${index}`} style={{ animationDelay: `${index * 70}ms` }}>
+                  <b>{topic.topic}</b>
+                  <small>
+                    {topic.confidence !== undefined ? `${Math.round(topic.confidence * 100)}%` : 'AI'}
+                    {topic.page_numbers?.length ? ` · P${topic.page_numbers.join(',')}` : ''}
+                  </small>
+                </span>
+              ))}
+            </div>
+          ) : null}
 
           <div className="mistake-list">
             <label>辨識到的錯誤題型</label>
@@ -1545,10 +1603,16 @@ function UploadView({
               </div>
             ) : null}
 
-            {ocrState === 'done' && detectedQuestion ? (
-              <div className="analysis-result success">
-                <strong>Hybrid OCR Review</strong>
-                <p>{detectedQuestion}</p>
+            {ocrState === 'done' && detectedQuestions.length ? (
+              <div className="analysis-result success question-result-list">
+                <strong>Hybrid OCR Review · {detectedQuestions.length} items</strong>
+                {detectedQuestions.slice(0, 5).map((question, index) => (
+                  <p key={`${question.question_text}-${index}`}>
+                    <span>P{question.page_number || index + 1}</span>
+                    {question.topic ? <em>{question.topic}</em> : null}
+                    {question.question_text}
+                  </p>
+                ))}
               </div>
             ) : null}
             {ocrState === 'error' ? (
@@ -1567,8 +1631,8 @@ function UploadView({
 
       <footer className="upload-footer">
         <button className="primary-action full" type="button" onClick={analyzeUpload} disabled={ocrState === 'running'}>
-          <Icon name={selectedFile ? 'document_scanner' : 'upload_file'} filled />
-          {ocrState === 'running' ? '正在分析...' : selectedFile ? '確認並分析' : '選擇功課相片'}
+          <Icon name={selectedFileCount ? 'document_scanner' : 'upload_file'} filled />
+          {ocrState === 'running' ? '正在分析多頁...' : selectedFileCount ? `確認並分析 ${selectedFileCount} 頁` : '選擇功課相片 / PDF'}
         </button>
       </footer>
     </>

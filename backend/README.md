@@ -38,8 +38,8 @@ GCP provider：
 
 OCR review pipeline：
 
-- image upload：Cloud Vision `document_text_detection` 先抽 raw text evidence。
-- PDF upload：Gemini document extraction 先抽 text evidence。
+- image upload：Cloud Vision `document_text_detection` 先抽 raw text evidence；`files[]` 可一次提交多張 page images。
+- PDF upload：Gemini document extraction 先抽 text evidence；review prompt 會要求 Gemini 判斷可見 PDF physical pages。
 - review：Gemini `gemini-3.5-flash` multimodal second pass 同時看原始檔案與 OCR text，並回傳 structured `OcrReviewResult`。
 - schema：review result 保存 `page_count`、`topics`、每題的 `page_number` / `topic_ids`，支援多頁或 mixed upload。
 - fallback：multimodal review 失敗時自動改用 text-only Gemini review；API response / document record 會保存 `ocr_provider`、`review_mode`、`review_model`、`review_fallback_used`。

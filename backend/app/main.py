@@ -244,9 +244,16 @@ def parse_ocr_review_response(
         page_count = page_count_hint
     data["page_count"] = max(1, page_count, page_count_hint)
     if isinstance(data.get("topics"), list):
+        normalized_topics = []
         for index, topic in enumerate(data["topics"], start=1):
+            if isinstance(topic, str):
+                topic = {"topic": topic}
             if isinstance(topic, dict):
                 topic["id"] = topic.get("id") or f"t{index}"
+                topic["subject"] = topic.get("subject") or data.get("subject") or "Mathematics"
+                topic["confidence"] = topic.get("confidence") if topic.get("confidence") is not None else 0.5
+                normalized_topics.append(topic)
+        data["topics"] = normalized_topics
     data["requires_parent_confirmation"] = True
     data["pii_redacted_before_ai"] = True
     return OcrReviewResult.model_validate(data)
