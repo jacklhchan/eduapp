@@ -683,7 +683,20 @@ export function getSubjectsForGrade(grade?: string | null, klaId: KlaId | 'all' 
 }
 
 export function isAcademicProgressSubject(subject: CurriculumSubject) {
-  return subject.klaId !== 'arts' && subject.klaId !== 'physical-education';
+  return ![
+    'arts',
+    'kg-arts-creativity',
+    'kg-physical-fitness-health',
+    'music',
+    'physical-education',
+    'visual-arts',
+  ].includes(subject.klaId) && ![
+    'kg-arts-creativity',
+    'kg-physical-fitness-health',
+    'music',
+    'physical-education',
+    'visual-arts',
+  ].includes(subject.id);
 }
 
 export function getKlasForStage(stageId: CurriculumStageId) {

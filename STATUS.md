@@ -1,6 +1,6 @@
 # Status
 
-最後更新：2026-06-01 18:40 HKT
+最後更新：2026-06-01 22:53 HKT
 
 ## 目前目標
 
@@ -98,6 +98,7 @@
   - Learning Passport overview 現在提供 `Edit info` 入口，可直接編輯 child name / grade / passport / focus 等 profile info；section draft / status / evidence 會 autosave 到 child profile 的 `portfolio_sections`，再由 Firestore / memory backend rehydrate。
   - Portfolio editor 現在會出現在對應 section card 下方；desktop two-column layout 也會跨欄顯示，不再掉到所有 cards 後面。
   - Fresh child（例如 Jackson）新增時不再自動寫入 demo passport / focus / language / school type；Learning Passport sections 保持空白 draft，只有 Matthew / Chloe demo profile 保留示例內容。
+  - Matthew / Chloe demo profile 已補充較完整 mock data：profile focus、Portfolio section drafts / evidence、OCR document records、subject attempts；Progress / Portfolio / Privacy counts 都會從同一批 seed records rehydrate。
   - Home tab 已改成 profile / stage aware：K1-K3 顯示成長摘要、幼兒 Portfolio、AI 成長觀察與生活 evidence；P1-S6 顯示 academic learning summary、Progress CTA、學科進度與功課 evidence。
   - Home tab 已按 Stitch `家長主導學習儀表板 (Progress Dashboard)` / `projects/10595017015370179580/screens/2cf4c58dda9a400181ac6d8b56c19aea` 重構 first screen：mastery ring、progress breakdown、daily goals、recommended practice、Portfolio / Coach cards 與最近上載；K1-K3 仍改寫成 whole-child development，不套學科分數語氣。
   - 修正 AI draft `確認採用` button 內 `task_alt` icon 名稱漏成文字的 CSS 問題，action button icon 會強制用 Material Symbols font。
@@ -216,8 +217,11 @@
   - `npm run build` 通過。
   - 本機 API test：fresh child Jackson 只帶 `name` / `grade` 建立時，`passport` / `focus` / `language` / `school_type` / `portfolio_sections` 均保持空白。
   - 本機 API test：`POST /api/practice-attempts` 接受 `Chinese Language` subject score tracking；`Visual Arts` 回 400，且不出現在 `subject_scores`。
+  - 本機 API test：demo parent rehydrate 後，Matthew 有 4 份 document / 4 次 subject attempts，Chloe 有 3 份 document / 3 次 subject attempts，且兩人都有 portfolio section mock drafts。
   - 本機 Playwright smoke：390px mobile Progress tab 顯示 `Progress` bottom label、`學科進度`、`Academic Progress`，無 `Generate questions` / `開始練習`。
   - 本機 Playwright smoke：P3 Progress tab 顯示 5 個 academic subject rows（中國語文、普通話、英國語文、數學、常識），VA / PE / Music 不出現在 subject rows；`scrollWidth === clientWidth`。
+  - 本機 Playwright smoke：Chloe K2 Progress tab 顯示語文、幼兒數學、大自然與生活、個人與群體；體能與健康 / 藝術與創意不出現在 score rows。
+  - 本機 Playwright screenshot：Progress subject score row 的 `pending` Material Symbols icon 已修正，不再顯示成文字。
   - 本機 Playwright smoke：Portfolio section editor 會出現在所選 card 下方，Academic Progress card 後面立即接 editor。
 
 ## 下一步

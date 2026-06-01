@@ -101,3 +101,10 @@ def test_demo_session_rehydrates_memory_parent(monkeypatch) -> None:
     parent = response.json()["parent"]
     assert parent["id"] == DEMO_PARENT_ID
     assert parent["children"][0]["id"] == "child-matthew"
+    assert parent["children"][0]["portfolio_sections"][0]["status"] == "Completed"
+    assert parent["children"][1]["id"] == "child-chloe"
+    assert parent["children"][1]["portfolio_sections"][0]["body"].startswith("Chloe")
+    assert len(persistence.list_documents(DEMO_PARENT_ID, "child-matthew")) >= 4
+    assert len(persistence.list_practice_attempts(DEMO_PARENT_ID, "child-matthew")) >= 4
+    assert len(persistence.list_documents(DEMO_PARENT_ID, "child-chloe")) >= 3
+    assert len(persistence.list_practice_attempts(DEMO_PARENT_ID, "child-chloe")) >= 3

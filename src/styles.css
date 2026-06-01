@@ -3478,6 +3478,14 @@ p {
   color: var(--primary);
 }
 
+.subject-score-icon .material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-size: 22px;
+  font-weight: normal;
+  letter-spacing: normal;
+  line-height: 1;
+}
+
 .subject-score-row div {
   min-width: 0;
 }

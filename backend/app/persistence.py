@@ -48,6 +48,349 @@ class Persistence:
             "consent_updated_at": now_iso() if consented else None,
         }
 
+    def demo_portfolio_sections(self, child_id: str) -> list[dict[str, Any]]:
+        if child_id == "child-chloe":
+            return [
+                {
+                    "id": "cover",
+                    "status": "Completed",
+                    "body": "Chloe 的 K2 成長 Portfolio 已整理家庭觀察、班主任短評、代表相片及升小前發展焦點。",
+                    "evidence": ["學生相片", "家庭觀察", "老師短評"],
+                    "updated_at": "1 Jun",
+                },
+                {
+                    "id": "about",
+                    "status": "Completed",
+                    "body": "Chloe 喜歡角色扮演、親子閱讀和積木活動；在熟悉環境中會主動分享想法，亦願意嘗試用完整句子描述作品。",
+                    "evidence": ["親子閱讀紀錄", "孩子語錄", "興趣相片"],
+                    "updated_at": "1 Jun",
+                },
+                {
+                    "id": "language",
+                    "status": "Completed",
+                    "body": "近期觀察顯示 Chloe 能聆聽短故事並回答人物、地點與情緒問題；中英文詞語量正在穩定增加。",
+                    "evidence": ["故事閱讀相片", "課堂互動紀錄", "唱歌錄音"],
+                    "updated_at": "31 May",
+                },
+                {
+                    "id": "self-care",
+                    "status": "AI Ready",
+                    "body": "Chloe 能在提示下收拾書包、洗手及整理餐具；下一步可練習按圖卡獨立完成早上常規。",
+                    "evidence": ["收拾書包相片", "生活技能觀察"],
+                    "updated_at": "30 May",
+                },
+                {
+                    "id": "social-emotional",
+                    "status": "AI Ready",
+                    "body": "Chloe 在小組活動中能輪候和分享材料；遇到衝突時仍需要成人提醒用說話表達需要。",
+                    "evidence": ["小組活動相片", "老師觀察"],
+                    "updated_at": "29 May",
+                },
+                {
+                    "id": "artworks",
+                    "status": "Completed",
+                    "body": "Chloe 的畫作和拼砌作品展示出色彩探索、手眼協調和持續專注；作品可放入面試 portfolio 作 creative evidence。",
+                    "evidence": ["視藝作品", "積木活動", "音樂律動相片", "戶外體能活動"],
+                    "updated_at": "28 May",
+                },
+            ]
+        return [
+            {
+                "id": "cover",
+                "status": "Completed",
+                "body": "Matthew 的 P3 Academic Learning Passport 已整理學期目標、近期測驗、OCR evidence 及家長確認的學習重點。",
+                "evidence": ["學生相片", "學期目標", "家長備註"],
+                "updated_at": "1 Jun",
+            },
+            {
+                "id": "about",
+                "status": "Completed",
+                "body": "Matthew 對數學解題、科學觀察和常識專題有明顯興趣；適合用視覺化步驟和短反思鞏固學習。",
+                "evidence": ["家長觀察", "學習習慣紀錄", "興趣科目"],
+                "updated_at": "1 Jun",
+            },
+            {
+                "id": "attitude",
+                "status": "Completed",
+                "body": "Matthew 能持續完成改正，分數概念和英文詞彙進步明顯；應用題審題和中文閱讀推論仍是下階段焦點。",
+                "evidence": ["錯題分析", "練習紀錄", "補習老師備註"],
+                "updated_at": "31 May",
+            },
+            {
+                "id": "academic-progress",
+                "status": "AI Ready",
+                "body": "近期 evidence 顯示 Matthew 數學 overall mastery 約 75%，中文閱讀約 72%，英文文法約 68%；弱項集中在兩步應用題和閱讀推論。",
+                "evidence": ["數學小測", "中文閱讀理解", "英文 grammar worksheet", "常識專題"],
+                "updated_at": "31 May",
+            },
+            {
+                "id": "artworks",
+                "status": "AI Ready",
+                "body": "Matthew 的科學小實驗、閱讀紀錄和活動證書可作 achievements evidence，展示跨學科興趣和持續投入。",
+                "evidence": ["科學觀察紀錄", "閱讀紀錄", "活動證書"],
+                "updated_at": "29 May",
+            },
+        ]
+
+    def demo_documents(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "id": "doc-demo-matthew-math-20260601",
+                "parent_id": DEMO_PARENT_ID,
+                "child_id": DEMO_CHILD_ID,
+                "filename": "P3-math-fractions-word-problems.pdf",
+                "created_at": "2026-06-01T08:20:00+00:00",
+                "review": {
+                    "subject": "Mathematics",
+                    "topics": [
+                        {"topic": "Fractions", "subject": "Mathematics", "confidence": 0.92},
+                        {"topic": "Two-step word problems", "subject": "Mathematics", "confidence": 0.86},
+                    ],
+                    "extracted_questions": [
+                        {"topic": "Fractions", "subject": "Mathematics", "score": 4, "max_score": 5},
+                        {"topic": "Two-step word problems", "subject": "Mathematics", "score": 2, "max_score": 5},
+                    ],
+                },
+            },
+            {
+                "id": "doc-demo-matthew-chinese-20260530",
+                "parent_id": DEMO_PARENT_ID,
+                "child_id": DEMO_CHILD_ID,
+                "filename": "P3-chinese-reading-comprehension.jpg",
+                "created_at": "2026-05-30T10:10:00+00:00",
+                "review": {
+                    "subject": "Chinese Language",
+                    "topics": [
+                        {"topic": "Reading comprehension", "subject": "Chinese Language", "confidence": 0.88},
+                        {"topic": "Inference", "subject": "Chinese Language", "confidence": 0.8},
+                    ],
+                    "extracted_questions": [
+                        {"topic": "Reading comprehension", "subject": "Chinese Language", "score": 7, "max_score": 10},
+                        {"topic": "Inference", "subject": "Chinese Language", "score": 3, "max_score": 6},
+                    ],
+                },
+            },
+            {
+                "id": "doc-demo-matthew-english-20260528",
+                "parent_id": DEMO_PARENT_ID,
+                "child_id": DEMO_CHILD_ID,
+                "filename": "P3-english-grammar-vocabulary.pdf",
+                "created_at": "2026-05-28T09:45:00+00:00",
+                "review": {
+                    "subject": "English Language",
+                    "topics": [
+                        {"topic": "Vocabulary in context", "subject": "English Language", "confidence": 0.9},
+                        {"topic": "Sentence grammar", "subject": "English Language", "confidence": 0.84},
+                    ],
+                    "extracted_questions": [
+                        {"topic": "Vocabulary in context", "subject": "English Language", "score": 8, "max_score": 10},
+                        {"topic": "Sentence grammar", "subject": "English Language", "score": 6, "max_score": 10},
+                    ],
+                },
+            },
+            {
+                "id": "doc-demo-matthew-general-20260526",
+                "parent_id": DEMO_PARENT_ID,
+                "child_id": DEMO_CHILD_ID,
+                "filename": "P3-general-studies-community-project.jpg",
+                "created_at": "2026-05-26T13:30:00+00:00",
+                "review": {
+                    "subject": "General Studies",
+                    "topics": [
+                        {"topic": "Community facilities", "subject": "General Studies", "confidence": 0.82},
+                    ],
+                    "extracted_questions": [
+                        {"topic": "Community facilities", "subject": "General Studies", "score": 4, "max_score": 5},
+                    ],
+                },
+            },
+            {
+                "id": "doc-demo-chloe-language-20260601",
+                "parent_id": DEMO_PARENT_ID,
+                "child_id": "child-chloe",
+                "filename": "K2-storytelling-observation.jpg",
+                "created_at": "2026-06-01T07:55:00+00:00",
+                "review": {
+                    "subject": "Language",
+                    "topics": [
+                        {"topic": "Story retelling", "subject": "Language", "confidence": 0.9},
+                        {"topic": "Expressing feelings", "subject": "Language", "confidence": 0.78},
+                    ],
+                    "extracted_questions": [
+                        {"topic": "Story retelling", "subject": "Language", "score": 4, "max_score": 5},
+                        {"topic": "Expressing feelings", "subject": "Language", "score": 3, "max_score": 5},
+                    ],
+                },
+            },
+            {
+                "id": "doc-demo-chloe-math-20260529",
+                "parent_id": DEMO_PARENT_ID,
+                "child_id": "child-chloe",
+                "filename": "K2-number-pattern-play.jpg",
+                "created_at": "2026-05-29T11:25:00+00:00",
+                "review": {
+                    "subject": "Early Childhood Mathematics",
+                    "topics": [
+                        {"topic": "Number sense", "subject": "Early Childhood Mathematics", "confidence": 0.86},
+                        {"topic": "Patterns", "subject": "Early Childhood Mathematics", "confidence": 0.8},
+                    ],
+                    "extracted_questions": [
+                        {"topic": "Number sense", "subject": "Early Childhood Mathematics", "score": 5, "max_score": 5},
+                        {"topic": "Patterns", "subject": "Early Childhood Mathematics", "score": 4, "max_score": 5},
+                    ],
+                },
+            },
+            {
+                "id": "doc-demo-chloe-self-society-20260527",
+                "parent_id": DEMO_PARENT_ID,
+                "child_id": "child-chloe",
+                "filename": "K2-self-care-social-routine.jpg",
+                "created_at": "2026-05-27T09:10:00+00:00",
+                "review": {
+                    "subject": "Self and Society",
+                    "topics": [
+                        {"topic": "Self-care routines", "subject": "Self and Society", "confidence": 0.9},
+                        {"topic": "Taking turns", "subject": "Self and Society", "confidence": 0.76},
+                    ],
+                    "extracted_questions": [
+                        {"topic": "Self-care routines", "subject": "Self and Society", "score": 4, "max_score": 4},
+                        {"topic": "Taking turns", "subject": "Self and Society", "score": 3, "max_score": 4},
+                    ],
+                },
+            },
+        ]
+
+    def demo_practice_attempts(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "id": "practice-demo-matthew-math-20260601",
+                "parent_id": DEMO_PARENT_ID,
+                "child_id": DEMO_CHILD_ID,
+                "grade": "P3",
+                "subject": "Mathematics",
+                "source_document_ids": ["doc-demo-matthew-math-20260601"],
+                "total_count": 10,
+                "correct_count": 7,
+                "topic_results": [
+                    {"topic": "Fractions", "subject": "Mathematics", "attempted": 5, "correct": 4, "incorrect": 1, "mistake_tags": ["concept"]},
+                    {"topic": "Two-step word problems", "subject": "Mathematics", "attempted": 5, "correct": 3, "incorrect": 2, "mistake_tags": ["reading", "careless"]},
+                ],
+                "answers": [],
+                "created_at": "2026-06-01T08:35:00+00:00",
+            },
+            {
+                "id": "practice-demo-matthew-chinese-20260530",
+                "parent_id": DEMO_PARENT_ID,
+                "child_id": DEMO_CHILD_ID,
+                "grade": "P3",
+                "subject": "Chinese Language",
+                "source_document_ids": ["doc-demo-matthew-chinese-20260530"],
+                "total_count": 8,
+                "correct_count": 5,
+                "topic_results": [
+                    {"topic": "Reading comprehension", "subject": "Chinese Language", "attempted": 5, "correct": 4, "incorrect": 1, "mistake_tags": ["concept"]},
+                    {"topic": "Inference", "subject": "Chinese Language", "attempted": 3, "correct": 1, "incorrect": 2, "mistake_tags": ["reading"]},
+                ],
+                "answers": [],
+                "created_at": "2026-05-30T10:20:00+00:00",
+            },
+            {
+                "id": "practice-demo-matthew-english-20260528",
+                "parent_id": DEMO_PARENT_ID,
+                "child_id": DEMO_CHILD_ID,
+                "grade": "P3",
+                "subject": "English Language",
+                "source_document_ids": ["doc-demo-matthew-english-20260528"],
+                "total_count": 12,
+                "correct_count": 8,
+                "topic_results": [
+                    {"topic": "Vocabulary in context", "subject": "English Language", "attempted": 6, "correct": 5, "incorrect": 1, "mistake_tags": ["concept"]},
+                    {"topic": "Sentence grammar", "subject": "English Language", "attempted": 6, "correct": 3, "incorrect": 3, "mistake_tags": ["careless"]},
+                ],
+                "answers": [],
+                "created_at": "2026-05-28T10:00:00+00:00",
+            },
+            {
+                "id": "practice-demo-matthew-general-20260526",
+                "parent_id": DEMO_PARENT_ID,
+                "child_id": DEMO_CHILD_ID,
+                "grade": "P3",
+                "subject": "General Studies",
+                "source_document_ids": ["doc-demo-matthew-general-20260526"],
+                "total_count": 5,
+                "correct_count": 4,
+                "topic_results": [
+                    {"topic": "Community facilities", "subject": "General Studies", "attempted": 5, "correct": 4, "incorrect": 1, "mistake_tags": ["concept"]},
+                ],
+                "answers": [],
+                "created_at": "2026-05-26T13:45:00+00:00",
+            },
+            {
+                "id": "practice-demo-chloe-language-20260601",
+                "parent_id": DEMO_PARENT_ID,
+                "child_id": "child-chloe",
+                "grade": "K2",
+                "subject": "Language",
+                "source_document_ids": ["doc-demo-chloe-language-20260601"],
+                "total_count": 6,
+                "correct_count": 4,
+                "topic_results": [
+                    {"topic": "Story retelling", "subject": "Language", "attempted": 3, "correct": 2, "incorrect": 1, "mistake_tags": ["reading"]},
+                    {"topic": "Expressing feelings", "subject": "Language", "attempted": 3, "correct": 2, "incorrect": 1, "mistake_tags": ["concept"]},
+                ],
+                "answers": [],
+                "created_at": "2026-06-01T08:05:00+00:00",
+            },
+            {
+                "id": "practice-demo-chloe-math-20260529",
+                "parent_id": DEMO_PARENT_ID,
+                "child_id": "child-chloe",
+                "grade": "K2",
+                "subject": "Early Childhood Mathematics",
+                "source_document_ids": ["doc-demo-chloe-math-20260529"],
+                "total_count": 8,
+                "correct_count": 7,
+                "topic_results": [
+                    {"topic": "Number sense", "subject": "Early Childhood Mathematics", "attempted": 4, "correct": 4, "incorrect": 0, "mistake_tags": []},
+                    {"topic": "Patterns", "subject": "Early Childhood Mathematics", "attempted": 4, "correct": 3, "incorrect": 1, "mistake_tags": ["concept"]},
+                ],
+                "answers": [],
+                "created_at": "2026-05-29T11:40:00+00:00",
+            },
+            {
+                "id": "practice-demo-chloe-self-society-20260527",
+                "parent_id": DEMO_PARENT_ID,
+                "child_id": "child-chloe",
+                "grade": "K2",
+                "subject": "Self and Society",
+                "source_document_ids": ["doc-demo-chloe-self-society-20260527"],
+                "total_count": 6,
+                "correct_count": 5,
+                "topic_results": [
+                    {"topic": "Self-care routines", "subject": "Self and Society", "attempted": 3, "correct": 3, "incorrect": 0, "mistake_tags": []},
+                    {"topic": "Taking turns", "subject": "Self and Society", "attempted": 3, "correct": 2, "incorrect": 1, "mistake_tags": ["concept"]},
+                ],
+                "answers": [],
+                "created_at": "2026-05-27T09:25:00+00:00",
+            },
+        ]
+
+    def seed_demo_activity(self) -> None:
+        db = self.firestore
+        if db is None:
+            for document in self.demo_documents():
+                self._memory["documents"][document["id"]] = document
+            for attempt in self.demo_practice_attempts():
+                self._memory["practice_attempts"][attempt["id"]] = attempt
+            return
+
+        batch = db.batch()
+        for document in self.demo_documents():
+            batch.set(db.collection("documents").document(document["id"]), document, merge=True)
+        for attempt in self.demo_practice_attempts():
+            batch.set(db.collection("practice_attempts").document(attempt["id"]), attempt, merge=True)
+        batch.commit()
+
     @property
     def firestore(self):
         if use_memory_backend() or not self.project_id:
@@ -80,11 +423,11 @@ class Persistence:
                 "name": "Matthew",
                 "grade": "P3",
                 "passport": "Learning Passport",
-                "focus": "小學數學 + 升小 Portfolio",
+                "focus": "P3 academic progress: Mathematics, Chinese reading, English grammar and General Studies evidence",
                 "language": "繁中 / English",
                 "school_type": "香港主流小學",
                 "avatar_url": None,
-                "portfolio_sections": [],
+                "portfolio_sections": self.demo_portfolio_sections(DEMO_CHILD_ID),
                 "sort_order": 10,
             },
             {
@@ -93,11 +436,11 @@ class Persistence:
                 "name": "Chloe",
                 "grade": "K2",
                 "passport": "Learning Passport",
-                "focus": "幼稚園 Portfolio",
+                "focus": "K2 whole-child development: language, self-care, social-emotional readiness and creative evidence",
                 "language": "繁中 / English",
                 "school_type": "香港幼稚園",
                 "avatar_url": None,
-                "portfolio_sections": [],
+                "portfolio_sections": self.demo_portfolio_sections("child-chloe"),
                 "sort_order": 20,
             },
         ]
@@ -107,11 +450,13 @@ class Persistence:
             self._memory["parents"][DEMO_PARENT_ID] = parent
             for child in children:
                 self._memory["children"][child["id"]] = child
+            self.seed_demo_activity()
             return self.get_parent_with_children(DEMO_PARENT_ID)
 
         db.collection("parents").document(DEMO_PARENT_ID).set(parent, merge=True)
         for child in children:
             db.collection("children").document(child["id"]).set(child, merge=True)
+        self.seed_demo_activity()
         return self.get_parent_with_children(DEMO_PARENT_ID)
 
     def get_parent_by_email(self, email: str) -> dict[str, Any] | None:
