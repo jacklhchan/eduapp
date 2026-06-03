@@ -14,6 +14,12 @@ type AuthMode = 'login' | 'signup';
 
 type OcrResult = {
   ok?: boolean;
+  document_id?: string;
+  document?: {
+    id: string;
+    filename?: string;
+    parent_confirmed_at?: string | null;
+  };
   ocr_provider?: string;
   ocr_text_preview?: string;
   page_count?: number;
@@ -33,11 +39,16 @@ type OcrResult = {
       page_numbers?: number[];
     }>;
     extracted_questions?: Array<{
+      id?: string;
       question_text: string;
+      detected_answer?: string | null;
+      score?: number | null;
+      max_score?: number | null;
       confidence: number;
       page_number?: number | null;
       topic?: string | null;
       topic_ids?: string[];
+      mistake_tags?: string[];
     }>;
   };
   detail?: string;
@@ -86,6 +97,7 @@ type ChildDataSummary = {
   child_name: string;
   grade: string;
   document_count: number;
+  practice_count: number;
   portfolio_export_count: number;
 };
 
@@ -192,11 +204,75 @@ type LearningProgress = {
 };
 
 type ShareReport = {
+  id: string;
   token: string;
   share_url: string;
   report_month: string;
   teacher_name?: string | null;
+  include_upload_evidence?: boolean;
+  scope?: 'summary_only' | 'summary_with_evidence';
   expires_at?: string | null;
+  revoked_at?: string | null;
+};
+
+type OcrReviewQuestionDraft = {
+  id: string;
+  question_text: string;
+  detected_answer?: string | null;
+  score?: number | null;
+  max_score?: number | null;
+  confidence: number;
+  page_number?: number | null;
+  topic?: string | null;
+  topic_ids?: string[];
+  mistake_tags: string[];
+};
+
+type OcrInboxDocument = {
+  id: string;
+  filename: string;
+  created_at: string;
+  page_count: number;
+  review_mode: string;
+  parent_confirmed_at?: string | null;
+  review: {
+    topics?: Array<{ topic: string; confidence?: number; page_numbers?: number[] }>;
+    extracted_questions?: OcrReviewQuestionDraft[];
+  };
+};
+
+type MistakeNotebookItem = {
+  id: string;
+  source_type: 'ocr_review' | 'practice_attempt';
+  source_id: string;
+  subject: string;
+  topic: string;
+  mistake_tag: string;
+  question_text: string;
+  submitted_answer: string;
+  expected_answer: string;
+  confidence?: number | null;
+  mastery: number;
+  last_seen_at?: string | null;
+  recommendation: string;
+};
+
+type WeeklyBriefing = {
+  report_month: string;
+  week_start: string;
+  week_end: string;
+  headline: string;
+  summary: string;
+  wins: string[];
+  focus_areas: string[];
+  next_actions: string[];
+  generated_at: string;
+};
+
+type ShareReportOptions = {
+  teacherName?: string;
+  expiresInDays?: number;
+  includeUploadEvidence?: boolean;
 };
 
 type PracticeSubmission = Record<string, { answer: string; isCorrect: boolean }>;
@@ -417,6 +493,23 @@ function formatActivityDate(value: unknown) {
   const date = new Date(source);
   if (Number.isNaN(date.getTime())) return source.slice(5, 10) || source;
   return date.toLocaleDateString('zh-HK', { month: 'short', day: 'numeric' });
+}
+
+function formatBriefDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(5);
+  return date.toLocaleDateString('zh-HK', { month: 'numeric', day: 'numeric' });
+}
+
+function mistakeTagLabel(value: string) {
+  const labels: Record<string, string> = {
+    calculation: '計算錯',
+    careless: '粗心',
+    concept: '概念',
+    reading: '審題',
+    unit_conversion: '單位換算',
+  };
+  return labels[value] || value;
 }
 
 function preferredChildId(parent: ParentProfile): string {
@@ -824,7 +917,13 @@ function App() {
   const [learningProgress, setLearningProgress] = useState<LearningProgress | null>(null);
   const [progressState, setProgressState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [shareReport, setShareReport] = useState<ShareReport | null>(null);
+  const [shareReports, setShareReports] = useState<ShareReport[]>([]);
   const [shareState, setShareState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
+  const [ocrInbox, setOcrInbox] = useState<OcrInboxDocument[]>([]);
+  const [ocrInboxState, setOcrInboxState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [reviewConfirmState, setReviewConfirmState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
+  const [mistakeNotebook, setMistakeNotebook] = useState<MistakeNotebookItem[]>([]);
+  const [weeklyBriefing, setWeeklyBriefing] = useState<WeeklyBriefing | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [profileSheet, setProfileSheet] = useState<ProfileSheet>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -895,23 +994,9 @@ function App() {
 
   useEffect(() => {
     if (authState !== 'authenticated' || !currentChild) return undefined;
-    let alive = true;
-    setProgressState('loading');
-    fetch(`/api/learning/progress?child_id=${encodeURIComponent(currentChild.id)}`, { credentials: 'include' })
-      .then(async (response) => {
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
-        if (!alive) return;
-        setLearningProgress(data);
-        setProgressState('ready');
-      })
-      .catch(() => {
-        if (!alive) return;
-        setProgressState('error');
-      });
-    return () => {
-      alive = false;
-    };
+    void refreshLearningProgress(currentChild.id);
+    void refreshP0Workspace(currentChild.id);
+    return undefined;
   }, [authState, currentChild]);
 
   async function login(event: FormEvent<HTMLFormElement>) {
@@ -1001,11 +1086,12 @@ function App() {
 
     setOcrState('running');
     setOcrResult(null);
+    const uploadChildId = currentChild?.id || 'child-matthew';
 
     const form = new FormData();
     selectedFiles.forEach((file) => form.append('files', file));
-    form.append('child_id', currentChild?.id || 'child-matthew');
-    form.append('child_profile_id', currentChild?.id || 'child-matthew');
+    form.append('child_id', uploadChildId);
+    form.append('child_profile_id', uploadChildId);
     form.append('grade', currentChild?.grade || 'P3');
 
     try {
@@ -1014,6 +1100,9 @@ function App() {
       if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
       setOcrResult(data);
       setOcrState('done');
+      await refreshLearningProgress(uploadChildId);
+      await refreshP0Workspace(uploadChildId);
+      setToast('已匯入學習進度');
     } catch (error) {
       setOcrResult({ detail: error instanceof Error ? error.message : 'OCR 分析失敗' });
       setOcrState('error');
@@ -1093,6 +1182,74 @@ function App() {
     }
   }
 
+  async function refreshOcrInbox(childId = currentChild?.id) {
+    if (!childId) return [] as OcrInboxDocument[];
+    setOcrInboxState('loading');
+    try {
+      const response = await fetch(`/api/ocr-review/inbox?child_id=${encodeURIComponent(childId)}`, { credentials: 'include' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+      setOcrInbox(data);
+      setOcrInboxState('ready');
+      return data as OcrInboxDocument[];
+    } catch {
+      setOcrInboxState('error');
+      return [];
+    }
+  }
+
+  async function refreshMistakeNotebook(childId = currentChild?.id) {
+    if (!childId) return [] as MistakeNotebookItem[];
+    try {
+      const response = await fetch(`/api/mistake-notebook?child_id=${encodeURIComponent(childId)}`, { credentials: 'include' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+      setMistakeNotebook(data.items || []);
+      return data.items as MistakeNotebookItem[];
+    } catch {
+      setMistakeNotebook([]);
+      return [];
+    }
+  }
+
+  async function refreshWeeklyBriefing(childId = currentChild?.id) {
+    if (!childId) return null;
+    try {
+      const response = await fetch(`/api/weekly-briefing?child_id=${encodeURIComponent(childId)}`, { credentials: 'include' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+      setWeeklyBriefing(data);
+      return data as WeeklyBriefing;
+    } catch {
+      setWeeklyBriefing(null);
+      return null;
+    }
+  }
+
+  async function refreshShareLinks(childId = currentChild?.id) {
+    if (!childId) return [] as ShareReport[];
+    try {
+      const response = await fetch(`/api/reports/share?child_id=${encodeURIComponent(childId)}`, { credentials: 'include' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+      setShareReports(data);
+      return data as ShareReport[];
+    } catch {
+      setShareReports([]);
+      return [];
+    }
+  }
+
+  async function refreshP0Workspace(childId = currentChild?.id) {
+    if (!childId) return;
+    await Promise.all([
+      refreshOcrInbox(childId),
+      refreshMistakeNotebook(childId),
+      refreshWeeklyBriefing(childId),
+      refreshShareLinks(childId),
+    ]);
+  }
+
   async function completePractice(answers: PracticeSubmission) {
     if (!practiceQuiz || !currentChild) {
       setPracticeState('complete');
@@ -1122,7 +1279,8 @@ function App() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
       await refreshLearningProgress(currentChild.id);
-      setToast('練習紀錄已加入進度報告');
+      await refreshP0Workspace(currentChild.id);
+      setToast('練習紀錄已加入進度報告與錯題簿');
     } catch (error) {
       setToast(error instanceof Error ? error.message : '練習已完成，但儲存失敗');
     } finally {
@@ -1130,7 +1288,7 @@ function App() {
     }
   }
 
-  async function shareLearningReport() {
+  async function shareLearningReport(options: ShareReportOptions = {}) {
     if (!currentChild) return;
     setShareState('running');
     try {
@@ -1140,18 +1298,61 @@ function App() {
         credentials: 'include',
         body: JSON.stringify({
           child_id: currentChild.id,
+          expires_in_days: options.expiresInDays || 30,
+          include_upload_evidence: Boolean(options.includeUploadEvidence),
           report_month: learningProgress?.report_month,
-          teacher_name: '補習老師 / 班主任',
+          scope: options.includeUploadEvidence ? 'summary_with_evidence' : 'summary_only',
+          teacher_name: options.teacherName || '補習老師 / 班主任',
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
       setShareReport(data.share);
+      await refreshShareLinks(currentChild.id);
       setShareState('done');
       setToast('教師報告連結已建立');
     } catch (error) {
       setShareState('error');
       setToast(error instanceof Error ? error.message : '分享報告失敗');
+    }
+  }
+
+  async function revokeShareReport(shareId: string) {
+    const response = await fetch(`/api/reports/share/${encodeURIComponent(shareId)}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+    setShareReports((current) => current.map((item) => (item.id === shareId ? data : item)));
+    setToast('教師分享連結已撤回');
+  }
+
+  async function confirmOcrReview(documentId: string, questions: OcrReviewQuestionDraft[], parentNotes?: string) {
+    setReviewConfirmState('running');
+    try {
+      const response = await fetch(`/api/ocr-review/${encodeURIComponent(documentId)}/confirm`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          extracted_questions: normalizeReviewQuestionDrafts(questions),
+          parent_notes: parentNotes,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+      setReviewConfirmState('done');
+      setOcrResult((current) => current?.document?.id === documentId
+        ? { ...current, document: { ...current.document, parent_confirmed_at: data.parent_confirmed_at } }
+        : current);
+      await refreshLearningProgress(currentChild?.id);
+      await refreshP0Workspace(currentChild?.id);
+      setToast('OCR 檢視已由家長確認');
+    } catch (error) {
+      setReviewConfirmState('error');
+      setToast(error instanceof Error ? error.message : 'OCR 確認失敗');
+      throw error;
     }
   }
 
@@ -1452,18 +1653,28 @@ function App() {
           selectedFiles={selectedFiles}
           analyzeUpload={analyzeUpload}
           handleFileChange={handleFileChange}
+          ocrConfirmState={reviewConfirmState}
+          onConfirmReview={confirmOcrReview}
           onSelectPreviewPage={setActivePreviewIndex}
           canViewPreview={canViewUploadPreview}
           onViewPreview={() => setLightboxSrc(uploadPreview)}
+          onViewProgress={() => setActiveView('home')}
         />
       )}
       {activeView === 'coach' && (
         <CoachView
           child={currentChild}
           learningProgress={learningProgress}
+          mistakeNotebook={mistakeNotebook}
+          ocrInbox={ocrInbox}
+          ocrInboxState={ocrInboxState}
           progressState={progressState}
+          shareReports={shareReports}
           shareReport={shareReport}
           shareState={shareState}
+          weeklyBriefing={weeklyBriefing}
+          onConfirmOcrReview={confirmOcrReview}
+          onRevokeShareReport={revokeShareReport}
           onShareReport={shareLearningReport}
         />
       )}
@@ -2136,8 +2347,11 @@ function UploadView({
   canViewPreview,
   handleFileChange,
   inputRef,
+  ocrConfirmState,
   onSelectPreviewPage,
+  onConfirmReview,
   onViewPreview,
+  onViewProgress,
   ocrResult,
   ocrState,
   previewItems,
@@ -2149,25 +2363,21 @@ function UploadView({
   canViewPreview: boolean;
   handleFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
   inputRef: RefObject<HTMLInputElement | null>;
+  ocrConfirmState: 'idle' | 'running' | 'done' | 'error';
+  onConfirmReview: (documentId: string, questions: OcrReviewQuestionDraft[], parentNotes?: string) => Promise<void>;
   onSelectPreviewPage: (index: number) => void;
   onViewPreview: () => void;
+  onViewProgress: () => void;
   ocrResult: OcrResult | null;
   ocrState: 'idle' | 'running' | 'done' | 'error';
   previewItems: UploadPreviewItem[];
   previewUrl: string;
   selectedFiles: File[];
 }) {
-  const [mistakes, setMistakes] = useState<Array<{
-    confidence: string;
-    id: string;
-    page: string;
-    question: string;
-    reason: string;
-    title: string;
-    topic: string;
-  }>>([]);
-  const detectedQuestions = ocrResult?.review?.extracted_questions || [];
-  const detectedTopics = ocrResult?.review?.topics || [];
+  const detectedQuestions = useMemo(() => ocrResult?.review?.extracted_questions || [], [ocrResult]);
+  const detectedTopics = useMemo(() => ocrResult?.review?.topics || [], [ocrResult]);
+  const [questionDrafts, setQuestionDrafts] = useState<OcrReviewQuestionDraft[]>([]);
+  const [reviewNotes, setReviewNotes] = useState('');
   const pageCount = ocrResult?.review?.page_count || ocrResult?.page_count || Math.max(selectedFiles.length, 1);
   const selectedFileCount = selectedFiles.length;
   const activePreviewItem = previewItems[activePreviewIndex] || null;
@@ -2183,6 +2393,28 @@ function UploadView({
       : selectedFileCount
         ? '等待分析'
         : '可多頁上載';
+  const documentId = ocrResult?.document?.id || ocrResult?.document_id || '';
+  const reviewConfirmed = Boolean(ocrResult?.document?.parent_confirmed_at);
+
+  useEffect(() => {
+    setQuestionDrafts(detectedQuestions.map((question, index) => ({
+      confidence: question.confidence ?? 0.5,
+      detected_answer: question.detected_answer ?? '',
+      id: question.id || `q${index + 1}`,
+      max_score: question.max_score ?? null,
+      mistake_tags: question.mistake_tags?.length ? question.mistake_tags : ['concept'],
+      page_number: question.page_number ?? index + 1,
+      question_text: question.question_text || '',
+      score: question.score ?? null,
+      topic: question.topic || '',
+      topic_ids: question.topic_ids || [],
+    })));
+    setReviewNotes('');
+  }, [detectedQuestions]);
+
+  function updateQuestionDraft(id: string, updates: Partial<OcrReviewQuestionDraft>) {
+    setQuestionDrafts((items) => items.map((item) => (item.id === id ? { ...item, ...updates } : item)));
+  }
 
   return (
     <>
@@ -2248,7 +2480,7 @@ function UploadView({
 
           <div className="parent-confirmation-notice">
             <Icon name="info" filled />
-            <p>AI 檢視結果需要家長確認後，才會儲存到學生學習檔案。</p>
+            <p>{ocrState === 'done' ? 'AI 檢視結果已匯入學生學習進度。' : '確認並分析後，AI 檢視結果會儲存到學生學習進度。'}</p>
           </div>
 
           {detectedTopics.length ? (
@@ -2270,39 +2502,72 @@ function UploadView({
           ) : null}
 
           <div className="mistake-list">
-            <label>辨識到的錯誤題型</label>
-            {mistakes.map((mistake) => (
-              <MistakeCard
-                key={mistake.id}
-                confidence={mistake.confidence}
-                page={mistake.page}
-                title={mistake.title}
-                question={mistake.question}
-                reason={mistake.reason}
-                topic={mistake.topic}
-                onDelete={() => setMistakes((items) => items.filter((item) => item.id !== mistake.id))}
-                onReasonChange={(reason) =>
-                  setMistakes((items) => items.map((item) => (item.id === mistake.id ? { ...item, reason } : item)))
-                }
-              />
-            ))}
-            {!mistakes.length && ocrState !== 'done' && ocrState !== 'error' ? (
+            <label>OCR 待確認</label>
+            {!questionDrafts.length && ocrState !== 'done' && ocrState !== 'error' ? (
               <div className="analysis-result neutral">
                 <strong>等待 AI 分析</strong>
                 <p>選擇作業頁面並開始分析後，才會列出需家長確認的錯誤題型。</p>
               </div>
             ) : null}
 
-            {ocrState === 'done' && detectedQuestions.length ? (
-              <div className="analysis-result success question-result-list">
-                <strong>混合 OCR 檢視 · {detectedQuestions.length} 題</strong>
-                {detectedQuestions.slice(0, 5).map((question, index) => (
-                  <p key={`${question.question_text}-${index}`}>
-                    <span>P{question.page_number || index + 1}</span>
-                    {question.topic ? <em>{displayTopicName(question.topic)}</em> : null}
-                    {question.question_text}
-                  </p>
+            {ocrState === 'done' && questionDrafts.length ? (
+              <div className={reviewConfirmed ? 'ocr-review-inbox confirmed' : 'ocr-review-inbox'}>
+                <div className="ocr-review-head">
+                  <div>
+                    <strong>家長確認 · {questionDrafts.length} 題</strong>
+                    <p>{reviewConfirmed ? '此 OCR 檢視已確認。' : '請修正 AI 擷取文字、答案與錯因，再確認入學習檔案。'}</p>
+                  </div>
+                  <span><Icon name={reviewConfirmed ? 'verified' : 'rule'} filled /> {reviewConfirmed ? '已確認' : '待確認'}</span>
+                </div>
+                {questionDrafts.slice(0, 6).map((question, index) => (
+                  <article className="ocr-question-editor" key={question.id}>
+                    <div className="question-meta-row">
+                      <span>P{question.page_number || index + 1}</span>
+                      <em>{displayTopicName(question.topic || '未分類')}</em>
+                      <small>{confidenceLabel(question.confidence)} · {Math.round(question.confidence * 100)}%</small>
+                    </div>
+                    <textarea
+                      aria-label={`第 ${index + 1} 題 OCR 文字`}
+                      value={question.question_text}
+                      onChange={(event) => updateQuestionDraft(question.id, { question_text: event.target.value })}
+                    />
+                    <div className="ocr-correction-grid">
+                      <label>
+                        學生答案
+                        <input
+                          value={question.detected_answer || ''}
+                          onChange={(event) => updateQuestionDraft(question.id, { detected_answer: event.target.value })}
+                        />
+                      </label>
+                      <label>
+                        錯因
+                        <select
+                          value={question.mistake_tags[0] || 'concept'}
+                          onChange={(event) => updateQuestionDraft(question.id, { mistake_tags: [event.target.value] })}
+                        >
+                          <option value="concept">概念</option>
+                          <option value="calculation">計算</option>
+                          <option value="reading">審題</option>
+                          <option value="unit_conversion">單位換算</option>
+                          <option value="careless">粗心</option>
+                        </select>
+                      </label>
+                    </div>
+                  </article>
                 ))}
+                <label className="review-notes-field">
+                  家長備註
+                  <textarea value={reviewNotes} onChange={(event) => setReviewNotes(event.target.value)} />
+                </label>
+                <button
+                  className="secondary-action full"
+                  type="button"
+                  disabled={!documentId || ocrConfirmState === 'running' || reviewConfirmed}
+                  onClick={() => onConfirmReview(documentId, questionDrafts, reviewNotes)}
+                >
+                  <Icon name={reviewConfirmed ? 'verified' : 'fact_check'} />
+                  {ocrConfirmState === 'running' ? '確認中...' : reviewConfirmed ? '已完成確認' : '確認 OCR 結果'}
+                </button>
               </div>
             ) : null}
             {ocrState === 'error' ? (
@@ -2323,12 +2588,18 @@ function UploadView({
         <button
           className={ocrState === 'done' ? 'primary-action full save-ready' : 'primary-action full'}
           type="button"
-          onClick={analyzeUpload}
+          onClick={ocrState === 'done' ? onViewProgress : analyzeUpload}
           disabled={ocrState === 'running'}
         >
           <span aria-hidden="true" />
-          <Icon name={selectedFileCount ? 'document_scanner' : 'upload_file'} filled />
-          {ocrState === 'running' ? '正在分析多頁...' : selectedFileCount ? `確認並分析 ${selectedFileCount} 頁` : '選擇功課相片 / PDF'}
+          <Icon name={ocrState === 'done' ? 'stacked_line_chart' : selectedFileCount ? 'document_scanner' : 'upload_file'} filled />
+          {ocrState === 'running'
+            ? '正在分析多頁...'
+            : ocrState === 'done'
+              ? '已匯入，查看進度'
+              : selectedFileCount
+                ? `確認並分析 ${selectedFileCount} 頁`
+                : '選擇功課相片 / PDF'}
         </button>
       </footer>
     </>
@@ -2399,17 +2670,31 @@ function MistakeCard({
 function CoachView({
   child,
   learningProgress,
+  mistakeNotebook,
+  ocrInbox,
+  ocrInboxState,
+  onConfirmOcrReview,
+  onRevokeShareReport,
   onShareReport,
   progressState,
   shareReport,
+  shareReports,
   shareState,
+  weeklyBriefing,
 }: {
   child: ChildProfile | null;
   learningProgress: LearningProgress | null;
-  onShareReport: () => void;
+  mistakeNotebook: MistakeNotebookItem[];
+  ocrInbox: OcrInboxDocument[];
+  ocrInboxState: 'idle' | 'loading' | 'ready' | 'error';
+  onConfirmOcrReview: (documentId: string, questions: OcrReviewQuestionDraft[], parentNotes?: string) => Promise<void>;
+  onRevokeShareReport: (shareId: string) => Promise<void>;
+  onShareReport: (options?: ShareReportOptions) => void;
   progressState: 'idle' | 'loading' | 'ready' | 'error';
   shareReport: ShareReport | null;
+  shareReports: ShareReport[];
   shareState: 'idle' | 'running' | 'done' | 'error';
+  weeklyBriefing: WeeklyBriefing | null;
 }) {
   const profileGrade = normalizeGrade(child?.grade);
   const gradeSubjects = useMemo(
@@ -2451,6 +2736,16 @@ function CoachView({
         onSelectSubject={setSelectedSubjectId}
       />
 
+      <WeeklyBriefingPanel briefing={weeklyBriefing} child={child} />
+
+      <OcrReviewInboxPanel
+        documents={ocrInbox}
+        state={ocrInboxState}
+        onConfirm={onConfirmOcrReview}
+      />
+
+      <MistakeNotebookPanel items={mistakeNotebook} />
+
       <CurriculumMapSection
         child={child}
         selectedSubjectId={selectedSubject?.id || ''}
@@ -2461,8 +2756,10 @@ function CoachView({
         child={child}
         progress={learningProgress}
         progressState={progressState}
+        shareReports={shareReports}
         shareReport={shareReport}
         shareState={shareState}
+        onRevokeShareReport={onRevokeShareReport}
         onShareReport={onShareReport}
       />
 
@@ -2512,6 +2809,116 @@ function CoachView({
         {learningProgress?.recent_activity?.length ? null : <p className="empty-report-note">上載有分數的學科作品後，這裡會顯示最新紀錄。</p>}
       </section>
     </main>
+  );
+}
+
+function WeeklyBriefingPanel({ briefing, child }: { briefing: WeeklyBriefing | null; child: ChildProfile | null }) {
+  return (
+    <section className="weekly-briefing-panel" aria-label="每週家長簡報">
+      <div className="weekly-briefing-head">
+        <div>
+          <span className="report-kicker"><Icon name="event_note" /> 每週簡報</span>
+          <h2>{briefing?.headline || `${child?.name || '孩子'} 的每週學習摘要`}</h2>
+          <p>{briefing?.summary || '完成 OCR 檢視或練習後，系統會整理本週重點。'}</p>
+        </div>
+        <Metric value={briefing?.week_end ? formatBriefDate(briefing.week_end) : '--'} label="至" />
+      </div>
+      <div className="briefing-columns">
+        <BriefingColumn icon="trending_up" title="亮點" items={briefing?.wins || ['等待更多學習紀錄']} />
+        <BriefingColumn icon="flag" title="焦點" items={briefing?.focus_areas || ['上載一份已批改功課']} />
+        <BriefingColumn icon="task_alt" title="下步" items={briefing?.next_actions || ['確認 OCR 待確認清單']} />
+      </div>
+    </section>
+  );
+}
+
+function BriefingColumn({ icon, items, title }: { icon: string; items: string[]; title: string }) {
+  return (
+    <article>
+      <h3><Icon name={icon} /> {title}</h3>
+      {items.slice(0, 3).map((item) => <p key={item}>{item}</p>)}
+    </article>
+  );
+}
+
+function OcrReviewInboxPanel({
+  documents,
+  onConfirm,
+  state,
+}: {
+  documents: OcrInboxDocument[];
+  onConfirm: (documentId: string, questions: OcrReviewQuestionDraft[], parentNotes?: string) => Promise<void>;
+  state: 'idle' | 'loading' | 'ready' | 'error';
+}) {
+  return (
+    <section className="review-inbox-panel" aria-label="OCR 待確認">
+      <div className="report-panel-head">
+        <div>
+          <span className="report-kicker"><Icon name="rule" /> OCR 待確認</span>
+          <h2>待家長確認</h2>
+          <p>{state === 'loading' ? '讀取上載紀錄中...' : `${documents.length} 份功課需要確認`}</p>
+        </div>
+        <Metric value={`${documents.length}`} label="待處理" />
+      </div>
+      <div className="review-inbox-list">
+        {documents.slice(0, 4).map((document) => {
+          const questions = document.review.extracted_questions || [];
+          const topics = document.review.topics || [];
+          const lowConfidence = questions.filter((question) => question.confidence < 0.76).length;
+          return (
+            <article key={document.id} className="review-inbox-row">
+              <div>
+                <span>{formatActivityDate(document.created_at)} · {document.page_count} 頁</span>
+                <strong>{document.filename}</strong>
+                <p>
+                  {topics.slice(0, 2).map((topic) => displayTopicName(topic.topic)).join(' / ') || '未分類'}
+                  {lowConfidence ? ` · ${lowConfidence} 題低信心` : ''}
+                </p>
+              </div>
+              <button
+                className="secondary-action"
+                type="button"
+                disabled={!questions.length}
+                onClick={() => onConfirm(document.id, questions, '在 OCR 待確認清單直接確認')}
+              >
+                <Icon name="fact_check" />
+                確認
+              </button>
+            </article>
+          );
+        })}
+        {!documents.length ? <p className="empty-report-note">暫時沒有待確認 OCR 檢視。</p> : null}
+      </div>
+    </section>
+  );
+}
+
+function MistakeNotebookPanel({ items }: { items: MistakeNotebookItem[] }) {
+  return (
+    <section className="mistake-notebook-panel" aria-label="錯題簿">
+      <div className="report-panel-head">
+        <div>
+          <span className="report-kicker"><Icon name="menu_book" /> 錯題簿</span>
+          <h2>可重練的錯因</h2>
+          <p>OCR 檢視與練習答錯項目會自動整理到這裡。</p>
+        </div>
+        <Metric value={`${items.length}`} label="項目" />
+      </div>
+      <div className="notebook-list">
+        {items.slice(0, 5).map((item) => (
+          <article className="notebook-row" key={item.id}>
+            <span className="notebook-source"><Icon name={item.source_type === 'ocr_review' ? 'document_scanner' : 'edit_note'} /> {displaySubjectName(item.subject)}</span>
+            <div>
+              <strong>{displayTopicName(item.topic)}</strong>
+              <p>{item.question_text || item.recommendation}</p>
+              <small>{mistakeTagLabel(item.mistake_tag)} · 掌握度 {item.mastery}% · {formatActivityDate(item.last_seen_at)}</small>
+            </div>
+            <b>{item.mastery}%</b>
+          </article>
+        ))}
+        {!items.length ? <p className="empty-report-note">暫時沒有錯題；完成練習或確認 OCR 後會自動加入。</p> : null}
+      </div>
+    </section>
   );
 }
 
@@ -2636,18 +3043,26 @@ function AcademicSubjectProgressPanel({
 function LearningReportPanel({
   child,
   onShareReport,
+  onRevokeShareReport,
   progress,
   progressState,
   shareReport,
+  shareReports,
   shareState,
 }: {
   child: ChildProfile | null;
-  onShareReport: () => void;
+  onShareReport: (options?: ShareReportOptions) => void;
+  onRevokeShareReport: (shareId: string) => Promise<void>;
   progress: LearningProgress | null;
   progressState: 'idle' | 'loading' | 'ready' | 'error';
   shareReport: ShareReport | null;
+  shareReports: ShareReport[];
   shareState: 'idle' | 'running' | 'done' | 'error';
 }) {
+  const [teacherName, setTeacherName] = useState('補習老師 / 班主任');
+  const [expiresInDays, setExpiresInDays] = useState(30);
+  const [includeEvidence, setIncludeEvidence] = useState(false);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
   const trend = progress?.trend_points?.length ? progress.trend_points : [42, 48, 55, progress?.overall_mastery || 0].filter(Boolean);
   const weakTopics = progress?.weak_topics || [];
   const improvedTopics = progress?.improved_topics || [];
@@ -2659,6 +3074,14 @@ function LearningReportPanel({
       void navigator.clipboard.writeText(shareHref);
     }
   };
+  async function revoke(shareId: string) {
+    setRevokingId(shareId);
+    try {
+      await onRevokeShareReport(shareId);
+    } finally {
+      setRevokingId(null);
+    }
+  }
 
   return (
     <section
@@ -2703,7 +3126,7 @@ function LearningReportPanel({
           <h3><Icon name="flag" /> 三個主要弱項</h3>
           {weakTopics.length ? weakTopics.map((topic) => (
             <TopicReportRow key={`${topic.subject}-${topic.topic}`} topic={topic} />
-          )) : <p className="empty-report-note">完成 OCR review 或輸入測驗分數後會整理弱項。</p>}
+          )) : <p className="empty-report-note">完成 OCR 檢視或輸入測驗分數後會整理弱項。</p>}
         </article>
         <article>
           <h3><Icon name="trending_up" /> 已改善</h3>
@@ -2719,8 +3142,31 @@ function LearningReportPanel({
           <h3>分享給補習老師</h3>
           <p>連結只包含學習弱項、改善項目與分數紀錄摘要；不公開原始相片。</p>
         </div>
+        <div className="share-control-grid">
+          <label>
+            分享對象
+            <input value={teacherName} onChange={(event) => setTeacherName(event.target.value)} />
+          </label>
+          <label>
+            有效期
+            <select value={expiresInDays} onChange={(event) => setExpiresInDays(Number(event.target.value))}>
+              <option value={7}>7 日</option>
+              <option value={30}>30 日</option>
+              <option value={90}>90 日</option>
+            </select>
+          </label>
+          <label className="share-evidence-toggle">
+            <input checked={includeEvidence} type="checkbox" onChange={(event) => setIncludeEvidence(event.target.checked)} />
+            <span>包含證據摘要</span>
+          </label>
+        </div>
         <div className="teacher-share-actions">
-          <button className="primary-action report-share-button" type="button" disabled={shareState === 'running'} onClick={onShareReport}>
+          <button
+            className="primary-action report-share-button"
+            type="button"
+            disabled={shareState === 'running'}
+            onClick={() => onShareReport({ expiresInDays, includeUploadEvidence: includeEvidence, teacherName })}
+          >
             <Icon name={shareState === 'done' ? 'task_alt' : 'ios_share'} filled />
             {shareState === 'running' ? '準備中...' : shareState === 'done' ? '已分享給老師' : '分享給補習老師'}
           </button>
@@ -2736,6 +3182,31 @@ function LearningReportPanel({
             </div>
           ) : null}
         </div>
+      </div>
+
+      <div className="share-link-manager" aria-label="分享連結管理">
+        <div className="share-link-manager-head">
+          <h3><Icon name="link" /> 分享連結</h3>
+          <span>{shareReports.length} 條</span>
+        </div>
+        {shareReports.slice(0, 4).map((share) => {
+          const href = `${window.location.origin}${share.share_url}`;
+          const revoked = Boolean(share.revoked_at);
+          return (
+            <article className={revoked ? 'share-link-item revoked' : 'share-link-item'} key={share.id}>
+              <div>
+                <strong>{share.teacher_name || '補習老師 / 班主任'}</strong>
+                <span>{share.scope === 'summary_with_evidence' ? '摘要 + 證據' : '只限摘要'} · 至 {share.expires_at ? formatBriefDate(share.expires_at) : '未設定'}</span>
+                <a href={href} target="_blank" rel="noreferrer">{href}</a>
+              </div>
+              <button type="button" disabled={revoked || revokingId === share.id} onClick={() => revoke(share.id)}>
+                <Icon name={revoked ? 'block' : 'link_off'} />
+                {revoked ? '已撤回' : revokingId === share.id ? '撤回中' : '撤回'}
+              </button>
+            </article>
+          );
+        })}
+        {!shareReports.length ? <p className="empty-report-note">建立分享後，這裡可查看有效期與撤回連結。</p> : null}
       </div>
     </section>
   );
@@ -2783,6 +3254,30 @@ function displayMathText(value: string) {
     .replace(/\\/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function confidenceLabel(value: number) {
+  if (value >= 0.9) return '高信心';
+  if (value >= 0.72) return '中信心';
+  return '低信心';
+}
+
+function normalizeReviewQuestionDrafts(questions: OcrReviewQuestionDraft[]) {
+  return questions
+    .filter((question) => String(question.question_text || question.topic || '').trim())
+    .map((question, index) => ({
+      confidence: Math.max(0, Math.min(1, question.confidence || 0.5)),
+      curriculum_node_id: null,
+      detected_answer: question.detected_answer || null,
+      id: question.id || `q${index + 1}`,
+      max_score: question.max_score ?? null,
+      mistake_tags: Array.isArray(question.mistake_tags) && question.mistake_tags.length ? question.mistake_tags : ['concept'],
+      page_number: question.page_number || index + 1,
+      question_text: String(question.question_text || question.topic || `OCR 題目 ${index + 1}`).trim(),
+      score: question.score ?? null,
+      topic: question.topic || null,
+      topic_ids: question.topic_ids || [],
+    }));
 }
 
 function estimateAnswerCorrect(answer: string, expected: string) {
@@ -3925,6 +4420,10 @@ function auditEventLabel(eventType: string) {
   if (eventType === 'privacy_settings_updated') return '私隱設定已更新';
   if (eventType === 'child_data_deleted') return '學生資料已刪除';
   if (eventType === 'portfolio_exported') return '作品集 PDF 已匯出';
+  if (eventType === 'ocr_review_confirmed') return 'OCR 檢視已確認';
+  if (eventType === 'learning_report_shared') return '學習報告已分享';
+  if (eventType === 'learning_report_share_revoked') return '分享連結已撤回';
+  if (eventType === 'practice_attempt_saved') return '練習紀錄已儲存';
   return eventType.replace(/_/g, ' ');
 }
 

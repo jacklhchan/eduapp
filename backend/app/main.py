@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from html import escape
@@ -39,9 +40,14 @@ from .schemas import (
     ChildDeleteRequest,
     ChildDeleteResponse,
     ChildProfile,
+    ChildUpdateRequest,
     DocumentRecord,
     GeneratedQuiz,
     LoginRequest,
+    MistakeNotebookItem,
+    MistakeNotebookResponse,
+    OcrReviewConfirmRequest,
+    OcrReviewInboxItem,
     OcrReviewResult,
     ParentUpdateRequest,
     ParentProfile,
@@ -57,6 +63,7 @@ from .schemas import (
     ShareLearningReportRequest,
     SignupRequest,
     TeacherLearningReportResponse,
+    WeeklyParentBriefingResponse,
     LearningProgressResponse,
     SubjectProgressSummary,
     LearningTopicSummary,
@@ -72,6 +79,13 @@ DEMO_PARENT_PIN = os.getenv("EDUPASS_DEMO_PIN", "246810")
 OCR_REVIEW_MODE = os.getenv("EDUPASS_OCR_REVIEW_MODE", "multimodal")
 LOCAL_PRACTICE_FALLBACK = os.getenv("EDUPASS_LOCAL_PRACTICE_FALLBACK", "1").lower() not in {"0", "false", "no"}
 ACTIVE_LEARNING_SUBJECT = "Mathematics"
+PRODUCTION_RUNTIME = bool(os.getenv("K_SERVICE")) or os.getenv("EDUPASS_ENV", "").strip().lower() == "production"
+DEMO_LOGIN_ENABLED = os.getenv("EDUPASS_ENABLE_DEMO_LOGIN", "1" if not PRODUCTION_RUNTIME else "0").lower() in {"1", "true", "yes"}
+MAX_UPLOAD_FILES = int(os.getenv("EDUPASS_MAX_UPLOAD_FILES", "12"))
+MAX_UPLOAD_BYTES = int(os.getenv("EDUPASS_MAX_UPLOAD_BYTES", str(10 * 1024 * 1024)))
+MAX_TOTAL_UPLOAD_BYTES = int(os.getenv("EDUPASS_MAX_TOTAL_UPLOAD_BYTES", str(24 * 1024 * 1024)))
+MAX_PDF_PAGES = int(os.getenv("EDUPASS_MAX_PDF_PAGES", "12"))
+OCR_RATE_LIMIT_PER_MINUTE = int(os.getenv("EDUPASS_OCR_RATE_LIMIT_PER_MINUTE", "12"))
 NON_ACADEMIC_PROGRESS_SUBJECTS = {
     "arts and creativity",
     "music",
@@ -83,15 +97,43 @@ NON_ACADEMIC_PROGRESS_SUBJECTS = {
     "va",
     "visual arts",
 }
+ALLOWED_UPLOAD_MIME_TYPES = {
+    "application/pdf",
+    "image/gif",
+    "image/heic",
+    "image/heif",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+}
+
+
+def configured_cors_origins() -> list[str]:
+    configured = os.getenv("CORS_ALLOW_ORIGINS")
+    if configured:
+        origins = [origin.strip() for origin in configured.split(",") if origin.strip()]
+        if "*" in origins and PRODUCTION_RUNTIME:
+            raise RuntimeError("CORS_ALLOW_ORIGINS cannot contain '*' in production")
+        return origins
+    if PRODUCTION_RUNTIME:
+        return []
+    return [
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
+    ]
 
 app = FastAPI(title="EduPass AI Backend", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("CORS_ALLOW_ORIGINS", "*").split(","),
+    allow_origins=configured_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+_rate_limit_events: dict[str, list[float]] = {}
 
 
 class HealthResponse(BaseModel):
@@ -151,6 +193,63 @@ def normalize_ocr_uploads(
     if file and file not in uploads:
         uploads.insert(0, file)
     return uploads
+
+
+def sanitize_upload_filename(filename: str) -> str:
+    base = Path(filename or "upload").name.strip()
+    base = re.sub(r"[^A-Za-z0-9._-]+", "-", base)
+    base = base.strip(".-")[:96]
+    return base or "upload"
+
+
+def sniff_upload_mime(content: bytes, declared_mime_type: str) -> str:
+    if content.startswith(b"%PDF-"):
+        return "application/pdf"
+    if content.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if content.startswith(b"GIF87a") or content.startswith(b"GIF89a"):
+        return "image/gif"
+    if len(content) > 12 and content[8:12] == b"WEBP":
+        return "image/webp"
+    if len(content) > 12 and content[4:8] == b"ftyp" and content[8:12] in {b"heic", b"heix", b"hevc", b"hevx", b"mif1", b"msf1"}:
+        return "image/heic"
+    return "application/octet-stream"
+
+
+def estimate_pdf_page_count(content: bytes) -> int:
+    if not content.startswith(b"%PDF-"):
+        return 0
+    return max(1, len(re.findall(rb"/Type\s*/Page\b", content)))
+
+
+def validate_upload_content(filename: str, declared_mime_type: str, content: bytes) -> tuple[str, int]:
+    if not content:
+        raise HTTPException(status_code=400, detail=f"Uploaded file is empty: {filename}")
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail=f"Uploaded file is too large: {filename}")
+
+    mime_type = sniff_upload_mime(content, declared_mime_type or "application/octet-stream")
+    if mime_type not in ALLOWED_UPLOAD_MIME_TYPES:
+        raise HTTPException(status_code=415, detail=f"Unsupported upload type: {filename}")
+    if mime_type == "application/pdf":
+        page_count = estimate_pdf_page_count(content)
+        if page_count > MAX_PDF_PAGES:
+            raise HTTPException(status_code=413, detail=f"PDF has too many pages: {filename}")
+        return mime_type, max(1, page_count)
+    return mime_type, 1
+
+
+def check_rate_limit(parent_id: str, action: str, limit: int = OCR_RATE_LIMIT_PER_MINUTE) -> None:
+    now = time.monotonic()
+    key = f"{action}:{parent_id}"
+    recent = [stamp for stamp in _rate_limit_events.get(key, []) if now - stamp < 60]
+    if len(recent) >= limit:
+        _rate_limit_events[key] = recent
+        raise HTTPException(status_code=429, detail="Too many requests; please wait before trying again")
+    recent.append(now)
+    _rate_limit_events[key] = recent
 
 
 def summarize_file_kind(upload_pages: list[dict[str, Any]]) -> str:
@@ -230,7 +329,7 @@ Schema:
     }}
   ],
   "requires_parent_confirmation": true,
-  "pii_redacted_before_ai": true
+  "pii_redacted_before_ai": false
 }}
 
 Rules:
@@ -281,7 +380,7 @@ def parse_ocr_review_response(
                 normalized_topics.append(topic)
         data["topics"] = normalized_topics
     data["requires_parent_confirmation"] = True
-    data["pii_redacted_before_ai"] = True
+    data["pii_redacted_before_ai"] = False
     return OcrReviewResult.model_validate(data)
 
 
@@ -357,7 +456,7 @@ def set_session_cookie(response: Response, parent_id: str) -> None:
 @app.post("/api/auth/login", response_model=AuthResponse)
 def login(payload: LoginRequest, response: Response) -> AuthResponse:
     email = payload.email.strip().lower()
-    if email == DEMO_PARENT_EMAIL and payload.pin == DEMO_PARENT_PIN:
+    if DEMO_LOGIN_ENABLED and email == DEMO_PARENT_EMAIL and payload.pin == DEMO_PARENT_PIN:
         parent = persistence.ensure_demo_data(email)
         set_session_cookie(response, DEMO_PARENT_ID)
         return AuthResponse(parent=ParentProfile.model_validate(parent))
@@ -396,7 +495,7 @@ def logout(response: Response) -> dict[str, bool]:
 def auth_me(parent_id: str = Depends(require_parent_id)) -> AuthResponse:
     parent = persistence.get_parent_with_children(parent_id)
     if not parent:
-        if parent_id == DEMO_PARENT_ID:
+        if DEMO_LOGIN_ENABLED and parent_id == DEMO_PARENT_ID:
             parent = persistence.ensure_demo_data(DEMO_PARENT_EMAIL)
         else:
             raise HTTPException(status_code=404, detail="Parent profile not found")
@@ -469,8 +568,8 @@ async def create_child(payload: ChildCreateRequest, parent_id: str = Depends(req
 
 
 @app.patch("/api/children/{child_id}", response_model=ChildProfile)
-async def update_child(child_id: str, payload: dict[str, Any], parent_id: str = Depends(require_parent_id)) -> ChildProfile:
-    child = persistence.patch_child(parent_id, child_id, payload)
+async def update_child(child_id: str, payload: ChildUpdateRequest, parent_id: str = Depends(require_parent_id)) -> ChildProfile:
+    child = persistence.patch_child(parent_id, child_id, payload.model_dump(mode="json", exclude_unset=True))
     if not child:
         raise HTTPException(status_code=404, detail="Child not found")
     return ChildProfile.model_validate(child)
@@ -515,21 +614,28 @@ async def ocr_review(
 ) -> dict[str, Any]:
     require_privacy_consent(parent_id, "upload_storage_consent", "homework upload storage")
     require_privacy_consent(parent_id, "ai_processing_consent", "AI homework review")
+    check_rate_limit(parent_id, "ocr_review")
     uploads = normalize_ocr_uploads(file, files)
     if not uploads:
         raise HTTPException(status_code=400, detail="At least one uploaded page or PDF is required")
-    if len(uploads) > 12:
-        raise HTTPException(status_code=400, detail="Upload up to 12 page files at a time")
+    if len(uploads) > MAX_UPLOAD_FILES:
+        raise HTTPException(status_code=400, detail=f"Upload up to {MAX_UPLOAD_FILES} page files at a time")
 
     upload_pages: list[dict[str, Any]] = []
     document_id = f"doc-{uuid.uuid4().hex[:10]}"
+    total_upload_bytes = 0
     for page_number, upload in enumerate(uploads, start=1):
         content = await upload.read()
-        filename = upload.filename or f"{document_id}-page-{page_number}.upload"
-        if not content:
-            raise HTTPException(status_code=400, detail=f"Uploaded file is empty: {filename}")
+        filename = sanitize_upload_filename(upload.filename or f"{document_id}-page-{page_number}.upload")
+        total_upload_bytes += len(content)
+        if total_upload_bytes > MAX_TOTAL_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="Total upload size is too large")
 
-        mime_type = upload.content_type or "application/octet-stream"
+        mime_type, estimated_pages = validate_upload_content(
+            filename,
+            upload.content_type or "application/octet-stream",
+            content,
+        )
         page_file_kind = upload_file_kind(mime_type)
         page_ocr_provider = upload_ocr_provider(page_file_kind)
 
@@ -552,12 +658,13 @@ async def ocr_review(
                 "mime_type": mime_type,
                 "file_kind": page_file_kind,
                 "ocr_provider": page_ocr_provider,
+                "estimated_pages": estimated_pages,
                 "content": content,
                 "extracted_text": extracted_text,
             }
         )
 
-    page_count_hint = len(upload_pages)
+    page_count_hint = max(1, sum(int(page.get("estimated_pages") or 1) for page in upload_pages))
     extracted_text = build_combined_ocr_text(upload_pages)
     file_kind = summarize_file_kind(upload_pages)
     ocr_provider = summarize_ocr_provider(upload_pages)
@@ -603,6 +710,8 @@ async def ocr_review(
         if review_fallback_error:
             detail = f"{detail}; multimodal fallback reason: {review_fallback_error}"
         raise HTTPException(status_code=502, detail=detail) from exc
+    if review.page_count > MAX_PDF_PAGES:
+        raise HTTPException(status_code=413, detail=f"Upload has too many pages after review: {review.page_count}")
 
     storage_uris = []
     for page in upload_pages:
@@ -651,6 +760,73 @@ async def ocr_review(
         "review": review.model_dump(mode="json"),
         "document": document.model_dump(mode="json"),
     }
+
+
+@app.get("/api/ocr-review/inbox", response_model=list[OcrReviewInboxItem])
+def ocr_review_inbox(
+    child_id: str = DEMO_CHILD_ID,
+    include_confirmed: bool = False,
+    parent_id: str = Depends(require_parent_id),
+) -> list[OcrReviewInboxItem]:
+    documents = persistence.list_documents(parent_id, child_id)
+    items: list[OcrReviewInboxItem] = []
+    for document in documents:
+        if not include_confirmed and document.get("parent_confirmed_at"):
+            continue
+        review = dict(document.get("review") or {})
+        if not review.get("requires_parent_confirmation", True) and not include_confirmed:
+            continue
+        items.append(
+            OcrReviewInboxItem(
+                id=str(document.get("id")),
+                filename=str(document.get("filename") or "Uploaded homework"),
+                created_at=str(document.get("created_at") or ""),
+                page_count=int(document.get("page_count") or review.get("page_count") or 1),
+                review_mode=str(document.get("review_mode") or "unknown"),
+                parent_confirmed_at=document.get("parent_confirmed_at"),
+                review=review,
+            )
+        )
+    return items[:12]
+
+
+@app.patch("/api/ocr-review/{document_id}/confirm")
+def confirm_ocr_review(
+    document_id: str,
+    payload: OcrReviewConfirmRequest,
+    parent_id: str = Depends(require_parent_id),
+) -> dict[str, Any]:
+    document = persistence.get_document(parent_id, document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="OCR review document not found")
+    review = dict(document.get("review") or {})
+    corrections = [question.model_dump(mode="json") for question in payload.extracted_questions]
+    if corrections:
+        review["extracted_questions"] = corrections
+    review["requires_parent_confirmation"] = False
+    confirmed_at = now_iso()
+    updated = persistence.update_document(
+        parent_id,
+        document_id,
+        {
+            "review": review,
+            "parent_confirmed_at": confirmed_at,
+            "parent_corrections": corrections,
+        },
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="OCR review document not found")
+    persistence.record_audit_event(
+        parent_id,
+        "ocr_review_confirmed",
+        child_id=str(document.get("child_id") or ""),
+        details={
+            "document_id": document_id,
+            "question_count": len(corrections),
+            "parent_notes": payload.parent_notes,
+        },
+    )
+    return {"ok": True, "document": updated, "parent_confirmed_at": confirmed_at}
 
 
 @app.post("/api/generate-quiz")
@@ -1275,6 +1451,156 @@ def build_learning_progress(parent_id: str, child_id: str, report_month: str | N
     )
 
 
+def first_mistake_tag(tags: Any, fallback: str = "concept") -> str:
+    if isinstance(tags, list) and tags:
+        return str(tags[0])
+    if isinstance(tags, str) and tags:
+        return tags
+    return fallback
+
+
+def mistake_recommendation(topic: str, mistake_tag: str) -> str:
+    labels = {
+        "calculation": "先做一步反向檢查，再完成同類短題。",
+        "careless": "圈出關鍵數字與單位，提交前用 30 秒覆核。",
+        "concept": "重溫核心概念，再做 3 題由淺入深練習。",
+        "reading": "先用自己的話重述題目要求，再列式。",
+        "unit_conversion": "把單位換算表寫在草稿位，再代入計算。",
+    }
+    return f"{topic}：{labels.get(mistake_tag, labels['concept'])}"
+
+
+def build_mistake_notebook(parent_id: str, child_id: str) -> MistakeNotebookResponse:
+    progress = build_learning_progress(parent_id, child_id)
+    mastery_by_topic = {
+        topic_key(item.subject, item.topic): item.mastery
+        for item in progress.all_topics
+    }
+    items: list[MistakeNotebookItem] = []
+
+    for document in persistence.list_documents(parent_id, child_id):
+        review = document.get("review") or {}
+        review_subject = enum_text(review.get("subject") or ACTIVE_LEARNING_SUBJECT)
+        if not is_academic_progress_subject(review_subject):
+            continue
+        created_at = str(document.get("created_at") or "")
+        for index, question in enumerate(review.get("extracted_questions") or [], start=1):
+            subject = str(question.get("subject") or review_subject)
+            topic = str(question.get("topic") or "Uncategorised")
+            if not is_academic_progress_subject(subject):
+                continue
+            confidence = question.get("confidence")
+            score = question.get("score")
+            max_score = question.get("max_score")
+            tags = question.get("mistake_tags") or []
+            low_score = score is not None and max_score and int(score or 0) < int(max_score or 1)
+            low_confidence = confidence is not None and float(confidence) < 0.76
+            if not (tags or low_score or low_confidence):
+                continue
+            mistake_tag = first_mistake_tag(tags, "calculation" if low_score else "concept")
+            mastery = mastery_by_topic.get(topic_key(subject, topic), 0)
+            items.append(
+                MistakeNotebookItem(
+                    id=f"ocr-{document.get('id')}-{index}",
+                    child_id=child_id,
+                    source_type="ocr_review",
+                    source_id=str(document.get("id")),
+                    subject=subject,
+                    topic=topic,
+                    mistake_tag=mistake_tag,
+                    question_text=str(question.get("question_text") or ""),
+                    submitted_answer=str(question.get("detected_answer") or ""),
+                    expected_answer="",
+                    confidence=float(confidence) if confidence is not None else None,
+                    mastery=mastery,
+                    last_seen_at=created_at,
+                    recommendation=mistake_recommendation(topic, mistake_tag),
+                )
+            )
+
+    for attempt in persistence.list_practice_attempts(parent_id, child_id):
+        attempt_subject = enum_text(attempt.get("subject") or ACTIVE_LEARNING_SUBJECT)
+        if not is_academic_progress_subject(attempt_subject):
+            continue
+        created_at = str(attempt.get("created_at") or "")
+        for index, answer in enumerate(attempt.get("answers") or [], start=1):
+            is_correct = answer.get("is_correct")
+            if is_correct is True:
+                continue
+            subject = str(answer.get("subject") or attempt_subject)
+            topic = str(answer.get("topic") or "General practice")
+            if not is_academic_progress_subject(subject):
+                continue
+            mistake_tag = first_mistake_tag(answer.get("target_mistake"), "concept")
+            mastery = mastery_by_topic.get(topic_key(subject, topic), 0)
+            items.append(
+                MistakeNotebookItem(
+                    id=f"practice-{attempt.get('id')}-{index}",
+                    child_id=child_id,
+                    source_type="practice_attempt",
+                    source_id=str(attempt.get("id")),
+                    subject=subject,
+                    topic=topic,
+                    mistake_tag=mistake_tag,
+                    question_text=str(answer.get("question_text") or ""),
+                    submitted_answer=str(answer.get("submitted_answer") or ""),
+                    expected_answer=str(answer.get("expected_answer") or ""),
+                    mastery=mastery,
+                    last_seen_at=created_at,
+                    recommendation=mistake_recommendation(topic, mistake_tag),
+                )
+            )
+
+    items.sort(key=lambda item: item.last_seen_at or "", reverse=True)
+    return MistakeNotebookResponse(child=progress.child, items=items[:30])
+
+
+def build_weekly_parent_briefing(parent_id: str, child_id: str) -> WeeklyParentBriefingResponse:
+    progress = build_learning_progress(parent_id, child_id)
+    notebook = build_mistake_notebook(parent_id, child_id)
+    today = datetime.now(timezone.utc).date()
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=6)
+    weak_topics = progress.weak_topics[:3]
+    improved_topics = progress.improved_topics[:2]
+    wins = [
+        f"{report_label(topic.topic)} 掌握度達 {topic.mastery}%"
+        for topic in improved_topics
+    ] or [
+        f"已累積 {progress.document_count} 份學習證據",
+        f"已保存 {progress.practice_count} 次練習紀錄",
+    ]
+    focus_areas = [
+        f"{report_label(topic.topic)}：{topic.mastery}% 掌握度"
+        for topic in weak_topics
+    ] or ["繼續上載已批改功課，以建立第一批弱項基線"]
+    next_actions = [
+        item.recommendation
+        for item in notebook.items[:3]
+    ] or [
+        "上載一份最近已批改功課",
+        "完成一次 5 分鐘針對練習",
+        "確認 OCR 待確認清單內的題目",
+    ]
+    headline = f"{progress.child.name} 本週整體掌握度 {progress.overall_mastery}%"
+    summary = (
+        f"本週已整理 {progress.document_count} 份上載和 {progress.practice_count} 次練習；"
+        f"錯題簿目前有 {len(notebook.items)} 個需要跟進的項目。"
+    )
+    return WeeklyParentBriefingResponse(
+        child=progress.child,
+        report_month=progress.report_month,
+        week_start=week_start.isoformat(),
+        week_end=week_end.isoformat(),
+        headline=headline,
+        summary=summary,
+        wins=wins[:3],
+        focus_areas=focus_areas[:3],
+        next_actions=next_actions[:4],
+        generated_at=now_iso(),
+    )
+
+
 @app.get("/api/learning/progress", response_model=LearningProgressResponse)
 def learning_progress(
     child_id: str = DEMO_CHILD_ID,
@@ -1282,6 +1608,22 @@ def learning_progress(
     parent_id: str = Depends(require_parent_id),
 ) -> LearningProgressResponse:
     return build_learning_progress(parent_id, child_id, report_month)
+
+
+@app.get("/api/mistake-notebook", response_model=MistakeNotebookResponse)
+def mistake_notebook(
+    child_id: str = DEMO_CHILD_ID,
+    parent_id: str = Depends(require_parent_id),
+) -> MistakeNotebookResponse:
+    return build_mistake_notebook(parent_id, child_id)
+
+
+@app.get("/api/weekly-briefing", response_model=WeeklyParentBriefingResponse)
+def weekly_parent_briefing(
+    child_id: str = DEMO_CHILD_ID,
+    parent_id: str = Depends(require_parent_id),
+) -> WeeklyParentBriefingResponse:
+    return build_weekly_parent_briefing(parent_id, child_id)
 
 
 @app.post("/api/reports/share", response_model=TeacherLearningReportResponse)
@@ -1301,9 +1643,10 @@ def share_learning_report(
         report_month=progress.report_month,
         teacher_name=payload.teacher_name,
         share_url=f"/teacher-report/{token}",
-        include_upload_evidence=payload.include_upload_evidence,
+        include_upload_evidence=payload.include_upload_evidence and payload.scope == "summary_with_evidence",
+        scope=payload.scope,
         created_at=now_iso(),
-        expires_at=(datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+        expires_at=(datetime.now(timezone.utc) + timedelta(days=payload.expires_in_days)).isoformat(),
     )
     persistence.save_shared_report(share.model_dump(mode="json"))
     persistence.record_audit_event(
@@ -1315,12 +1658,54 @@ def share_learning_report(
     return TeacherLearningReportResponse(share=share, child=progress.child, progress=progress)
 
 
+@app.get("/api/reports/share", response_model=list[ShareLearningReportRecord])
+def list_learning_report_shares(
+    child_id: str = DEMO_CHILD_ID,
+    parent_id: str = Depends(require_parent_id),
+) -> list[ShareLearningReportRecord]:
+    shares = [
+        ShareLearningReportRecord.model_validate(record)
+        for record in persistence.list_shared_reports(parent_id, child_id)
+    ]
+    return shares[:20]
+
+
+@app.delete("/api/reports/share/{share_id}", response_model=ShareLearningReportRecord)
+def revoke_learning_report_share(
+    share_id: str,
+    parent_id: str = Depends(require_parent_id),
+) -> ShareLearningReportRecord:
+    share = persistence.revoke_shared_report(parent_id, share_id)
+    if not share:
+        raise HTTPException(status_code=404, detail="Shared report not found")
+    persistence.record_audit_event(
+        parent_id,
+        "learning_report_share_revoked",
+        child_id=str(share.get("child_id") or ""),
+        details={"share_id": share_id},
+    )
+    return ShareLearningReportRecord.model_validate(share)
+
+
+def assert_share_accessible(share: ShareLearningReportRecord) -> None:
+    if share.revoked_at:
+        raise HTTPException(status_code=410, detail="Shared report has been revoked")
+    if share.expires_at:
+        try:
+            expires_at = datetime.fromisoformat(share.expires_at)
+        except ValueError:
+            expires_at = None
+        if expires_at and expires_at < datetime.now(timezone.utc):
+            raise HTTPException(status_code=410, detail="Shared report has expired")
+
+
 @app.get("/api/reports/share/{token}", response_model=TeacherLearningReportResponse)
 def teacher_learning_report(token: str) -> TeacherLearningReportResponse:
     share_data = persistence.get_shared_report_by_token(token)
     if not share_data:
         raise HTTPException(status_code=404, detail="Shared report not found")
     share = ShareLearningReportRecord.model_validate(share_data)
+    assert_share_accessible(share)
     progress = build_learning_progress(share.parent_id, share.child_id, share.report_month)
     return TeacherLearningReportResponse(share=share, child=progress.child, progress=progress)
 
@@ -1370,6 +1755,12 @@ def render_teacher_report_html(report: TeacherLearningReportResponse) -> str:
     )
     teacher = escape(report.share.teacher_name or "老師")
     child_name = escape(report.child.name)
+    evidence_scope = (
+        "此連結包含學習摘要及家長允許的證據摘要，不提供原始上載檔案下載。"
+        if report.share.include_upload_evidence
+        else "此連結只包含學習摘要，不會公開原始上載檔案。"
+    )
+    expires_text = escape(report.share.expires_at[:10] if report.share.expires_at else "未設定")
     return f"""<!doctype html>
 <html lang="zh-Hant">
 <head>
@@ -1401,7 +1792,7 @@ def render_teacher_report_html(report: TeacherLearningReportResponse) -> str:
     <header>
       <span class="label">EduPass AI · 教師檢視</span>
       <h1>{child_name} · {escape(progress.report_month)} 學習報告</h1>
-      <p>分享對象：{teacher}。此連結只包含學習摘要，不會公開原始上載檔案。</p>
+      <p>分享對象：{teacher}。{escape(evidence_scope)} 有效期至：{expires_text}。</p>
     </header>
     <section class="metrics">
       <div class="metric">{progress.overall_mastery}%<small>掌握度</small></div>

@@ -18,7 +18,13 @@ PIN_HASH_ITERATIONS = 120_000
 
 
 def get_session_secret() -> str:
-    return os.getenv("SESSION_SECRET") or "local-dev-edupass-session-secret"
+    configured = os.getenv("SESSION_SECRET")
+    if configured:
+        return configured
+    production_runtime = bool(os.getenv("K_SERVICE")) or os.getenv("EDUPASS_ENV", "").strip().lower() == "production"
+    if production_runtime:
+        raise RuntimeError("SESSION_SECRET is required in production")
+    return "local-dev-edupass-session-secret"
 
 
 def session_cookie_secure() -> bool:

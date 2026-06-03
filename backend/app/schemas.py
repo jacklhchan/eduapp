@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class Subject(str, Enum):
@@ -122,6 +122,26 @@ class ChildCreateRequest(BaseModel):
     school_type: str = ""
     avatar_url: str | None = None
     portfolio_sections: list[PortfolioDraftSection] = Field(default_factory=list)
+
+
+class ChildUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    grade: str | None = Field(default=None, min_length=1, max_length=16)
+    passport: str | None = Field(default=None, max_length=120)
+    focus: str | None = Field(default=None, max_length=500)
+    language: str | None = Field(default=None, max_length=120)
+    school_type: str | None = Field(default=None, max_length=160)
+    avatar_url: str | None = Field(default=None, max_length=1000)
+    portfolio_sections: list[PortfolioDraftSection] | None = None
+
+    @field_validator("name", "grade", "passport", "focus", "language", "school_type", "avatar_url")
+    @classmethod
+    def strip_optional_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip()
 
 
 class PrivacySettings(BaseModel):
@@ -336,6 +356,8 @@ class DocumentRecord(BaseModel):
     review_fallback_used: bool = False
     ocr_text_preview: str = ""
     review: OcrReviewResult
+    parent_confirmed_at: str | None = None
+    parent_corrections: list[dict[str, Any]] = Field(default_factory=list)
     created_at: str
 
 
@@ -453,11 +475,50 @@ class LearningProgressResponse(BaseModel):
     recent_activity: list[dict[str, Any]] = Field(default_factory=list)
 
 
+class MistakeNotebookItem(BaseModel):
+    id: str
+    child_id: str
+    source_type: Literal["ocr_review", "practice_attempt"]
+    source_id: str
+    subject: str
+    topic: str
+    mistake_tag: MistakeType
+    question_text: str = ""
+    submitted_answer: str = ""
+    expected_answer: str = ""
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    mastery: int = Field(default=0, ge=0, le=100)
+    last_seen_at: str | None = None
+    recommendation: str
+
+
+class MistakeNotebookResponse(BaseModel):
+    ok: bool = True
+    child: ChildProfile
+    items: list[MistakeNotebookItem] = Field(default_factory=list)
+
+
+class WeeklyParentBriefingResponse(BaseModel):
+    ok: bool = True
+    child: ChildProfile
+    report_month: str
+    week_start: str
+    week_end: str
+    headline: str
+    summary: str
+    wins: list[str] = Field(default_factory=list)
+    focus_areas: list[str] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+    generated_at: str
+
+
 class ShareLearningReportRequest(BaseModel):
     child_id: str = "child-matthew"
     report_month: str | None = None
     teacher_name: str | None = None
     include_upload_evidence: bool = False
+    expires_in_days: int = Field(default=30, ge=1, le=180)
+    scope: Literal["summary_only", "summary_with_evidence"] = "summary_only"
 
 
 class ShareLearningReportRecord(BaseModel):
@@ -469,8 +530,11 @@ class ShareLearningReportRecord(BaseModel):
     teacher_name: str | None = None
     share_url: str
     include_upload_evidence: bool = False
+    scope: Literal["summary_only", "summary_with_evidence"] = "summary_only"
     created_at: str
     expires_at: str | None = None
+    revoked_at: str | None = None
+    revoked_by_parent_id: str | None = None
 
 
 class TeacherLearningReportResponse(BaseModel):
@@ -478,6 +542,21 @@ class TeacherLearningReportResponse(BaseModel):
     share: ShareLearningReportRecord
     child: ChildProfile
     progress: LearningProgressResponse
+
+
+class OcrReviewConfirmRequest(BaseModel):
+    extracted_questions: list[ExtractedQuestion] = Field(default_factory=list)
+    parent_notes: str | None = Field(default=None, max_length=1000)
+
+
+class OcrReviewInboxItem(BaseModel):
+    id: str
+    filename: str
+    created_at: str
+    page_count: int = 1
+    review_mode: str = "unknown"
+    parent_confirmed_at: str | None = None
+    review: dict[str, Any] = Field(default_factory=dict)
 
 
 class PortfolioSection(BaseModel):

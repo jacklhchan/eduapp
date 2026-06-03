@@ -800,6 +800,35 @@ class Persistence:
             db.collection("documents").document(record["id"]).set(record)
         return record
 
+    def get_document(self, parent_id: str, document_id: str) -> dict[str, Any] | None:
+        db = self.firestore
+        if db is None:
+            record = self._memory["documents"].get(document_id)
+        else:
+            snapshot = db.collection("documents").document(document_id).get()
+            record = snapshot.to_dict() if snapshot.exists else None
+        if not record or record.get("parent_id") != parent_id:
+            return None
+        return dict(record)
+
+    def update_document(self, parent_id: str, document_id: str, updates: dict[str, Any]) -> dict[str, Any] | None:
+        db = self.firestore
+        if db is None:
+            record = self._memory["documents"].get(document_id)
+            if not record or record.get("parent_id") != parent_id:
+                return None
+            record.update(updates)
+            return dict(record)
+
+        ref = db.collection("documents").document(document_id)
+        snapshot = ref.get()
+        record = snapshot.to_dict() if snapshot.exists else None
+        if not record or record.get("parent_id") != parent_id:
+            return None
+        ref.set(updates, merge=True)
+        record.update(updates)
+        return record
+
     def list_documents(self, parent_id: str, child_id: str) -> list[dict[str, Any]]:
         records = list(self._records_for_child("documents", parent_id, child_id).values())
         records.sort(key=lambda record: str(record.get("created_at", "")), reverse=True)
@@ -857,6 +886,36 @@ class Persistence:
         for snapshot in snapshots:
             return snapshot.to_dict() or {}
         return None
+
+    def get_shared_report(self, parent_id: str, share_id: str) -> dict[str, Any] | None:
+        db = self.firestore
+        if db is None:
+            record = self._memory["shared_reports"].get(share_id)
+        else:
+            snapshot = db.collection("shared_reports").document(share_id).get()
+            record = snapshot.to_dict() if snapshot.exists else None
+        if not record or record.get("parent_id") != parent_id:
+            return None
+        return dict(record)
+
+    def revoke_shared_report(self, parent_id: str, share_id: str) -> dict[str, Any] | None:
+        revoked = {"revoked_at": now_iso(), "revoked_by_parent_id": parent_id}
+        db = self.firestore
+        if db is None:
+            record = self._memory["shared_reports"].get(share_id)
+            if not record or record.get("parent_id") != parent_id:
+                return None
+            record.update(revoked)
+            return dict(record)
+
+        ref = db.collection("shared_reports").document(share_id)
+        snapshot = ref.get()
+        record = snapshot.to_dict() if snapshot.exists else None
+        if not record or record.get("parent_id") != parent_id:
+            return None
+        ref.set(revoked, merge=True)
+        record.update(revoked)
+        return record
 
     def list_shared_reports(self, parent_id: str, child_id: str) -> list[dict[str, Any]]:
         records = list(self._records_for_child("shared_reports", parent_id, child_id).values())

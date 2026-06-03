@@ -149,7 +149,7 @@ def test_parse_ocr_review_response_enforces_parent_confirmation() -> None:
     assert review.child_profile_id == "child-matthew"
     assert review.file_kind == "image"
     assert review.requires_parent_confirmation is True
-    assert review.pii_redacted_before_ai is True
+    assert review.pii_redacted_before_ai is False
 
 
 def test_parse_ocr_review_response_accepts_multiple_pages_and_topics() -> None:

@@ -72,6 +72,12 @@ def test_signup_login_and_first_child_onboarding(monkeypatch) -> None:
     assert passport_update.json()["passport"] == "SPCC Interview Portfolio"
     assert passport_update.json()["portfolio_sections"][0]["id"] == "about"
 
+    blocked_update = client.patch(
+        f"/api/children/{child_id}",
+        json={"sort_order": 1, "name": "Should Not Patch Hidden Fields"},
+    )
+    assert blocked_update.status_code == 422
+
     me = client.get("/api/auth/me")
     assert me.status_code == 200
     profile = me.json()["parent"]

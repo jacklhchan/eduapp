@@ -4858,6 +4858,290 @@ p {
   color: var(--tertiary);
 }
 
+.weekly-briefing-panel,
+.review-inbox-panel,
+.mistake-notebook-panel,
+.ocr-review-inbox,
+.share-link-manager {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(195, 198, 214, 0.72);
+  border-radius: 12px;
+  background: var(--surface-lowest);
+  box-shadow: 0 6px 18px rgba(0, 61, 155, 0.08);
+}
+
+.weekly-briefing-panel,
+.review-inbox-panel,
+.mistake-notebook-panel,
+.share-link-manager {
+  padding: 16px;
+}
+
+.weekly-briefing-head,
+.ocr-review-head,
+.share-link-manager-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.weekly-briefing-head h2,
+.ocr-review-head strong,
+.share-link-manager-head h3 {
+  color: var(--on-surface);
+  line-height: 1.22;
+}
+
+.weekly-briefing-head p,
+.ocr-review-head p {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.briefing-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.briefing-columns article,
+.review-inbox-row,
+.notebook-row,
+.share-link-item,
+.ocr-question-editor {
+  border: 1px solid rgba(195, 198, 214, 0.68);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.briefing-columns article {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.briefing-columns h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--primary);
+  font-size: 13px;
+}
+
+.briefing-columns p {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.review-inbox-list,
+.notebook-list {
+  display: grid;
+  gap: 8px;
+}
+
+.review-inbox-row,
+.notebook-row,
+.share-link-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px;
+}
+
+.review-inbox-row > div,
+.notebook-row > div,
+.share-link-item > div {
+  min-width: 0;
+}
+
+.review-inbox-row span,
+.notebook-row small,
+.share-link-item span {
+  color: var(--on-variant);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.review-inbox-row strong,
+.notebook-row strong,
+.share-link-item strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--on-surface);
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.review-inbox-row p,
+.notebook-row p {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.review-inbox-row .secondary-action {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding-inline: 12px;
+}
+
+.notebook-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.notebook-row > b {
+  flex: 0 0 auto;
+  min-width: 48px;
+  color: var(--primary);
+  text-align: right;
+}
+
+.ocr-review-inbox {
+  padding: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);
+}
+
+.ocr-review-inbox.confirmed {
+  border-color: rgba(0, 108, 71, 0.34);
+  background: #f4fbf7;
+}
+
+.ocr-review-head > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: var(--primary-fixed);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ocr-question-editor {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.ocr-question-editor textarea,
+.review-notes-field textarea,
+.share-control-grid input,
+.share-control-grid select {
+  width: 100%;
+  border: 1px solid var(--outline-variant);
+  border-radius: 8px;
+  background: var(--surface-lowest);
+  color: var(--on-surface);
+}
+
+.ocr-question-editor textarea,
+.review-notes-field textarea {
+  min-height: 68px;
+  resize: vertical;
+  padding: 9px 10px;
+  line-height: 1.45;
+}
+
+.ocr-correction-grid,
+.share-control-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ocr-correction-grid label,
+.review-notes-field,
+.share-control-grid label {
+  display: grid;
+  gap: 5px;
+  color: var(--on-variant);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ocr-correction-grid input,
+.ocr-correction-grid select,
+.share-control-grid input,
+.share-control-grid select {
+  min-height: 38px;
+  padding: 0 10px;
+}
+
+.review-notes-field {
+  color: var(--on-variant);
+}
+
+.share-control-grid {
+  grid-template-columns: minmax(0, 1.4fr) minmax(92px, 0.7fr);
+}
+
+.share-evidence-toggle {
+  grid-column: 1 / -1;
+  display: flex !important;
+  grid-template-columns: none !important;
+  align-items: center;
+  gap: 8px;
+}
+
+.share-evidence-toggle input {
+  width: 18px;
+  height: 18px;
+}
+
+.share-link-manager {
+  margin-top: 12px;
+  background: #fbfcff;
+}
+
+.share-link-manager-head span {
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.share-link-item a {
+  display: block;
+  max-width: 100%;
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--primary);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.share-link-item button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--error-container);
+  color: var(--on-error-container);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.share-link-item.revoked {
+  opacity: 0.72;
+}
+
+.share-link-item.revoked button {
+  background: var(--surface-high);
+  color: var(--on-variant);
+}
+
 @keyframes screen-in {
   from {
     opacity: 0;
@@ -4981,6 +5265,31 @@ p {
   }
 }
 
+@media (max-width: 520px) {
+  .briefing-columns,
+  .ocr-correction-grid,
+  .share-control-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .review-inbox-row,
+  .notebook-row,
+  .share-link-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .review-inbox-row .secondary-action,
+  .share-link-item button {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .notebook-row > b {
+    text-align: left;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .preview-frame.scanning::before,
   .page-stack-shadow span,
@@ -5013,7 +5322,10 @@ p {
   .portfolio-card.wide,
   .passport-editor-panel,
   .academic-progress-panel,
-  .learning-report-panel {
+  .learning-report-panel,
+  .mistake-notebook-panel,
+  .review-inbox-panel,
+  .weekly-briefing-panel {
     grid-column: 1 / -1;
   }
 

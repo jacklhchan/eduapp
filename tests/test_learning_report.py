@@ -94,11 +94,13 @@ def test_practice_attempt_updates_progress_and_share_report(monkeypatch) -> None
 
     shared = client.post(
         "/api/reports/share",
-        json={"child_id": child_id, "teacher_name": "Ms Chan"},
+        json={"child_id": child_id, "teacher_name": "Ms Chan", "expires_in_days": 7},
     )
     assert shared.status_code == 200
+    share_id = shared.json()["share"]["id"]
     token = shared.json()["share"]["token"]
     assert shared.json()["share"]["share_url"] == f"/teacher-report/{token}"
+    assert shared.json()["share"]["scope"] == "summary_only"
 
     public_report = client.get(f"/api/reports/share/{token}")
     assert public_report.status_code == 200
@@ -109,6 +111,28 @@ def test_practice_attempt_updates_progress_and_share_report(monkeypatch) -> None
     assert teacher_page.status_code == 200
     assert "Avery" in teacher_page.text
     assert "分數" in teacher_page.text
+
+    shares = client.get(f"/api/reports/share?child_id={child_id}")
+    assert shares.status_code == 200
+    assert shares.json()[0]["id"] == share_id
+    assert shares.json()[0]["revoked_at"] is None
+
+    revoked = client.delete(f"/api/reports/share/{share_id}")
+    assert revoked.status_code == 200
+    assert revoked.json()["revoked_at"]
+
+    revoked_public_report = client.get(f"/api/reports/share/{token}")
+    assert revoked_public_report.status_code == 410
+
+    notebook = client.get(f"/api/mistake-notebook?child_id={child_id}")
+    assert notebook.status_code == 200
+    assert notebook.json()["items"]
+    assert notebook.json()["items"][0]["topic"] == "Fractions"
+
+    briefing = client.get(f"/api/weekly-briefing?child_id={child_id}")
+    assert briefing.status_code == 200
+    assert "Avery" in briefing.json()["headline"]
+    assert briefing.json()["next_actions"]
 
 
 def test_academic_subject_tracking_includes_non_math_and_excludes_non_academic(monkeypatch) -> None:
