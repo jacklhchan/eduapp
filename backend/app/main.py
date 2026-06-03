@@ -848,6 +848,9 @@ def ocr_review_inbox(
         if not include_confirmed and document.get("parent_confirmed_at"):
             continue
         review = dict(document.get("review") or {})
+        review_subject = enum_text(review.get("subject") or ACTIVE_LEARNING_SUBJECT)
+        if not is_mvp_progress_subject(review_subject):
+            continue
         if not review.get("requires_parent_confirmation", True) and not include_confirmed:
             continue
         items.append(
@@ -1252,6 +1255,19 @@ def is_academic_progress_subject(value: Any) -> bool:
     return bool(subject) and subject not in NON_ACADEMIC_PROGRESS_SUBJECTS
 
 
+def is_active_learning_subject(value: Any) -> bool:
+    subject = normalize_subject_key(value)
+    active_subjects = {
+        normalize_subject_key(ACTIVE_LEARNING_SUBJECT),
+        normalize_subject_key("Early Childhood Mathematics"),
+    }
+    return subject in active_subjects
+
+
+def is_mvp_progress_subject(value: Any) -> bool:
+    return is_academic_progress_subject(value) and is_active_learning_subject(value)
+
+
 def summarize_practice_topics(payload: PracticeAttemptRequest) -> list[PracticeTopicResult]:
     topics: dict[str, dict[str, Any]] = {}
     for answer in payload.answers:
@@ -1340,12 +1356,15 @@ def build_learning_progress(parent_id: str, child_id: str, report_month: str | N
     topic_stats: dict[str, dict[str, Any]] = {}
     recent_activity: list[dict[str, Any]] = []
     trend_points: list[int] = []
+    visible_document_count = 0
+    visible_practice_count = 0
 
     for document in documents:
         review = document.get("review") or {}
         review_subject = enum_text(review.get("subject") or ACTIVE_LEARNING_SUBJECT)
-        if not is_academic_progress_subject(review_subject):
+        if not is_mvp_progress_subject(review_subject):
             continue
+        visible_document_count += 1
         created_at = str(document.get("created_at") or "")
         recent_activity.append(
             {
@@ -1357,7 +1376,7 @@ def build_learning_progress(parent_id: str, child_id: str, report_month: str | N
         )
         for topic in review.get("topics") or []:
             subject = str(topic.get("subject") or review_subject)
-            if not is_academic_progress_subject(subject):
+            if not is_mvp_progress_subject(subject):
                 continue
             label = str(topic.get("topic") or "Uncategorised")
             key = topic_key(subject, label)
@@ -1378,7 +1397,7 @@ def build_learning_progress(parent_id: str, child_id: str, report_month: str | N
         for question in review.get("extracted_questions") or []:
             label = str(question.get("topic") or "Uncategorised")
             subject = str(question.get("subject") or review_subject)
-            if not is_academic_progress_subject(subject):
+            if not is_mvp_progress_subject(subject):
                 continue
             key = topic_key(subject, label)
             stats = topic_stats.setdefault(
@@ -1406,8 +1425,9 @@ def build_learning_progress(parent_id: str, child_id: str, report_month: str | N
 
     for attempt in attempts:
         attempt_subject = enum_text(attempt.get("subject") or ACTIVE_LEARNING_SUBJECT)
-        if not is_academic_progress_subject(attempt_subject):
+        if not is_mvp_progress_subject(attempt_subject):
             continue
+        visible_practice_count += 1
         created_at = str(attempt.get("created_at") or "")
         total_count = max(int(attempt.get("total_count") or 0), 1)
         correct_count = int(attempt.get("correct_count") or 0)
@@ -1423,7 +1443,7 @@ def build_learning_progress(parent_id: str, child_id: str, report_month: str | N
         )
         for topic_result in attempt.get("topic_results") or []:
             subject = str(topic_result.get("subject") or attempt_subject)
-            if not is_academic_progress_subject(subject):
+            if not is_mvp_progress_subject(subject):
                 continue
             label = str(topic_result.get("topic") or "General practice")
             key = topic_key(subject, label)
@@ -1517,8 +1537,8 @@ def build_learning_progress(parent_id: str, child_id: str, report_month: str | N
     return LearningProgressResponse(
         child=ChildProfile.model_validate(child_data),
         report_month=month,
-        document_count=len(documents),
-        practice_count=len(attempts),
+        document_count=visible_document_count,
+        practice_count=visible_practice_count,
         overall_mastery=overall_mastery,
         trend_points=trend_points[-8:],
         weak_topics=weak_topics,
@@ -1559,13 +1579,13 @@ def build_mistake_notebook(parent_id: str, child_id: str) -> MistakeNotebookResp
     for document in persistence.list_documents(parent_id, child_id):
         review = document.get("review") or {}
         review_subject = enum_text(review.get("subject") or ACTIVE_LEARNING_SUBJECT)
-        if not is_academic_progress_subject(review_subject):
+        if not is_mvp_progress_subject(review_subject):
             continue
         created_at = str(document.get("created_at") or "")
         for index, question in enumerate(review.get("extracted_questions") or [], start=1):
             subject = str(question.get("subject") or review_subject)
             topic = str(question.get("topic") or "Uncategorised")
-            if not is_academic_progress_subject(subject):
+            if not is_mvp_progress_subject(subject):
                 continue
             confidence = question.get("confidence")
             score = question.get("score")
@@ -1601,7 +1621,7 @@ def build_mistake_notebook(parent_id: str, child_id: str) -> MistakeNotebookResp
 
     for attempt in persistence.list_practice_attempts(parent_id, child_id):
         attempt_subject = enum_text(attempt.get("subject") or ACTIVE_LEARNING_SUBJECT)
-        if not is_academic_progress_subject(attempt_subject):
+        if not is_mvp_progress_subject(attempt_subject):
             continue
         created_at = str(attempt.get("created_at") or "")
         for index, answer in enumerate(attempt.get("answers") or [], start=1):
@@ -1610,7 +1630,7 @@ def build_mistake_notebook(parent_id: str, child_id: str) -> MistakeNotebookResp
                 continue
             subject = str(answer.get("subject") or attempt_subject)
             topic = str(answer.get("topic") or "General practice")
-            if not is_academic_progress_subject(subject):
+            if not is_mvp_progress_subject(subject):
                 continue
             mistake_tag = first_mistake_tag(answer.get("target_mistake"), "concept")
             mastery = mastery_by_topic.get(topic_key(subject, topic), 0)

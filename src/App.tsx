@@ -504,6 +504,8 @@ const uiCopy: Record<UiLanguage, {
   },
 };
 
+type UiCopy = (typeof uiCopy)[UiLanguage];
+
 function isUiLanguage(value: string | null): value is UiLanguage {
   return value === 'zh-Hant' || value === 'en';
 }
@@ -512,7 +514,7 @@ function getInitialUiLanguage(): UiLanguage {
   if (typeof window === 'undefined') return 'zh-Hant';
   const stored = window.localStorage.getItem(uiLanguageStorageKey);
   if (isUiLanguage(stored)) return stored;
-  return window.navigator.language.toLowerCase().startsWith('en') ? 'en' : 'zh-Hant';
+  return 'zh-Hant';
 }
 
 function uiLanguageLabel(language: UiLanguage, displayLanguage: UiLanguage) {
@@ -524,6 +526,8 @@ const gradeOptions = ['K1', 'K2', 'K3', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'S1'
 const evidenceSuggestions = ['作品相片', '家長觀察', '課堂紀錄', '功課證據', '活動證書'];
 const activeCoachSubjectId = 'mathematics';
 const activeCoachSubjectName = 'Mathematics';
+const mvpLearningSubjectIds = new Set([activeCoachSubjectId, 'kg-early-childhood-mathematics']);
+const mvpLearningSubjectLabels = new Set(['mathematics', 'early childhood mathematics', '數學', '幼兒數學']);
 const defaultPassportName = '學習護照';
 const languageOptions = ['繁體中文', '英文', '雙語：繁中及英文'];
 
@@ -576,6 +580,46 @@ function displayTopicName(value?: string | null) {
   const uploadTitle = normalized.match(/^(\d+)\s+pages?\s*-\s*(.+)$/i);
   if (uploadTitle) return `${uploadTitle[1]} 頁 - ${uploadTitle[2]}`;
   return subjectDisplayNames[normalized] || normalized;
+}
+
+function normalizeLearningSubject(value?: string | null) {
+  return (value || '').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+}
+
+function isMvpLearningSubject(value?: string | null) {
+  return mvpLearningSubjectLabels.has(normalizeLearningSubject(value));
+}
+
+function isMvpCurriculumSubject(subject: CurriculumSubject) {
+  return subject.klaId === 'mathematics' || mvpLearningSubjectIds.has(subject.id);
+}
+
+function mvpLearningTopics(topics: LearningTopicSummary[] = []) {
+  return topics.filter((topic) => isMvpLearningSubject(topic.subject));
+}
+
+function mvpSubjectScores(scores: SubjectProgressSummary[] = []) {
+  return scores.filter((score) => isMvpLearningSubject(score.subject));
+}
+
+function filterLearningProgressForMvp(progress: LearningProgress | null) {
+  if (!progress) return null;
+  const allTopics = mvpLearningTopics(progress.all_topics);
+  const subjectScores = mvpSubjectScores(progress.subject_scores || []);
+  const scoreSource = allTopics.length
+    ? allTopics.map((topic) => topic.mastery)
+    : subjectScores.map((score) => score.mastery);
+  const overallMastery = scoreSource.length
+    ? Math.round(scoreSource.reduce((total, score) => total + score, 0) / scoreSource.length)
+    : 0;
+  return {
+    ...progress,
+    all_topics: allTopics,
+    improved_topics: mvpLearningTopics(progress.improved_topics).slice(0, 3),
+    overall_mastery: overallMastery,
+    subject_scores: subjectScores,
+    weak_topics: mvpLearningTopics(progress.weak_topics).slice(0, 3),
+  };
 }
 
 function displayKlaName(subject: CurriculumSubject) {
@@ -671,6 +715,15 @@ function displayStrandName(value: string) {
   return labels[value] || value;
 }
 
+function displayLevelName(value: CourseTopic['level']) {
+  const labels: Record<CourseTopic['level'], string> = {
+    Core: '核心',
+    Foundation: '基礎',
+    Stretch: '延伸',
+  };
+  return labels[value] || value;
+}
+
 function formatActivityDate(value: unknown) {
   const source = String(value || '');
   if (!source) return '剛剛';
@@ -705,7 +758,14 @@ function preferredProgressSubjectId(subjects: CurriculumSubject[]) {
 }
 
 function Icon({ name, filled = false }: { name: string; filled?: boolean }) {
-  return <span className={filled ? 'material-symbols-outlined icon-filled' : 'material-symbols-outlined'}>{name}</span>;
+  return (
+    <span
+      aria-hidden="true"
+      className={filled ? 'material-symbols-outlined icon-filled' : 'material-symbols-outlined'}
+    >
+      {name}
+    </span>
+  );
 }
 
 function portfolioTone(status: PortfolioStatus): PortfolioTone {
@@ -725,17 +785,19 @@ function isEarlyYearsGrade(grade: string | undefined) {
 function portfolioStageCopy(child: ChildProfile | null) {
   if (isEarlyYearsGrade(child?.grade)) {
     return {
-      badge: '全人發展檔案',
+      badge: '幼兒數學檔案',
       pdfLabel: '可匯出檔案',
-      tipReady: '個成長章節已有 AI 草稿，可由家長確認。',
-      tipDone: '幼兒成長檔案已可直接匯出 PDF。',
+      tipEmpty: '尚未加入數學章節內容或證據。',
+      tipReady: '個數學章節已有 AI 草稿，可由家長確認。',
+      tipDone: '幼兒數學檔案已可直接匯出 PDF。',
     };
   }
   return {
-    badge: '學科學習護照',
+    badge: '數學學習護照',
     pdfLabel: '可匯出 PDF',
-    tipReady: '個學科章節已有 AI 草稿，可由家長確認。',
-    tipDone: '所有學科章節已可直接匯出 PDF。',
+    tipEmpty: '尚未加入數學章節內容或證據。',
+    tipReady: '個數學章節已有 AI 草稿，可由家長確認。',
+    tipDone: '所有數學章節已可直接匯出 PDF。',
   };
 }
 
@@ -747,6 +809,7 @@ function blankPortfolioSectionsForNewChild(sections: PortfolioSectionDraft[]) {
   return sections.map((section) => ({
     ...section,
     status: 'Drafting' as PortfolioStatus,
+    aiDraft: '',
     body: '',
     evidence: [],
     image: undefined,
@@ -767,83 +830,83 @@ function createPortfolioSections(child: ChildProfile | null): PortfolioSectionDr
         icon: 'book',
         title: '封面設計',
         shortTitle: '封面',
-        copy: '基本資料、成長焦點與代表相片。',
+        copy: '基本資料、數學焦點與代表證據。',
         status: 'Completed',
-        body: `${childName} 的幼兒成長檔案已整理年級 ${grade}、家庭觀察、代表相片及發展焦點，適合作幼稚園或升小面試前的準備草稿。`,
-        aiDraft: `${childName} 的幼兒成長檔案可從家庭觀察、日常規律與已確認的發展證據介紹孩子，而不是以學科分數作核心。`,
-        evidence: ['學生相片', '基本資料'],
-        evidenceSuggestions: ['學生相片', '家庭觀察', '成長焦點', '老師短評'],
+        body: `${childName} 的幼兒數學檔案已整理年級 ${grade}、數學興趣、代表相片及家長確認的數學遊戲證據。`,
+        aiDraft: `${childName} 的幼兒數學檔案可從數數、比較、圖形和規律活動介紹孩子的數學準備度。`,
+        evidence: ['學生相片', '數學焦點'],
+        evidenceSuggestions: ['學生相片', '數學焦點', '數數活動', '老師短評'],
         requiredEvidence: 2,
         image: images.portfolioChild,
         updatedAt: formatPortfolioDate(),
       },
       {
         id: 'about',
-        icon: 'face',
-        title: '關於我',
-        shortTitle: '關於我',
-        copy: '性格、興趣、家庭生活及表達方式。',
+        icon: 'psychology_alt',
+        title: '數學興趣',
+        shortTitle: '興趣',
+        copy: '生活數學、好奇心與解難習慣。',
         status: 'Completed',
-        body: `${childName} 喜歡透過遊戲和日常生活表達想法。家長可補充孩子的興趣、性格特質、常用語言，以及在熟悉環境中的互動表現。`,
-        aiDraft: `${childName} 正透過遊戲、家庭日常和簡單對話建立自我認識，能逐步表達興趣與感受。`,
-        evidence: ['家長觀察', '興趣紀錄'],
-        evidenceSuggestions: ['興趣相片', '家庭活動', '孩子語錄', '自我介紹錄音'],
+        body: `${childName} 喜歡在遊戲和日常生活中找數字、比較多少和提出問題。家長可補充孩子對數學活動的興趣與解題習慣。`,
+        aiDraft: `${childName} 正透過生活物件、遊戲和簡單任務建立數學好奇心，能逐步把數量和形狀連繫到日常情境。`,
+        evidence: ['家長觀察', '數學興趣'],
+        evidenceSuggestions: ['數學遊戲相片', '生活找數字', '親子數數活動', '老師短評'],
         requiredEvidence: 2,
         updatedAt: formatPortfolioDate(),
       },
       {
         id: 'language',
-        icon: 'record_voice_over',
-        title: '語言與溝通',
-        shortTitle: '語言',
-        copy: '聆聽、表達、故事分享及雙語接觸。',
+        icon: 'looks_one',
+        title: '數感與數數',
+        shortTitle: '數感',
+        copy: '點算、比較多少與簡單數量記錄。',
         status: 'AI Ready',
-        body: `${childName} 正在建立聆聽與表達能力，能用熟悉詞語分享需要、感受和日常經驗。下一步可加入故事閱讀、唱歌或對話例子。`,
-        aiDraft: `${childName} 會透過熟悉詞語、手勢、故事和遊戲對話表達需要與想法，家長可補充雙語日常例子。`,
-        evidence: ['故事閱讀', '日常對話'],
-        evidenceSuggestions: ['故事閱讀相片', '唱歌錄音', '中英文詞語例子', '課堂互動紀錄'],
+        body: `${childName} 正在建立數感，能用實物點算、比較多少，並嘗試用圖像或口頭方式記錄簡單數量。`,
+        aiDraft: `${childName} 可透過零食分享、玩具分類和生活找數字，逐步鞏固點算和比較概念。`,
+        evidence: ['數數活動', '多少比較'],
+        evidenceSuggestions: ['玩具點算相片', '零食分享活動', '生活找數字', '數量記錄'],
         requiredEvidence: 3,
         updatedAt: formatPortfolioDate(),
       },
       {
         id: 'self-care',
-        icon: 'health_and_safety',
-        title: '自理與獨立性',
-        shortTitle: '自理',
-        copy: '穿衣、收拾、進食、如廁及日常規律。',
+        icon: 'category',
+        title: '圖形與空間',
+        shortTitle: '圖形',
+        copy: '形狀辨認、拼砌、位置與大小比較。',
         status: 'Drafting',
-        body: `${childName} 正在建立日常自理習慣，包括收拾個人物品、跟隨簡單步驟，以及在需要協助時清楚表達。`,
-        aiDraft: `${childName} 正在熟悉日常流程中建立獨立性，能在成人溫和提示下跟隨簡單步驟。`,
-        evidence: ['日常觀察'],
-        evidenceSuggestions: ['收拾書包相片', '進食紀錄', '如廁／洗手習慣', '生活技能觀察'],
+        body: `${childName} 正在透過拼砌、分類和觀察活動認識形狀、大小與位置。`,
+        aiDraft: `${childName} 可用積木、拼圖和生活物件建立圖形與空間概念，並練習說出形狀特徵。`,
+        evidence: ['圖形活動'],
+        evidenceSuggestions: ['積木拼砌相片', '圖形分類', '大小比較', '位置遊戲'],
         requiredEvidence: 2,
         updatedAt: formatPortfolioDate(),
       },
       {
         id: 'social-emotional',
-        icon: 'diversity_1',
-        title: '社交與情緒',
-        shortTitle: '社交',
-        copy: '合作、輪候、情緒表達及同伴互動。',
+        icon: 'grid_view',
+        title: '規律與分類',
+        shortTitle: '規律',
+        copy: '顏色、形狀、大小分類與簡單規律。',
         status: 'Drafting',
-        body: `${childName} 在成人引導下練習輪候、分享及表達情緒。家長可加入同伴活動或家庭互動例子，展示孩子的社交發展。`,
-        aiDraft: `${childName} 正學習說出感受、輪候和參與小組活動，並能在成人引導下與同伴互動。`,
-        evidence: ['同伴活動'],
-        evidenceSuggestions: ['小組活動相片', '情緒表達例子', '合作遊戲', '老師觀察'],
+        body: `${childName} 正在練習按顏色、形狀或大小分類，並延續簡單規律。`,
+        aiDraft: `${childName} 可透過珠串、積木和圖卡活動發現 AB / AAB 等簡單規律。`,
+        evidence: ['分類活動'],
+        evidenceSuggestions: ['分類遊戲相片', '規律配對', '珠串活動', '積木排序'],
         requiredEvidence: 3,
         updatedAt: formatPortfolioDate(),
       },
       {
         id: 'artworks',
-        icon: 'palette',
-        title: '創意與體能',
-        shortTitle: '創意體能',
-        copy: '藝術創作、音樂律動、大小肌肉及感官探索。',
+        icon: 'emoji_events',
+        title: '生活數學證據',
+        shortTitle: '生活數學',
+        copy: '親子活動、遊戲紀錄與數學應用片段。',
         status: 'Drafting',
-        body: `${childName} 的作品和活動可展示創意、手眼協調、專注力和探索精神。下一步可補充作品相片、活動過程及家長短評。`,
-        aiDraft: `${childName} 的創作與體能活動證據展示好奇心、精細動作練習、感官探索和願意嘗試的態度。`,
-        evidence: ['視藝作品'],
-        evidenceSuggestions: ['作品相片', '積木／拼砌活動', '音樂律動', '戶外體能活動'],
+        body: `${childName} 的生活數學證據可展示數數、比較、分類和圖形應用。下一步可補充活動相片、過程及家長短評。`,
+        aiDraft: `${childName} 的生活數學活動可展示好奇心、數感、圖形觀察和願意嘗試解難的態度。`,
+        evidence: ['數學遊戲'],
+        evidenceSuggestions: ['數學活動相片', '積木／拼砌活動', '購物數數', '圖形尋寶'],
         requiredEvidence: 4,
         image: images.artwork,
         updatedAt: formatPortfolioDate(),
@@ -860,8 +923,8 @@ function createPortfolioSections(child: ChildProfile | null): PortfolioSectionDr
       shortTitle: '封面',
       copy: '基本資料、年級、學習焦點與代表相片。',
       status: 'Completed',
-      body: `${childName} 的學科學習護照已整理基本資料、年級 ${grade}、學習焦點及代表證據，可作家長、補習老師或學校溝通草稿。`,
-      aiDraft: `${childName} 的學科學習護照會介紹目前年級、學習目標、代表作品和家長確認的證據。`,
+      body: `${childName} 的數學學習護照已整理基本資料、年級 ${grade}、學習焦點及代表證據，可作家長、補習老師或學校溝通草稿。`,
+      aiDraft: `${childName} 的數學學習護照會介紹目前年級、數學學習目標、代表作品和家長確認的證據。`,
       evidence: ['學生相片', '基本資料'],
       evidenceSuggestions: ['學生相片', '基本資料', '學期目標', '老師／家長備註'],
       requiredEvidence: 2,
@@ -873,12 +936,12 @@ function createPortfolioSections(child: ChildProfile | null): PortfolioSectionDr
       icon: 'face',
       title: '學習者檔案',
       shortTitle: '檔案',
-      copy: '學習風格、興趣科目及家庭支援。',
+      copy: '數學學習風格、興趣主題及家庭支援。',
       status: 'Completed',
       body: `${childName} 喜歡主動發問，能把新知識連繫到日常生活。家長觀察到孩子在 ${focus} 方面有清晰興趣，適合以短練習、錯題回顧和可視化例子鞏固。`,
       aiDraft: `${childName} 適合以有結構的練習、家長可見的回饋，以及連繫日常生活的例子來鞏固學習。`,
       evidence: ['家長觀察', '興趣紀錄'],
-      evidenceSuggestions: ['家長觀察', '學習習慣紀錄', '興趣科目', '補習老師備註'],
+      evidenceSuggestions: ['家長觀察', '學習習慣紀錄', '數學興趣主題', '補習老師備註'],
       requiredEvidence: 2,
       updatedAt: formatPortfolioDate(),
     },
@@ -899,12 +962,12 @@ function createPortfolioSections(child: ChildProfile | null): PortfolioSectionDr
     {
       id: 'academic-progress',
       icon: 'monitoring',
-      title: '學科進展',
+      title: '數學進展',
       shortTitle: '進展',
       copy: 'OCR 證據、練習結果、強弱項及進步曲線。',
       status: 'Drafting',
-      body: `${childName} 的學科進展應連結已確認的功課、測驗、練習結果與弱項主題，避免只靠主觀描述。下一步可加入最近一次 OCR 檢視和練習紀錄。`,
-      aiDraft: `${childName} 的學科進展應連結已上載作品、已確認錯題、練習結果和家長同意的下一步。`,
+      body: `${childName} 的數學進展應連結已確認的功課、測驗、練習結果與弱項主題，避免只靠主觀描述。下一步可加入最近一次 OCR 檢視和練習紀錄。`,
+      aiDraft: `${childName} 的數學進展應連結已上載作品、已確認錯題、練習結果和家長同意的下一步。`,
       evidence: ['OCR 證據'],
       evidenceSuggestions: ['功課 OCR 檢視', '測驗分數', '練習結果', '弱項主題摘要'],
       requiredEvidence: 3,
@@ -913,14 +976,14 @@ function createPortfolioSections(child: ChildProfile | null): PortfolioSectionDr
     {
       id: 'artworks',
       icon: 'emoji_events',
-      title: '成果與活動',
+      title: '數學成果',
       shortTitle: '成果',
-      copy: '作品、比賽、活動、閱讀或跨學科證據。',
+      copy: '數學作品、比賽、活動或探究證據。',
       status: 'Drafting',
-      body: `${childName} 的成果證據可展示課外活動、閱讀、創意作品或跨學科能力。這部分應支援學習目標，而不是取代核心學科進展。`,
-      aiDraft: `${childName} 的成果證據若能連繫學習目標，就可展示更廣泛的強項、興趣和可遷移能力。`,
-      evidence: ['活動紀錄'],
-      evidenceSuggestions: ['活動證書', '閱讀紀錄', '專題作品', '比賽／表演相片'],
+      body: `${childName} 的數學成果證據可展示課外練習、比賽、專題或生活解難片段。這部分應支援數學學習目標，而不是取代核心數學進展。`,
+      aiDraft: `${childName} 的數學成果證據若能連繫學習目標，就可展示更廣泛的數學強項、興趣和解難能力。`,
+      evidence: ['數學活動紀錄'],
+      evidenceSuggestions: ['數學活動證書', '數學專題作品', '解題展示', '比賽相片'],
       requiredEvidence: 4,
       image: images.artwork,
       updatedAt: formatPortfolioDate(),
@@ -979,53 +1042,116 @@ function buildPortfolioExportSections(sections: PortfolioSectionDraft[]) {
   }));
 }
 
-function homeContentForChild(child: ChildProfile | null) {
+function childHasLearningData(progress?: LearningProgress | null) {
+  if (!progress) return false;
+  return Boolean(
+    progress.document_count ||
+    progress.practice_count ||
+    progress.recent_activity.length ||
+    progress.all_topics.length ||
+    (progress.subject_scores || []).some((subject) => subject.evidence_count || subject.practice_count),
+  );
+}
+
+function blankHomeContentForChild(child: ChildProfile | null, earlyYears: boolean) {
+  const childName = child?.name || '孩子';
+  return {
+    summaryIcon: 'calculate',
+    summaryTitle: earlyYears ? '等待幼兒數學紀錄' : '等待數學紀錄',
+    summaryBody: (
+      <>
+        {childName} 的數學檔案仍是空白。上載第一份數學功課或數學遊戲證據後，這裡才會開始顯示進度。
+      </>
+    ),
+    actionIcon: 'add_a_photo',
+    actionKicker: '下一步',
+    actionTitle: earlyYears ? '上載第一份數學遊戲證據' : '上載第一份已批改數學功課',
+    actionLabel: '開始上載',
+    actionView: 'upload' as View,
+    actionDescription: '新學生不會沿用 demo 資料；所有進度只會由家長確認的紀錄建立。',
+    portfolioTitle: earlyYears ? '幼兒數學檔案' : '數學學習檔案',
+    portfolioText: '尚未加入數學章節內容或證據。',
+    progress: 0,
+    masteryScore: 0,
+    masteryLabel: earlyYears ? '數學準備度' : '數學紀錄',
+    trendLabel: '等待第一份紀錄',
+    progressTitle: earlyYears ? '幼兒數學' : '數學進度',
+    progressText: `${childName} 目前未有已確認的數學上載、練習或檔案證據。`,
+    progressItems: earlyYears
+      ? [
+        { icon: 'looks_one', label: '數數', value: 0, tone: 'primary' },
+        { icon: 'category', label: '圖形', value: 0, tone: 'secondary' },
+        { icon: 'grid_view', label: '規律', value: 0, tone: 'tertiary' },
+      ]
+      : [
+        { icon: 'add_circle', label: '加減', value: 0, tone: 'primary' },
+        { icon: 'percent', label: '分數', value: 0, tone: 'tertiary' },
+        { icon: 'psychology_alt', label: '應用題', value: 0, tone: 'secondary' },
+      ],
+    goals: [
+      { label: '補充學生基本資料', actionLabel: '檢視', actionView: 'profile' as View },
+      { label: earlyYears ? '上載 1 張數學遊戲相片' : '上載 1 份已批改數學功課', actionLabel: '上載', actionView: 'upload' as View },
+      { label: '建立第一個數學證據', actionLabel: '檔案', actionView: 'portfolio' as View },
+    ],
+    coachIcon: 'calculate',
+    coachTitle: earlyYears ? 'AI 數學觀察' : '數學進度',
+    coachText: '有家長確認的紀錄後才會產生摘要與建議。',
+    tags: earlyYears ? ['數感', '圖形', '規律'] : ['加減', '分數', '應用題'],
+    recentUploads: [],
+  };
+}
+
+function homeContentForChild(child: ChildProfile | null, progress?: LearningProgress | null) {
   const childName = child?.name || '孩子';
   const earlyYears = isEarlyYearsGrade(child?.grade);
 
+  if (child && !usesDemoPortfolioContent(child) && !childHasLearningData(progress)) {
+    return blankHomeContentForChild(child, earlyYears);
+  }
+
   if (earlyYears) {
     return {
-      summaryIcon: 'diversity_1',
-      summaryTitle: '本週成長摘要',
+      summaryIcon: 'calculate',
+      summaryTitle: '本週幼兒數學摘要',
       summaryBody: (
         <>
-          本週加入 <strong>2</strong> 項生活觀察，{childName} 在自理、表達和小組互動上有新證據。
+          本週加入 <strong>2</strong> 項數學遊戲證據，{childName} 正在練習數數、比較與圖形辨認。
         </>
       ),
-      actionIcon: 'child_care',
+      actionIcon: 'calculate',
       actionKicker: '今日建議',
-      actionTitle: '整理一項自理或社交觀察',
-      actionLabel: '整理檔案',
+      actionTitle: '整理一項數學遊戲證據',
+      actionLabel: '整理數學',
       actionView: 'portfolio' as View,
-      actionDescription: '加入一項家長確認的生活片段，建立面試作品集可用證據。',
-      portfolioTitle: '幼兒成長檔案',
-      portfolioText: '整理性格、語言、自理、社交情緒、創意與體能發展。',
+      actionDescription: '加入一項家長確認的數數、圖形或規律活動。',
+      portfolioTitle: '幼兒數學檔案',
+      portfolioText: '整理數感、圖形、規律與生活數學證據。',
       progress: 61,
       masteryScore: 68,
-      masteryLabel: '成長準備度',
-      trendLabel: '本週新增 3 項觀察',
-      progressTitle: '全人發展',
-      progressText: `${childName} 正在累積自理、語言、社交與創意表達證據。`,
+      masteryLabel: '數學準備度',
+      trendLabel: '本週新增 3 項數學證據',
+      progressTitle: '幼兒數學',
+      progressText: `${childName} 正在累積數感、圖形與規律證據。`,
       progressItems: [
-        { icon: 'self_improvement', label: '自理', value: 72, tone: 'secondary' },
-        { icon: 'record_voice_over', label: '語言', value: 68, tone: 'primary' },
-        { icon: 'diversity_1', label: '社交', value: 64, tone: 'tertiary' },
+        { icon: 'looks_one', label: '數數', value: 72, tone: 'primary' },
+        { icon: 'category', label: '圖形', value: 68, tone: 'secondary' },
+        { icon: 'grid_view', label: '規律', value: 64, tone: 'tertiary' },
       ],
       goals: [
-        { label: '完成 1 項自理觀察', completed: true },
-        { label: '上載 1 張作品或活動相片', actionLabel: '上載', actionView: 'upload' as View },
-        { label: '檢視「關於我」檔案草稿', actionLabel: '檢視', actionView: 'portfolio' as View },
+        { label: '完成 1 項數數活動', completed: true },
+        { label: '上載 1 張數學遊戲相片', actionLabel: '上載', actionView: 'upload' as View },
+        { label: '檢視幼兒數學檔案草稿', actionLabel: '檢視', actionView: 'portfolio' as View },
       ],
-      coachIcon: 'psychology_alt',
-      coachTitle: 'AI 成長觀察',
-      coachText: '以家長確認的生活片段生成面試友善描述，不以學科分數作核心。',
-      tags: ['自理能力', '語言表達', '社交情緒'],
+      coachIcon: 'calculate',
+      coachTitle: 'AI 數學觀察',
+      coachText: '以家長確認的數學遊戲片段整理下一步。',
+      tags: ['數感', '圖形', '規律'],
       recentUploads: [
-        { image: images.portfolioChild, title: '自我介紹相片', time: '今天 10:20' },
-        { image: images.blocks, title: '積木合作活動', time: '昨天 17:40' },
-        { image: images.artwork, title: '創意畫作', time: '上週五' },
-        { image: images.drawing, title: '親子閱讀紀錄', time: '上週三' },
-        { image: images.child, title: '生活自理觀察', time: '5月28日' },
+        { image: images.blocks, title: '積木數數活動', time: '今天 10:20' },
+        { image: images.artwork, title: '圖形分類遊戲', time: '昨天 17:40' },
+        { image: images.drawing, title: '生活找數字', time: '上週五' },
+        { image: images.notebook, title: '規律配對練習', time: '上週三' },
+        { image: images.homework, title: '多少比較活動', time: '5月28日' },
       ],
     };
   }
@@ -1040,10 +1166,10 @@ function homeContentForChild(child: ChildProfile | null) {
     ),
     actionIcon: 'monitoring',
     actionKicker: '今日建議',
-    actionTitle: '查看各科成績進度',
+    actionTitle: '查看數學進度',
     actionLabel: '查看進度',
     actionView: 'coach' as View,
-    actionDescription: '按學科整理 OCR 證據、測驗分數與弱項主題。',
+    actionDescription: '按數學主題整理 OCR 證據、測驗分數與弱項。',
     portfolioTitle: '學習歷程檔案',
     portfolioText: '收集並整理學生的學習成果與進步軌跡。',
     progress: 65,
@@ -1051,21 +1177,21 @@ function homeContentForChild(child: ChildProfile | null) {
     masteryLabel: '掌握度',
     trendLabel: '本週提升 5%',
     progressTitle: '學習進度',
-    progressText: `${childName} 今個月保持穩定進步，已確認的功課和練習紀錄會用來更新各科成績。`,
+    progressText: `${childName} 今個月保持穩定進步，已確認的功課和練習紀錄會用來更新數學掌握度。`,
     progressItems: [
-      { icon: 'calculate', label: '數學', value: 85, tone: 'primary' },
-      { icon: 'menu_book', label: '語文', value: 72, tone: 'tertiary' },
-      { icon: 'science', label: '常識', value: 60, tone: 'secondary' },
+      { icon: 'add_circle', label: '加減', value: 85, tone: 'primary' },
+      { icon: 'percent', label: '分數', value: 72, tone: 'tertiary' },
+      { icon: 'psychology_alt', label: '應用題', value: 60, tone: 'secondary' },
     ],
     goals: [
-      { label: '檢視最新各科成績', completed: true },
+      { label: '檢視最新數學掌握度', completed: true },
       { label: '上載 1 份已批改功課', actionLabel: '上載', actionView: 'upload' as View },
-      { label: '整理語文改正紀錄', actionLabel: '檢視', actionView: 'portfolio' as View },
+      { label: '整理數學錯題紀錄', actionLabel: '檢視', actionView: 'coach' as View },
     ],
     coachIcon: 'monitoring',
-    coachTitle: '學科進度',
-    coachText: '集中追蹤各學科的成績、證據與弱項。',
-    tags: ['數學', '語文', '科學'],
+    coachTitle: '數學進度',
+    coachText: '集中追蹤數學主題、證據與弱項。',
+    tags: ['加減', '分數', '應用題'],
     recentUploads: [
       { image: images.homework, title: '數學小測', time: '今天 14:30' },
       { image: images.notebook, title: '分數練習', time: '昨天 18:15' },
@@ -1080,6 +1206,7 @@ function App() {
   const [activeView, setActiveView] = useState<View>('home');
   const [authState, setAuthState] = useState<AuthState>('loading');
   const [authMode, setAuthMode] = useState<AuthMode>('login');
+  const [uiLanguage, setUiLanguage] = useState<UiLanguage>(getInitialUiLanguage);
   const [parent, setParent] = useState<ParentProfile | null>(null);
   const [selectedChildId, setSelectedChildId] = useState('child-matthew');
   const [loginEmail, setLoginEmail] = useState('parent@example.com');
@@ -1113,6 +1240,7 @@ function App() {
   const [toast, setToast] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const portfolioSaveTimers = useRef<Record<string, number>>({});
+  const copy = uiCopy[uiLanguage];
 
   useEffect(() => {
     let alive = true;
@@ -1147,6 +1275,11 @@ function App() {
   }, [uploadPreviewItems]);
 
   useEffect(() => {
+    window.localStorage.setItem(uiLanguageStorageKey, uiLanguage);
+    document.documentElement.lang = uiLanguage === 'en' ? 'en' : 'zh-Hant';
+  }, [uiLanguage]);
+
+  useEffect(() => {
     if (!toast) return undefined;
     const timeout = window.setTimeout(() => setToast(null), 2600);
     return () => window.clearTimeout(timeout);
@@ -1158,6 +1291,11 @@ function App() {
       Object.values(timers).forEach((timer) => window.clearTimeout(timer));
     };
   }, []);
+
+  function updateUiLanguage(nextLanguage: UiLanguage) {
+    setUiLanguage(nextLanguage);
+    setToast(nextLanguage === 'zh-Hant' ? '已切換至繁體中文' : 'Language switched to English');
+  }
 
   const uploadPreview = useMemo(
     () =>
@@ -1761,7 +1899,7 @@ function App() {
   const appClass = activeView === 'upload' ? 'stitch-app upload-mode' : 'stitch-app';
 
   if (authState === 'loading') {
-    return <LoadingView />;
+    return <LoadingView copy={copy} />;
   }
 
   if (authState === 'anonymous') {
@@ -1772,6 +1910,7 @@ function App() {
         email={loginEmail}
         pin={loginPin}
         displayName={signupDisplayName}
+        uiLanguage={uiLanguage}
         setEmail={setLoginEmail}
         setAuthMode={(mode) => {
           setAuthMode(mode);
@@ -1798,16 +1937,17 @@ function App() {
   return (
     <div className={appClass}>
       {activeView === 'upload' ? (
-        <UploadHeader onBack={() => setActiveView('home')} />
+        <UploadHeader copy={copy} onBack={() => setActiveView('home')} />
       ) : activeView === 'profile' ? (
-        <SettingsHeader onBack={() => setActiveView('home')} onHelp={() => setProfileSheet('support')} />
+        <SettingsHeader copy={copy} onBack={() => setActiveView('home')} onHelp={() => setProfileSheet('support')} />
       ) : (
-        <MainHeader activeView={activeView} child={currentChild} onSwitchChild={switchChild} />
+        <MainHeader activeView={activeView} child={currentChild} copy={copy} onSwitchChild={switchChild} />
       )}
 
       {activeView === 'home' && (
         <HomeView
           child={currentChild}
+          learningProgress={learningProgress}
           setActiveView={setActiveView}
         />
       )}
@@ -1866,6 +2006,7 @@ function App() {
         <ProfileView
           children={parent.children}
           currentChild={currentChild}
+          copy={copy}
           onEditParent={() => setProfileSheet('edit-parent')}
           parent={parent}
           selectedChildId={selectedChildId}
@@ -1874,21 +2015,25 @@ function App() {
           onEditChild={() => setProfileSheet('edit-child')}
           onLogout={logout}
           onOpenSetting={setProfileSheet}
+          uiLanguage={uiLanguage}
         />
       ) : null}
 
-      <BottomNav activeView={activeView} setActiveView={setActiveView} />
+      <BottomNav activeView={activeView} setActiveView={setActiveView} uiLanguage={uiLanguage} />
 
       {lightboxSrc ? <PreviewLightbox image={lightboxSrc} onClose={() => setLightboxSrc(null)} /> : null}
       {parent ? (
         <ProfileSheetModal
           currentChild={currentChild}
           kind={profileSheet}
+          copy={copy}
           parent={parent}
+          uiLanguage={uiLanguage}
           onAddChild={addChild}
           onClose={() => setProfileSheet(null)}
           onDeleteChild={deleteChildData}
           onPrivacySave={updatePrivacySettings}
+          onUiLanguageChange={updateUiLanguage}
           onUpdateParent={updateParentProfile}
           onUpdateChild={updateSelectedChild}
         />
@@ -1898,13 +2043,13 @@ function App() {
   );
 }
 
-function LoadingView() {
+function LoadingView({ copy }: { copy: UiCopy }) {
   return (
     <main className="login-shell">
       <section className="login-card">
         <span className="login-mark"><Icon name="school" filled /></span>
         <h1>EduPass AI</h1>
-        <p>正在載入安全學習工作區...</p>
+        <p>{copy.loading}</p>
       </section>
     </main>
   );
@@ -1922,6 +2067,7 @@ function LoginView({
   setDisplayName,
   setEmail,
   setPin,
+  uiLanguage,
 }: {
   authError: string | null;
   authMode: AuthMode;
@@ -1934,40 +2080,60 @@ function LoginView({
   setDisplayName: (value: string) => void;
   setEmail: (value: string) => void;
   setPin: (value: string) => void;
+  uiLanguage: UiLanguage;
 }) {
   const isSignup = authMode === 'signup';
+  const loginCopy = uiLanguage === 'en'
+    ? {
+      authSwitch: isSignup ? 'Already have an account? Log in' : 'New parent? Create account',
+      email: 'Email',
+      intro: isSignup
+        ? 'Create a parent account, then set up the first student profile.'
+        : 'Log in to load parent details, student records, OCR history, and exported portfolios.',
+      parentName: 'Parent name',
+      parentNamePlaceholder: 'e.g. Mrs Chan',
+      pin: isSignup ? 'Create PIN' : 'Demo PIN',
+      submit: isSignup ? 'Create account' : 'Log in',
+    }
+    : {
+      authSwitch: isSignup ? '已有帳戶？登入' : '新家長？建立帳戶',
+      email: '電郵',
+      intro: isSignup
+        ? '建立家長帳戶後，即可設定第一個學生學習檔案。'
+        : '登入後會載入家長資料、學生紀錄、OCR 歷史及已匯出的作品集。',
+      parentName: '家長姓名',
+      parentNamePlaceholder: '例如：陳太',
+      pin: isSignup ? '建立 PIN' : '示範 PIN',
+      submit: isSignup ? '建立帳戶' : '登入',
+    };
 
   return (
     <main className="login-shell">
       <form className="login-card" onSubmit={isSignup ? onSignup : onLogin}>
         <span className="login-mark"><Icon name="school" filled /></span>
         <h1>EduPass AI</h1>
-        <p>
-          {isSignup
-            ? '建立家長帳戶後，即可設定第一個學生學習檔案。'
-            : '登入後會載入家長資料、學生紀錄、OCR 歷史及已匯出的作品集。'}
-        </p>
+        <p>{loginCopy.intro}</p>
         {isSignup ? (
           <label>
-            家長姓名
-            <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="例如：陳太" />
+            {loginCopy.parentName}
+            <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder={loginCopy.parentNamePlaceholder} />
           </label>
         ) : null}
         <label>
-          電郵
+          {loginCopy.email}
           <input value={email} type="email" onChange={(event) => setEmail(event.target.value)} />
         </label>
         <label>
-          {isSignup ? '建立 PIN' : '示範 PIN'}
+          {loginCopy.pin}
           <input value={pin} type="password" inputMode="numeric" onChange={(event) => setPin(event.target.value)} />
         </label>
         {authError ? <strong className="login-error">{authError}</strong> : null}
         <button className="primary-action full" type="submit">
           <Icon name={isSignup ? 'person_add' : 'login'} filled />
-          {isSignup ? '建立帳戶' : '登入'}
+          {loginCopy.submit}
         </button>
         <button className="auth-switch" type="button" onClick={() => setAuthMode(isSignup ? 'login' : 'signup')}>
-          {isSignup ? '已有帳戶？登入' : '新家長？建立帳戶'}
+          {loginCopy.authSwitch}
         </button>
       </form>
     </main>
@@ -2081,14 +2247,17 @@ function OnboardingView({
 function MainHeader({
   activeView,
   child,
+  copy,
   onSwitchChild,
 }: {
   activeView: View;
   child: ChildProfile | null;
+  copy: UiCopy;
   onSwitchChild: () => void;
 }) {
   const isPortfolio = activeView === 'portfolio';
   const avatar = child?.name === 'Chloe' ? images.chloe : isPortfolio ? images.portfolioChild : images.child;
+  const passportLabel = child?.passport && child.passport !== 'Learning Passport' ? child.passport : copy.passportName;
 
   return (
     <header className="top-appbar">
@@ -2096,11 +2265,11 @@ function MainHeader({
         <img className="avatar-img" src={avatar} alt={child?.name || 'Matthew'} />
         <div>
           {isPortfolio ? (
-            <h1 className="brand-title">{defaultPassportName}</h1>
+            <h1 className="brand-title">{copy.passportName}</h1>
           ) : (
             <>
-              <h1 className="student-title">{activeView === 'home' ? child?.name || 'Matthew' : defaultPassportName}</h1>
-              {activeView === 'home' ? <p>{child?.grade || 'P3'} • {displayPassportName(child?.passport)}</p> : null}
+              <h1 className="student-title">{activeView === 'home' ? child?.name || 'Matthew' : copy.passportName}</h1>
+              {activeView === 'home' ? <p>{child?.grade || 'P3'} • {passportLabel}</p> : null}
             </>
           )}
         </div>
@@ -2112,26 +2281,26 @@ function MainHeader({
   );
 }
 
-function UploadHeader({ onBack }: { onBack: () => void }) {
+function UploadHeader({ copy, onBack }: { copy: UiCopy; onBack: () => void }) {
   return (
     <header className="upload-appbar">
-      <button className="symbol-button" type="button" aria-label="返回" onClick={onBack}>
+      <button className="symbol-button" type="button" aria-label={copy.back} onClick={onBack}>
         <Icon name="arrow_back" />
       </button>
-      <h1>確認作業內容</h1>
+      <h1>{copy.uploadTitle}</h1>
       <span aria-hidden="true" />
     </header>
   );
 }
 
-function SettingsHeader({ onBack, onHelp }: { onBack: () => void; onHelp: () => void }) {
+function SettingsHeader({ copy, onBack, onHelp }: { copy: UiCopy; onBack: () => void; onHelp: () => void }) {
   return (
     <header className="settings-appbar">
-      <button className="symbol-button" type="button" aria-label="返回" onClick={onBack}>
+      <button className="symbol-button" type="button" aria-label={copy.back} onClick={onBack}>
         <Icon name="arrow_back" />
       </button>
-      <h1>設定</h1>
-      <button className="symbol-button" type="button" aria-label="說明" onClick={onHelp}>
+      <h1>{copy.settingsTitle}</h1>
+      <button className="symbol-button" type="button" aria-label={copy.help} onClick={onHelp}>
         <Icon name="help" />
       </button>
     </header>
@@ -2140,13 +2309,16 @@ function SettingsHeader({ onBack, onHelp }: { onBack: () => void; onHelp: () => 
 
 function HomeView({
   child,
+  learningProgress,
   setActiveView,
 }: {
   child: ChildProfile | null;
+  learningProgress: LearningProgress | null;
   setActiveView: (view: View) => void;
 }) {
   const [showAllUploads, setShowAllUploads] = useState(false);
-  const content = homeContentForChild(child);
+  const visibleLearningProgress = useMemo(() => filterLearningProgressForMvp(learningProgress), [learningProgress]);
+  const content = homeContentForChild(child, visibleLearningProgress);
   const recentUploads = content.recentUploads;
   const handlePrimaryAction = () => setActiveView(content.actionView);
   const completedGoals = content.goals.filter((goal) => goal.completed).length;
@@ -2335,6 +2507,8 @@ function PortfolioView({
   const readyCount = sections.filter((section) => section.status === 'AI Ready').length;
   const evidenceCount = sections.reduce((total, section) => total + section.evidence.length, 0);
   const copy = portfolioStageCopy(child);
+  const portfolioTipText = progress === 0 ? copy.tipEmpty : readyCount ? `${readyCount} ${copy.tipReady}` : copy.tipDone;
+  const canExportPortfolio = progress > 0;
   const statusOptions: PortfolioStatus[] = ['Completed', 'AI Ready', 'Drafting'];
   const renderEditorPanel = (section: PortfolioSectionDraft) => (
     <section className="passport-editor-panel" aria-label={`${section.title} 編輯區`}>
@@ -2370,20 +2544,22 @@ function PortfolioView({
         />
       </label>
 
-      <div className="ai-draft-panel">
-        <div>
-          <span><Icon name="auto_awesome" filled /> AI 草稿</span>
-          <p>{section.aiDraft}</p>
+      {section.aiDraft ? (
+        <div className="ai-draft-panel">
+          <div>
+            <span><Icon name="auto_awesome" filled /> AI 草稿</span>
+            <p>{section.aiDraft}</p>
+          </div>
+          <button
+            className="secondary-action"
+            type="button"
+            onClick={() => onUpdateSection(section.id, { body: section.aiDraft, status: 'Completed' })}
+          >
+            <Icon name="task_alt" />
+            確認採用
+          </button>
         </div>
-        <button
-          className="secondary-action"
-          type="button"
-          onClick={() => onUpdateSection(section.id, { body: section.aiDraft, status: 'Completed' })}
-        >
-          <Icon name="task_alt" />
-          確認採用
-        </button>
-      </div>
+      ) : null}
 
       <div className="evidence-tools">
         <div className="evidence-head">
@@ -2436,7 +2612,7 @@ function PortfolioView({
         <Icon name="auto_awesome" />
         <div>
           <h3>AI 協助中</h3>
-          <p>{readyCount ? `${readyCount} ${copy.tipReady}` : copy.tipDone}</p>
+          <p>{portfolioTipText}</p>
         </div>
       </section>
 
@@ -2508,9 +2684,9 @@ function PortfolioView({
         </div>
       ) : null}
 
-      <button className="generate-fab" type="button" onClick={onExport} disabled={exportState === 'running'}>
+      <button className="generate-fab" type="button" onClick={onExport} disabled={exportState === 'running' || !canExportPortfolio}>
         <Icon name="picture_as_pdf" filled />
-        {exportState === 'running' ? '生成中' : '生成 PDF'}
+        {exportState === 'running' ? '生成中' : canExportPortfolio ? '生成 PDF' : '加入內容後匯出'}
       </button>
     </main>
   );
@@ -2707,7 +2883,7 @@ function UploadView({
                   </div>
                   <span><Icon name={reviewConfirmed ? 'verified' : 'rule'} filled /> {reviewConfirmed ? '已確認' : '待確認'}</span>
                 </div>
-                {questionDrafts.slice(0, 6).map((question, index) => (
+                {questionDrafts.map((question, index) => (
                   <article className="ocr-question-editor" key={question.id}>
                     <div className="question-meta-row">
                       <span>P{question.page_number || index + 1}</span>
@@ -2892,8 +3068,13 @@ function CoachView({
 }) {
   const profileGrade = normalizeGrade(child?.grade);
   const gradeSubjects = useMemo(
-    () => getSubjectsForGrade(profileGrade).filter(isAcademicProgressSubject),
+    () => getSubjectsForGrade(profileGrade).filter(isAcademicProgressSubject).filter(isMvpCurriculumSubject),
     [profileGrade],
+  );
+  const visibleProgress = useMemo(() => filterLearningProgressForMvp(learningProgress), [learningProgress]);
+  const visibleMistakeNotebook = useMemo(
+    () => mistakeNotebook.filter((item) => isMvpLearningSubject(item.subject)),
+    [mistakeNotebook],
   );
   const [selectedSubjectId, setSelectedSubjectId] = useState(preferredProgressSubjectId(gradeSubjects));
   const selectedSubject = gradeSubjects.find((subject) => subject.id === selectedSubjectId)
@@ -2917,13 +3098,13 @@ function CoachView({
       data-stitch-source="projects/10595017015370179580/screens/a592e20bc97e4cbfb85986527e821d31 projects/10595017015370179580/screens/14d41f421d024aac915984de00d1dea0"
     >
       <section className="page-intro tight">
-        <h2>學科進度</h2>
-        <p>{child?.name || 'Matthew'} 的各科成績、OCR 證據與弱項主題。</p>
+        <h2>數學進度</h2>
+        <p>{child?.name || 'Matthew'} 的數學掌握度、OCR 證據與弱項主題。</p>
       </section>
 
       <AcademicSubjectProgressPanel
         child={child}
-        progress={learningProgress}
+        progress={visibleProgress}
         progressState={progressState}
         selectedSubject={selectedSubject}
         subjects={gradeSubjects}
@@ -2938,7 +3119,7 @@ function CoachView({
         onConfirm={onConfirmOcrReview}
       />
 
-      <MistakeNotebookPanel items={mistakeNotebook} />
+      <MistakeNotebookPanel items={visibleMistakeNotebook} />
 
       <CurriculumMapSection
         child={child}
@@ -2948,7 +3129,7 @@ function CoachView({
 
       <LearningReportPanel
         child={child}
-        progress={learningProgress}
+        progress={visibleProgress}
         progressState={progressState}
         shareReports={shareReports}
         shareReport={shareReport}
@@ -2963,7 +3144,7 @@ function CoachView({
             <h3>弱項主題</h3>
             <Icon name="bar_chart" />
           </div>
-          {(learningProgress?.weak_topics || []).slice(0, 4).map((topic) => (
+          {(visibleProgress?.weak_topics || []).slice(0, 4).map((topic) => (
             <Mastery
               key={`${topic.subject}-${topic.topic}`}
               label={displayTopicName(topic.topic)}
@@ -2971,7 +3152,7 @@ function CoachView({
               tone={topic.mastery >= 75 ? 'green' : topic.mastery >= 60 ? 'amber' : 'red'}
             />
           ))}
-          {learningProgress?.weak_topics?.length ? null : <p>暫時未有已評分學習主題。</p>}
+          {visibleProgress?.weak_topics?.length ? null : <p>暫時未有已評分數學主題。</p>}
         </article>
 
         <article className="data-card">
@@ -2979,28 +3160,28 @@ function CoachView({
             <h3>分數來源</h3>
             <Icon name="fact_check" />
           </div>
-          <p>基於已上載並確認的 OCR 檢視、測驗分數及已保存的學科練習紀錄。</p>
+          <p>基於已上載並確認的 OCR 檢視、測驗分數及已保存的數學練習紀錄。</p>
           <div className="mistake-tags">
-            <span><Icon name="upload_file" /> {learningProgress?.document_count || 0} 份上載</span>
-            <span><Icon name="edit_note" /> {learningProgress?.practice_count || 0} 次練習</span>
-            <span className="amber"><Icon name="visibility_off" /> 體育 / 視藝不計分</span>
+            <span><Icon name="upload_file" /> {visibleProgress?.document_count || 0} 份上載</span>
+            <span><Icon name="edit_note" /> {visibleProgress?.practice_count || 0} 次練習</span>
+            <span className="amber"><Icon name="calculate" /> 數學 MVP</span>
           </div>
         </article>
       </section>
 
       <section className="history-section">
         <h3>近期紀錄</h3>
-        {(learningProgress?.recent_activity || []).slice(0, 3).map((activity, index) => (
+        {(visibleProgress?.recent_activity || []).slice(0, 3).map((activity, index) => (
           <HistoryCard
             key={`${activity.created_at || index}-${activity.title || 'activity'}`}
-            score={`${activity.score ?? learningProgress?.overall_mastery ?? 0}`}
+            score={`${activity.score ?? visibleProgress?.overall_mastery ?? 0}`}
             title={displayTopicName(String(activity.title || '學習證據'))}
             date={formatActivityDate(activity.created_at)}
-            text={`${activity.type === 'practice_attempt' ? '學科練習' : 'OCR 證據'} · ${activity.count || 0} 項`}
-            tone={Number(activity.score || learningProgress?.overall_mastery || 0) >= 75 ? 'green' : 'gray'}
+            text={`${activity.type === 'practice_attempt' ? '數學練習' : 'OCR 證據'} · ${activity.count || 0} 項`}
+            tone={Number(activity.score || visibleProgress?.overall_mastery || 0) >= 75 ? 'green' : 'gray'}
           />
         ))}
-        {learningProgress?.recent_activity?.length ? null : <p className="empty-report-note">上載有分數的學科作品後，這裡會顯示最新紀錄。</p>}
+        {visibleProgress?.recent_activity?.length ? null : <p className="empty-report-note">上載有分數的數學作品後，這裡會顯示最新紀錄。</p>}
       </section>
     </main>
   );
@@ -3181,14 +3362,14 @@ function AcademicSubjectProgressPanel({
   return (
     <section
       className="academic-progress-panel"
-      aria-label="學科成績進度"
+      aria-label="數學成績進度"
       data-stitch-source="projects/10595017015370179580/screens/a592e20bc97e4cbfb85986527e821d31"
     >
       <div className="academic-progress-hero">
         <div>
-          <span className="report-kicker"><Icon name="monitoring" /> 學科進度</span>
-          <h2>{child?.name || '孩子'} 的各科成績</h2>
-          <p>{progress?.report_month || '今個月'} · {subjects.length} 個學科 · 體育 / 視藝只入作品檔案</p>
+          <span className="report-kicker"><Icon name="monitoring" /> 數學進度</span>
+          <h2>{child?.name || '孩子'} 的數學成績</h2>
+          <p>{progress?.report_month || '今個月'} · 數學主題與 OCR 證據</p>
         </div>
         <div className="report-mastery-card">
           <strong>{mastery}</strong>
@@ -3205,7 +3386,7 @@ function AcademicSubjectProgressPanel({
       {selectedRow ? (
         <article className="selected-subject-score">
           <div>
-            <span>學習領域</span>
+            <span>學習範疇</span>
             <h3>{selectedRow.subject.displayNameZh}</h3>
             <p>{displaySubjectUse(selectedRow.subject)}</p>
           </div>
@@ -3258,8 +3439,9 @@ function LearningReportPanel({
   const [includeEvidence, setIncludeEvidence] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const trend = progress?.trend_points?.length ? progress.trend_points : [42, 48, 55, progress?.overall_mastery || 0].filter(Boolean);
-  const weakTopics = progress?.weak_topics || [];
-  const improvedTopics = progress?.improved_topics || [];
+  const weakTopics = mvpLearningTopics(progress?.weak_topics || []);
+  const improvedTopics = mvpLearningTopics(progress?.improved_topics || []);
+  const visibleTopics = mvpLearningTopics(progress?.all_topics || []);
   const shareHref = shareReport?.share_url ? `${window.location.origin}${shareReport.share_url}` : '';
   const mastery = progressState === 'loading' ? '...' : `${progress?.overall_mastery || 0}%`;
   const reportMonth = progress?.report_month || '今個月';
@@ -3287,7 +3469,7 @@ function LearningReportPanel({
         <div>
           <span className="report-kicker"><Icon name="analytics" /> 進度報告</span>
           <h2>{child?.name || '孩子'} 的進步報告</h2>
-          <p>{reportMonth} · OCR 證據 + 科目分數</p>
+          <p>{reportMonth} · OCR 證據 + 數學分數</p>
         </div>
         <div className="report-mastery-card" aria-label={`掌握度 ${mastery}`}>
           <strong>{mastery}</strong>
@@ -3311,7 +3493,7 @@ function LearningReportPanel({
         <div className="report-metrics">
           <Metric value={`${progress?.document_count || 0}`} label="上載" />
           <Metric value={`${progress?.practice_count || 0}`} label="練習" />
-          <Metric value={`${progress?.all_topics?.length || 0}`} label="主題" />
+          <Metric value={`${visibleTopics.length}`} label="主題" />
         </div>
       </div>
 
@@ -3597,7 +3779,7 @@ function DailyPracticeView({
             <div className="practice-meta">
               <span>Q{index + 1}</span>
               <span>{displayMathText(item.topic)}</span>
-              <b>{Math.round(item.estimated_time_seconds / 60)} min</b>
+              <b>{Math.round(item.estimated_time_seconds / 60)} 分鐘</b>
             </div>
             <h3>{displayMathText(item.question_text)}</h3>
 
@@ -3713,7 +3895,7 @@ function CurriculumMapSection({
   const selectedStage = getStageForGrade(profileGrade);
   const stage = curriculumStages.find((item) => item.id === selectedStage) || curriculumStages[1];
   const academicSubjects = useMemo(
-    () => getSubjectsForGrade(profileGrade).filter(isAcademicProgressSubject),
+    () => getSubjectsForGrade(profileGrade).filter(isAcademicProgressSubject).filter(isMvpCurriculumSubject),
     [profileGrade],
   );
   const notices = useMemo(() => gradeNotices(profileGrade), [profileGrade]);
@@ -3725,11 +3907,11 @@ function CurriculumMapSection({
   }, [academicSubjects, onSelectSubject, selectedSubjectId]);
 
   return (
-    <section className="curriculum-map" aria-label="HKEDB 課程地圖">
+    <section className="curriculum-map" aria-label="HKEDB 數學課程地圖">
       <div className="curriculum-head">
         <div>
-          <span className="verified-label"><Icon name="verified" filled /> 學科清單 · {profileGrade}</span>
-          <h2>{child?.name || '孩子'} 的學科地圖</h2>
+          <span className="verified-label"><Icon name="verified" filled /> 數學課程 · {profileGrade}</span>
+          <h2>{child?.name || '孩子'} 的數學地圖</h2>
         </div>
       </div>
 
@@ -3737,18 +3919,18 @@ function CurriculumMapSection({
         <span className="grade-token"><Icon name="badge" /> {profileGrade}</span>
         <div>
           <strong>{stage.label} · {displayStageCaption(stage.caption)}</strong>
-          <p>{child?.school_type || '香港學校'} · 成績追蹤不包括體育 / 視藝</p>
+          <p>{child?.school_type || '香港學校'} · MVP 先聚焦數學證據與練習</p>
         </div>
       </div>
 
       <section className="stage-summary">
         <div>
           <span>{displayStageCaption(stage.caption)}</span>
-          <h3>{stage.learningGoal}</h3>
+          <h3>{profileGrade} 數學主題會連接 OCR 證據、弱項追蹤與個人化練習。</h3>
         </div>
         <div className="curriculum-metrics">
           <Metric value="成績" label="模式" />
-          <Metric value={`${academicSubjects.length}`} label="學科" />
+          <Metric value={`${academicSubjects.length}`} label="科目" />
           <Metric value="2025/26" label="EDB" />
         </div>
       </section>
@@ -3789,7 +3971,7 @@ function CourseContentSection({
   selectedSubject: CurriculumSubject | null;
 }) {
   const profileGrade = normalizeGrade(child?.grade);
-  const activeSubject = selectedSubject?.id === activeCoachSubjectId ? selectedSubject : null;
+  const activeSubject = selectedSubject && isMvpCurriculumSubject(selectedSubject) ? selectedSubject : null;
   const topics = useMemo(
     () => getCourseTopicsForGradeAndSubject(profileGrade, activeSubject),
     [profileGrade, activeSubject],
@@ -3867,7 +4049,7 @@ function CourseContentSection({
 
         <div className="topic-stats">
           <span><Icon name="schedule" /> {selectedTopic.durationMinutes} 分鐘</span>
-          <span><Icon name="signal_cellular_alt" /> {selectedTopic.level}</span>
+          <span><Icon name="signal_cellular_alt" /> {displayLevelName(selectedTopic.level)}</span>
           <span><Icon name="sell" /> 學習證據標籤</span>
         </div>
 
@@ -4024,8 +4206,8 @@ function CurriculumSubjectCard({
 
 function gradeNotices(grade: string) {
   return [
-    { icon: 'school', text: `${grade} 學科` },
-    { icon: 'visibility_off', text: '體育 / 視藝不作成績追蹤' },
+    { icon: 'school', text: `${grade} 數學` },
+    { icon: 'calculate', text: 'MVP 目前聚焦數學' },
   ];
 }
 
@@ -4061,6 +4243,7 @@ function HistoryCard({ date, score, text, title, tone }: { date: string; score: 
 
 function ProfileView({
   children,
+  copy,
   currentChild,
   onAddChild,
   onEditChild,
@@ -4070,8 +4253,10 @@ function ProfileView({
   parent,
   selectedChildId,
   setSelectedChildId,
+  uiLanguage,
 }: {
   children: ChildProfile[];
+  copy: UiCopy;
   currentChild: ChildProfile | null;
   onAddChild: () => void;
   onEditChild: () => void;
@@ -4081,34 +4266,51 @@ function ProfileView({
   parent: ParentProfile;
   selectedChildId: string;
   setSelectedChildId: (id: string) => void;
+  uiLanguage: UiLanguage;
 }) {
   const settings = [
-    { icon: 'workspace_premium', title: 'Learning Plus', subtitle: '示範帳戶已啟用', badge: '管理', sheet: 'learning-plus' as const },
-    { icon: 'language', title: '語言', value: '繁體中文', sheet: 'language' as const },
-    { icon: 'security', title: '資料與私隱', subtitle: '上載、同意與資料保留', sheet: 'privacy' as const },
-    { icon: 'notifications', title: '通知設定', sheet: 'notifications' as const },
-    { icon: 'help_center', title: '支援與常見問題', sheet: 'support' as const },
+    {
+      icon: 'workspace_premium',
+      title: copy.settingsRows.learningPlusTitle,
+      subtitle: copy.settingsRows.learningPlusSubtitle,
+      badge: copy.settingsRows.learningPlusBadge,
+      sheet: 'learning-plus' as const,
+    },
+    {
+      icon: 'language',
+      title: copy.settingsRows.language,
+      value: uiLanguageLabel(uiLanguage, uiLanguage),
+      sheet: 'language' as const,
+    },
+    {
+      icon: 'security',
+      title: copy.settingsRows.privacy,
+      subtitle: copy.settingsRows.privacySubtitle,
+      sheet: 'privacy' as const,
+    },
+    { icon: 'notifications', title: copy.settingsRows.notifications, sheet: 'notifications' as const },
+    { icon: 'help_center', title: copy.settingsRows.support, sheet: 'support' as const },
   ];
 
   return (
     <main className="profile-content">
       <section className="parent-profile">
         <div className="parent-avatar">
-          <img src={images.parent} alt="家長頭像" />
-          <button type="button" aria-label="編輯家長資料" onClick={onEditParent}>
+          <img src={images.parent} alt={copy.profile.parentAvatarAlt} />
+          <button type="button" aria-label={copy.profile.editParent} onClick={onEditParent}>
             <Icon name="edit" />
           </button>
         </div>
         <h2>{parent.display_name}</h2>
         <p>{parent.email}</p>
         <div className="profile-action-row">
-          <button type="button" onClick={onEditParent}>編輯家長</button>
-          <button type="button" onClick={onEditChild}>編輯 {currentChild?.name || '學生'}</button>
+          <button type="button" onClick={onEditParent}>{copy.profile.editParent}</button>
+          <button type="button" onClick={onEditChild}>{copy.profile.editChild(currentChild?.name)}</button>
         </div>
       </section>
 
       <section className="children-section">
-        <h3>學生</h3>
+        <h3>{copy.profile.children}</h3>
         <div className="children-scroll">
           {children.map((child) => (
             <ChildCard
@@ -4122,13 +4324,13 @@ function ProfileView({
           ))}
           <button className="add-child" type="button" onClick={onAddChild}>
             <Icon name="add" />
-            <span>新增學生</span>
+            <span>{copy.profile.addChild}</span>
           </button>
         </div>
       </section>
 
       <section className="settings-list">
-        <h3>應用設定</h3>
+        <h3>{copy.profile.appSettings}</h3>
         <div className="settings-card">
           {settings.map((item) => (
             <button className="settings-row" key={item.title} type="button" onClick={() => onOpenSetting(item.sheet)}>
@@ -4146,7 +4348,7 @@ function ProfileView({
           ))}
           <button className="settings-row logout" type="button" onClick={onLogout}>
             <span className="settings-icon"><Icon name="logout" /></span>
-            <span className="settings-copy"><strong>登出</strong></span>
+            <span className="settings-copy"><strong>{copy.profile.logout}</strong></span>
           </button>
         </div>
       </section>
@@ -4190,45 +4392,42 @@ function PreviewLightbox({ image, onClose }: { image: string; onClose: () => voi
 }
 
 function ProfileSheetModal({
+  copy,
   currentChild,
   kind,
   parent,
+  uiLanguage,
   onAddChild,
   onClose,
   onDeleteChild,
   onPrivacySave,
+  onUiLanguageChange,
   onUpdateParent,
   onUpdateChild,
 }: {
+  copy: UiCopy;
   currentChild: ChildProfile | null;
   kind: ProfileSheet;
   parent: ParentProfile;
+  uiLanguage: UiLanguage;
   onAddChild: (payload: Omit<ChildProfile, 'id'>) => Promise<void>;
   onClose: () => void;
   onDeleteChild: (childId: string, confirmationName: string) => Promise<{ parent: ParentProfile }>;
   onPrivacySave: (updates: Partial<PrivacySettings>) => Promise<PrivacyCenterResponse>;
+  onUiLanguageChange: (language: UiLanguage) => void;
   onUpdateParent: (updates: ParentProfileUpdates) => Promise<void>;
   onUpdateChild: (updates: Partial<ChildProfile>) => Promise<void>;
 }) {
   if (!kind) return null;
 
-  const titles: Record<Exclude<ProfileSheet, null>, string> = {
-    'add-child': '新增學生',
-    'edit-child': `編輯 ${currentChild?.name || '學生'}`,
-    'edit-parent': '編輯家長',
-    language: '語言',
-    'learning-plus': 'Learning Plus',
-    notifications: '通知設定',
-    privacy: '資料與私隱',
-    support: '支援與常見問題',
-  };
+  const title = kind === 'edit-child' ? copy.profile.editChild(currentChild?.name) : copy.sheetTitles[kind];
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={titles[kind]}>
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={title}>
       <section className="profile-sheet">
         <div className="sheet-head">
-          <h2>{titles[kind]}</h2>
-          <button className="symbol-button" type="button" aria-label="關閉" onClick={onClose}>
+          <h2>{title}</h2>
+          <button className="symbol-button" type="button" aria-label={copy.close} onClick={onClose}>
             <Icon name="close" />
           </button>
         </div>
@@ -4274,19 +4473,23 @@ function ProfileSheetModal({
         ) : null}
 
         {kind === 'language' ? (
-          <SettingPanel icon="language" title="繁體中文" text="介面文案已統一為繁體中文；英文只保留於產品名稱、課程來源或技術名詞。" />
+          <LanguageSettingsPanel
+            copy={copy}
+            uiLanguage={uiLanguage}
+            onChange={onUiLanguageChange}
+          />
         ) : null}
 
         {kind === 'notifications' ? (
-          <SettingPanel icon="notifications" title="每週進度提醒" text="提醒偏好會在下一階段接入後端，支援按家長設定電郵或推送通知。" />
+          <SettingPanel icon="notifications" title={copy.settingPanels.notifications.title} text={copy.settingPanels.notifications.text} />
         ) : null}
 
         {kind === 'learning-plus' ? (
-          <SettingPanel icon="workspace_premium" title="示範帳戶已啟用" text="Learning Plus 目前只作原型示範，暫未接入真實付款或訂閱系統。" />
+          <SettingPanel icon="workspace_premium" title={copy.settingPanels.learningPlus.title} text={copy.settingPanels.learningPlus.text} />
         ) : null}
 
         {kind === 'support' ? (
-          <SettingPanel icon="help_center" title="支援與常見問題" text="此面板用作確認設定流程；正式版可加入常見問題及支援渠道。" />
+          <SettingPanel icon="help_center" title={copy.settingPanels.support.title} text={copy.settingPanels.support.text} />
         ) : null}
       </section>
     </div>
@@ -4412,6 +4615,51 @@ function ChildProfileForm({
         {saving ? '儲存中...' : submitLabel}
       </button>
     </form>
+  );
+}
+
+function LanguageSettingsPanel({
+  copy,
+  onChange,
+  uiLanguage,
+}: {
+  copy: UiCopy;
+  onChange: (language: UiLanguage) => void;
+  uiLanguage: UiLanguage;
+}) {
+  return (
+    <div className="language-panel">
+      <div className="setting-panel compact">
+        <span className="settings-icon"><Icon name="language" /></span>
+        <h3>{copy.languagePanel.title}</h3>
+        <p>{copy.languagePanel.intro}</p>
+      </div>
+      <div className="language-choice-list" role="radiogroup" aria-label={copy.languagePanel.title}>
+        {uiLanguageOptions.map((option) => {
+          const selected = option.id === uiLanguage;
+          return (
+            <button
+              className={selected ? 'language-choice active' : 'language-choice'}
+              key={option.id}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => onChange(option.id)}
+            >
+              <span className="settings-icon">
+                <Icon name={option.id === 'zh-Hant' ? 'translate' : 'language'} />
+              </span>
+              <span>
+                <strong>{option.label[uiLanguage]}</strong>
+                <small>{option.description[uiLanguage]}</small>
+              </span>
+              {selected ? <Icon name="check_circle" filled /> : null}
+            </button>
+          );
+        })}
+      </div>
+      <p className="language-current">{copy.languagePanel.current}: {uiLanguageLabel(uiLanguage, uiLanguage)}</p>
+    </div>
   );
 }
 
@@ -4678,7 +4926,15 @@ function formatAuditTime(value: string) {
   return date.toLocaleString('zh-HK', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-function BottomNav({ activeView, setActiveView }: { activeView: View; setActiveView: (view: View) => void }) {
+function BottomNav({
+  activeView,
+  setActiveView,
+  uiLanguage,
+}: {
+  activeView: View;
+  setActiveView: (view: View) => void;
+  uiLanguage: UiLanguage;
+}) {
   return (
     <nav className="bottom-nav" aria-label="主要導覽">
       {navItems.map((item) => (
@@ -4689,7 +4945,7 @@ function BottomNav({ activeView, setActiveView }: { activeView: View; setActiveV
           onClick={() => setActiveView(item.id)}
         >
           <Icon name={item.icon} filled={activeView === item.id} />
-          <span>{item.label}</span>
+          <span>{item.label[uiLanguage]}</span>
         </button>
       ))}
     </nav>

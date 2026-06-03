@@ -1,6 +1,6 @@
 # Status
 
-最後更新：2026-06-03 23:32 HKT
+最後更新：2026-06-03 23:50 HKT
 
 ## 目前目標
 
@@ -21,10 +21,15 @@
 - GCP project：`gen-lang-client-0228668877`
 - Project number：`594335170533`
 - Region：`asia-east2`
-- Last verified revision：`edupass-ai-00031-jcs`
+- Last verified revision：`edupass-ai-00032-q99`
 - Service account：`594335170533-compute@developer.gserviceaccount.com`
 - Storage bucket：`gs://edupass-ai-594335170533-prototype-storage`
 - Firestore database：`(default)` in `asia-east2`
+
+## Latest Verification
+
+- 2026-06-03 23:50 HKT：Cloud Run `edupass-ai-00032-q99` 已部署並 serving 100% traffic；`GET /api/health` OK，demo login + `GET /api/auth/me` OK。
+- 2026-06-03：390px mobile smoke 確認 Home / Settings button names 不再混入 Material Symbols ligature，Settings 已有語言切換；local fresh-child flow 確認 Home / Portfolio 不再帶 demo data。
 
 ## GitHub
 

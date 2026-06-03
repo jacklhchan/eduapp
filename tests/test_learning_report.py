@@ -160,7 +160,7 @@ def test_practice_attempt_updates_progress_and_share_report(monkeypatch) -> None
     assert briefing.json()["next_actions"]
 
 
-def test_academic_subject_tracking_includes_non_math_and_excludes_non_academic(monkeypatch) -> None:
+def test_mvp_progress_hides_non_math_and_excludes_non_academic(monkeypatch) -> None:
     monkeypatch.setenv("EDUPASS_STORAGE_BACKEND", "memory")
     client = TestClient(app)
     email = f"roadmap-{uuid.uuid4().hex[:8]}@example.com"
@@ -170,15 +170,48 @@ def test_academic_subject_tracking_includes_non_math_and_excludes_non_academic(m
         json={"email": email, "pin": "246810", "display_name": "Roadmap Parent"},
     )
     assert signup.status_code == 200
+    parent_id = signup.json()["parent"]["id"]
     child = client.post("/api/children", json={"name": "Avery", "grade": "P3"})
     assert child.status_code == 200
+    child_id = child.json()["id"]
     consent = client.patch("/api/privacy/consent", json={"ai_processing_consent": True})
     assert consent.status_code == 200
+
+    persistence.save_document(
+        {
+            "id": "doc-mvp-math-inbox",
+            "parent_id": parent_id,
+            "child_id": child_id,
+            "filename": "math-homework.pdf",
+            "created_at": "2026-06-01T08:00:00+00:00",
+            "review": {
+                "subject": "Mathematics",
+                "requires_parent_confirmation": True,
+                "topics": [{"topic": "Fractions", "subject": "Mathematics", "confidence": 0.9}],
+                "extracted_questions": [{"topic": "Fractions", "score": 0, "max_score": 1}],
+            },
+        }
+    )
+    persistence.save_document(
+        {
+            "id": "doc-roadmap-chinese-inbox",
+            "parent_id": parent_id,
+            "child_id": child_id,
+            "filename": "chinese-reading.pdf",
+            "created_at": "2026-06-01T09:00:00+00:00",
+            "review": {
+                "subject": "Chinese Language",
+                "requires_parent_confirmation": True,
+                "topics": [{"topic": "Reading", "subject": "Chinese Language", "confidence": 0.9}],
+                "extracted_questions": [{"topic": "Reading", "score": 0, "max_score": 1}],
+            },
+        }
+    )
 
     chinese_attempt = client.post(
         "/api/practice-attempts",
         json={
-            "child_id": child.json()["id"],
+            "child_id": child_id,
             "grade": "P3",
             "subject": "Chinese Language",
             "answers": [
@@ -199,7 +232,7 @@ def test_academic_subject_tracking_includes_non_math_and_excludes_non_academic(m
     blocked = client.post(
         "/api/practice-attempts",
         json={
-            "child_id": child.json()["id"],
+            "child_id": child_id,
             "grade": "P3",
             "subject": "Visual Arts",
             "answers": [{"question_id": "q1", "topic": "Drawing", "subject": "Visual Arts"}],
@@ -208,8 +241,13 @@ def test_academic_subject_tracking_includes_non_math_and_excludes_non_academic(m
     assert blocked.status_code == 400
     assert "Only academic subject scores" in blocked.json()["detail"]
 
-    progress = client.get(f"/api/learning/progress?child_id={child.json()['id']}")
+    progress = client.get(f"/api/learning/progress?child_id={child_id}")
     assert progress.status_code == 200
     subject_scores = {item["subject"]: item for item in progress.json()["subject_scores"]}
-    assert subject_scores["Chinese Language"]["mastery"] == 100
+    assert "Chinese Language" not in subject_scores
     assert "Visual Arts" not in subject_scores
+    assert [topic["subject"] for topic in progress.json()["all_topics"]] == ["Mathematics"]
+
+    inbox = client.get(f"/api/ocr-review/inbox?child_id={child_id}")
+    assert inbox.status_code == 200
+    assert [item["filename"] for item in inbox.json()] == ["math-homework.pdf"]

@@ -97,7 +97,7 @@ p {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-family: "Material Symbols Outlined";
+  font-family: "Material Symbols Outlined" !important;
   font-size: 24px;
   font-weight: normal;
   font-style: normal;
@@ -4362,6 +4362,10 @@ p {
   background: var(--surface-low);
 }
 
+.setting-panel.compact {
+  padding: 14px;
+}
+
 .setting-panel h3 {
   color: var(--on-surface);
   font-size: 20px;
@@ -4371,6 +4375,58 @@ p {
 .setting-panel p {
   font-size: 14px;
   line-height: 22px;
+}
+
+.language-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.language-choice-list {
+  display: grid;
+  gap: 10px;
+}
+
+.language-choice {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 72px;
+  padding: 12px;
+  border: 1px solid rgba(195, 198, 214, 0.48);
+  border-radius: 12px;
+  background: var(--surface-lowest);
+  color: var(--on-surface);
+  text-align: left;
+}
+
+.language-choice.active {
+  border-color: rgba(0, 82, 204, 0.52);
+  background: var(--primary-fixed);
+}
+
+.language-choice > span:nth-child(2) {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.language-choice strong {
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.language-choice small,
+.language-current {
+  color: var(--on-variant);
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.language-choice > .material-symbols-outlined:last-child {
+  color: var(--primary);
 }
 
 .privacy-center-panel {
@@ -5338,5 +5394,37 @@ p {
 
   .next-action-card .primary-action {
     flex: 0 0 auto;
+  }
+
+  .bottom-nav {
+    right: auto;
+    bottom: 16px;
+    left: 50%;
+    width: min(calc(100% - 48px), 768px);
+    height: 76px;
+    padding: 8px 22px;
+    border: 1px solid rgba(195, 198, 214, 0.72);
+    border-radius: 18px;
+    box-shadow: 0 10px 30px rgba(0, 61, 155, 0.12);
+    transform: translateX(-50%);
+  }
+
+  .upload-footer {
+    right: auto;
+    bottom: 108px;
+    left: 50%;
+    width: min(calc(100% - 48px), 768px);
+    border: 1px solid rgba(195, 198, 214, 0.72);
+    border-radius: 18px;
+    box-shadow: 0 10px 30px rgba(0, 61, 155, 0.1);
+    transform: translateX(-50%);
+  }
+
+  .upload-footer.dual-actions {
+    grid-template-columns: minmax(168px, 0.72fr) minmax(260px, 1.28fr);
+  }
+
+  .stitch-app.upload-mode {
+    padding-bottom: 228px;
   }
 }
