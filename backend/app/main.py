@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import mimetypes
 import os
 import re
 import time
@@ -47,6 +48,7 @@ from .schemas import (
     MistakeNotebookItem,
     MistakeNotebookResponse,
     OcrReviewConfirmRequest,
+    OcrReviewFilePreview,
     OcrReviewInboxItem,
     OcrReviewResult,
     ParentUpdateRequest,
@@ -265,6 +267,50 @@ def summarize_ocr_provider(upload_pages: list[dict[str, Any]]) -> str:
     if len(unique_providers) == 1:
         return unique_providers[0]
     return f"mixed: {', '.join(unique_providers)}"
+
+
+def mime_type_for_document_file(document: dict[str, Any], index: int, filename: str) -> str:
+    mime_types = document.get("mime_types") if isinstance(document.get("mime_types"), list) else []
+    if index < len(mime_types) and mime_types[index]:
+        return str(mime_types[index])
+    document_mime_type = str(document.get("mime_type") or "")
+    if document_mime_type and document_mime_type != "multipart/mixed":
+        return document_mime_type
+    guessed, _ = mimetypes.guess_type(filename)
+    return guessed or "application/octet-stream"
+
+
+def preview_file_kind(mime_type: str) -> str:
+    if mime_type == "application/pdf":
+        return "pdf"
+    if mime_type.startswith("image/"):
+        return "image"
+    return "file"
+
+
+def ocr_file_previews(document: dict[str, Any]) -> list[OcrReviewFilePreview]:
+    storage_uris = document.get("storage_uris") if isinstance(document.get("storage_uris"), list) else []
+    if not storage_uris and document.get("storage_uri"):
+        storage_uris = [document["storage_uri"]]
+    filenames = document.get("filenames") if isinstance(document.get("filenames"), list) else []
+    fallback_filename = str(document.get("filename") or "uploaded-homework")
+    document_id = str(document.get("id") or "")
+    previews: list[OcrReviewFilePreview] = []
+    for index, storage_uri in enumerate(storage_uris):
+        if not storage_uri:
+            continue
+        filename = str(filenames[index]) if index < len(filenames) and filenames[index] else fallback_filename
+        mime_type = mime_type_for_document_file(document, index, filename)
+        previews.append(
+            OcrReviewFilePreview(
+                page_number=index + 1,
+                filename=filename,
+                mime_type=mime_type,
+                file_kind=preview_file_kind(mime_type),
+                preview_url=f"/api/ocr-review/{document_id}/files/{index + 1}",
+            )
+        )
+    return previews
 
 
 def build_combined_ocr_text(upload_pages: list[dict[str, Any]]) -> str:
@@ -743,6 +789,7 @@ async def ocr_review(
     file_kind = summarize_file_kind(upload_pages)
     ocr_provider = summarize_ocr_provider(upload_pages)
     filenames = [str(page["filename"]) for page in upload_pages]
+    mime_types = [str(page["mime_type"]) for page in upload_pages]
     filename = filenames[0] if len(filenames) == 1 else f"{len(filenames)} pages - {filenames[0]}"
     mime_type = str(upload_pages[0]["mime_type"]) if len(upload_pages) == 1 else "multipart/mixed"
     review_mode = "multimodal_llm" if OCR_REVIEW_MODE != "text_only" else "text_only_llm"
@@ -804,6 +851,7 @@ async def ocr_review(
         filename=filename,
         filenames=filenames,
         mime_type=mime_type,
+        mime_types=mime_types,
         file_kind=file_kind,
         page_count=review.page_count,
         storage_uri=storage_uris[0] if storage_uris else None,
@@ -817,6 +865,8 @@ async def ocr_review(
         created_at=now_iso(),
     )
     persistence.save_document(document.model_dump(mode="json"))
+    document_payload = document.model_dump(mode="json")
+    document_payload["file_previews"] = [preview.model_dump(mode="json") for preview in ocr_file_previews(document_payload)]
 
     return {
         "ok": True,
@@ -832,7 +882,8 @@ async def ocr_review(
         "review_fallback_used": review_fallback_used,
         "ocr_text_preview": extracted_text[:800],
         "review": review.model_dump(mode="json"),
-        "document": document.model_dump(mode="json"),
+        "file_previews": document_payload["file_previews"],
+        "document": document_payload,
     }
 
 
@@ -861,10 +912,45 @@ def ocr_review_inbox(
                 page_count=int(document.get("page_count") or review.get("page_count") or 1),
                 review_mode=str(document.get("review_mode") or "unknown"),
                 parent_confirmed_at=document.get("parent_confirmed_at"),
+                file_previews=ocr_file_previews(document),
                 review=review,
             )
         )
     return items[:12]
+
+
+@app.get("/api/ocr-review/{document_id}/files/{page_number}")
+def get_ocr_review_file(
+    document_id: str,
+    page_number: int,
+    parent_id: str = Depends(require_parent_id),
+) -> Response:
+    document = persistence.get_document(parent_id, document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="OCR review document not found")
+    storage_uris = document.get("storage_uris") if isinstance(document.get("storage_uris"), list) else []
+    if not storage_uris and document.get("storage_uri"):
+        storage_uris = [document["storage_uri"]]
+    if page_number < 1 or page_number > len(storage_uris):
+        raise HTTPException(status_code=404, detail="Uploaded file page not found")
+    storage_uri = str(storage_uris[page_number - 1])
+    filenames = document.get("filenames") if isinstance(document.get("filenames"), list) else []
+    fallback_filename = str(document.get("filename") or f"ocr-page-{page_number}")
+    filename = str(filenames[page_number - 1]) if page_number - 1 < len(filenames) and filenames[page_number - 1] else fallback_filename
+    mime_type = mime_type_for_document_file(document, page_number - 1, filename)
+    try:
+        content = persistence.read_bytes(storage_uri)
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail="Uploaded file is not available") from exc
+    safe_filename = sanitize_upload_filename(filename)
+    return Response(
+        content=content,
+        media_type=mime_type,
+        headers={
+            "Cache-Control": "private, max-age=300",
+            "Content-Disposition": f'inline; filename="{safe_filename}"',
+        },
+    )
 
 
 @app.patch("/api/ocr-review/{document_id}/confirm")

@@ -1,6 +1,6 @@
 # Status
 
-最後更新：2026-06-04 00:02 HKT
+最後更新：2026-06-04 00:06 HKT
 
 ## 目前目標
 
@@ -23,13 +23,14 @@
 - GCP project：`gen-lang-client-0228668877`
 - Project number：`594335170533`
 - Region：`asia-east2`
-- Last verified revision：`edupass-ai-00034-mkw`
+- Last verified revision：`edupass-ai-00036-6vw`
 - Service account：`594335170533-compute@developer.gserviceaccount.com`
 - Storage bucket：`gs://edupass-ai-594335170533-prototype-storage`
 - Firestore database：`(default)` in `asia-east2`
 
 ## Latest Verification
 
+- 2026-06-04 00:06 HKT：Cloud Run `edupass-ai-00036-6vw` 已部署並 serving 100% traffic；`GET /api/health` OK；390px mobile Progress smoke 確認 header 顯示 `Matthew / P3 • 數學進度`、分享連結管理不再橫向溢出（`scrollWidth === clientWidth === 390` / overflowCount 0），weekly briefing / mistake notebook / improved topics 不再顯示 `Addition and Subtraction`、`Fractions：`、`Two-step word problems` 或 `N pages -`。
 - 2026-06-04 00:02 HKT：Cloud Run `edupass-ai-00034-mkw` 已部署並 serving 100% traffic；`GET /api/health` OK，demo login OK；`GET /api/ocr-review/inbox?include_confirmed=true` 只回 Mathematics；production browser smoke 確認 `Progress -> OCR 記錄 -> 查看` 可打開 `12 pages - mosmps-001.jpeg`，12 題全部顯示，已確認結果為唯讀。
 - 2026-06-03 23:50 HKT：Cloud Run `edupass-ai-00032-q99` 已部署並 serving 100% traffic；`GET /api/health` OK，demo login + `GET /api/auth/me` OK。
 - 2026-06-03：390px mobile smoke 確認 Home / Settings button names 不再混入 Material Symbols ligature，Settings 已有語言切換；local fresh-child flow 確認 Home / Portfolio 不再帶 demo data。
@@ -243,6 +244,8 @@
   - Cloud Run revision `edupass-ai-00032-q99` 已部署並 serving 100% traffic。
   - Cloud Run revision `edupass-ai-00033-5hf` 已部署並 serving 100% traffic。
   - Cloud Run revision `edupass-ai-00034-mkw` 已部署並 serving 100% traffic；OCR review history / 12-page readonly review smoke 通過。
+  - Cloud Run revision `edupass-ai-00035-5xc` 已部署並 serving 100% traffic；390px mobile Progress layout / share-link overflow smoke 通過。
+  - Cloud Run revision `edupass-ai-00036-6vw` 已部署並 serving 100% traffic；390px mobile Progress 中英夾雜與 share-link overflow smoke 通過。
 - 本次本機驗證：
   - `npm run build` 通過。
   - `.venv312/bin/python -m py_compile backend/app/main.py backend/app/schemas.py backend/app/persistence.py backend/app/auth.py` 通過。

@@ -347,6 +347,7 @@ class DocumentRecord(BaseModel):
     filename: str
     filenames: list[str] = Field(default_factory=list)
     mime_type: str
+    mime_types: list[str] = Field(default_factory=list)
     file_kind: Literal["image", "pdf", "mixed"]
     page_count: int = Field(default=1, ge=1)
     storage_uri: str | None = None
@@ -550,6 +551,14 @@ class OcrReviewConfirmRequest(BaseModel):
     parent_notes: str | None = Field(default=None, max_length=1000)
 
 
+class OcrReviewFilePreview(BaseModel):
+    page_number: int = Field(ge=1)
+    filename: str
+    mime_type: str
+    file_kind: Literal["image", "pdf", "file"] = "file"
+    preview_url: str
+
+
 class OcrReviewInboxItem(BaseModel):
     id: str
     filename: str
@@ -557,6 +566,7 @@ class OcrReviewInboxItem(BaseModel):
     page_count: int = 1
     review_mode: str = "unknown"
     parent_confirmed_at: str | None = None
+    file_previews: list[OcrReviewFilePreview] = Field(default_factory=list)
     review: dict[str, Any] = Field(default_factory=dict)
 
 

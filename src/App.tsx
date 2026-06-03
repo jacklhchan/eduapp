@@ -12,6 +12,14 @@ import { getCourseTopicsForGradeAndSubject, type CourseTopic } from './data/cour
 type View = 'home' | 'portfolio' | 'upload' | 'coach' | 'profile';
 type AuthMode = 'login' | 'signup';
 
+type OcrFilePreview = {
+  page_number: number;
+  filename: string;
+  mime_type: string;
+  file_kind: 'image' | 'pdf' | 'file';
+  preview_url: string;
+};
+
 type OcrResult = {
   ok?: boolean;
   document_id?: string;
@@ -19,7 +27,9 @@ type OcrResult = {
     id: string;
     filename?: string;
     parent_confirmed_at?: string | null;
+    file_previews?: OcrFilePreview[];
   };
+  file_previews?: OcrFilePreview[];
   ocr_provider?: string;
   ocr_text_preview?: string;
   page_count?: number;
@@ -59,6 +69,8 @@ type UploadPreviewItem = {
   name: string;
   type: string;
   url: string | null;
+  fileKind?: 'image' | 'pdf' | 'file';
+  pageNumber?: number;
 };
 
 type PortfolioStatus = 'Completed' | 'AI Ready' | 'Drafting';
@@ -237,6 +249,7 @@ type OcrInboxDocument = {
   page_count: number;
   review_mode: string;
   parent_confirmed_at?: string | null;
+  file_previews?: OcrFilePreview[];
   review: {
     page_count?: number;
     topics?: Array<{ topic: string; confidence?: number; page_numbers?: number[] }>;
@@ -1737,10 +1750,12 @@ function App() {
     setOcrResult({
       document: {
         id: document.id,
+        file_previews: document.file_previews || [],
         filename: document.filename,
         parent_confirmed_at: document.parent_confirmed_at,
       },
       document_id: document.id,
+      file_previews: document.file_previews || [],
       ok: true,
       page_count: document.page_count,
       review: {
@@ -2058,7 +2073,7 @@ function App() {
           onConfirmReview={confirmOcrReview}
           onSelectPreviewPage={setActivePreviewIndex}
           canViewPreview={canViewUploadPreview}
-          onViewPreview={() => setLightboxSrc(uploadPreview)}
+          onViewPreview={(image) => setLightboxSrc(image)}
           onViewProgress={() => setActiveView('home')}
         />
       )}
@@ -2798,7 +2813,7 @@ function UploadView({
   ocrConfirmState: 'idle' | 'running' | 'done' | 'error';
   onConfirmReview: (documentId: string, questions: OcrReviewQuestionDraft[], parentNotes?: string) => Promise<void>;
   onSelectPreviewPage: (index: number) => void;
-  onViewPreview: () => void;
+  onViewPreview: (image: string) => void;
   onViewProgress: () => void;
   ocrResult: OcrResult | null;
   ocrState: 'idle' | 'running' | 'done' | 'error';
@@ -2808,11 +2823,28 @@ function UploadView({
 }) {
   const detectedQuestions = useMemo(() => ocrResult?.review?.extracted_questions || [], [ocrResult]);
   const detectedTopics = useMemo(() => ocrResult?.review?.topics || [], [ocrResult]);
+  const savedPreviewItems = useMemo<UploadPreviewItem[]>(() => {
+    const previews = ocrResult?.file_previews || ocrResult?.document?.file_previews || [];
+    return previews.map((preview) => ({
+      fileKind: preview.file_kind,
+      name: preview.filename || `P${preview.page_number}`,
+      pageNumber: preview.page_number,
+      type: preview.mime_type,
+      url: preview.preview_url,
+    }));
+  }, [ocrResult]);
   const [questionDrafts, setQuestionDrafts] = useState<OcrReviewQuestionDraft[]>([]);
   const [reviewNotes, setReviewNotes] = useState('');
   const pageCount = ocrResult?.review?.page_count || ocrResult?.page_count || Math.max(selectedFiles.length, 1);
   const selectedFileCount = selectedFiles.length;
-  const activePreviewItem = previewItems[activePreviewIndex] || null;
+  const effectivePreviewItems = previewItems.length ? previewItems : savedPreviewItems;
+  const previewItemCount = effectivePreviewItems.length;
+  const effectivePreviewIndex = Math.min(activePreviewIndex, Math.max(previewItemCount - 1, 0));
+  const activePreviewItem = effectivePreviewItems[effectivePreviewIndex] || null;
+  const activePreviewKind = previewItemKind(activePreviewItem);
+  const effectivePreviewUrl = activePreviewItem?.url || previewUrl;
+  const canOpenImagePreview = Boolean(activePreviewItem?.url && activePreviewKind === 'image');
+  const hasSavedReviewPreview = !selectedFileCount && Boolean(documentId) && ocrState === 'done';
   const topicValue = detectedTopics.length
     ? detectedTopics.map((topic) => displayTopicName(topic.topic)).join(' / ')
     : ocrState === 'done'
@@ -2860,47 +2892,58 @@ function UploadView({
         <section className="upload-preview">
           <h2>作業預覽</h2>
           <div className={ocrState === 'running' ? 'preview-frame scanning' : 'preview-frame'}>
-            {activePreviewItem && !activePreviewItem.url ? (
+            {hasSavedReviewPreview && !previewItemCount ? (
+              <div className="preview-placeholder">
+                <Icon name="image_not_supported" filled />
+                <strong>{ocrResult?.document?.filename || '已保存 OCR 記錄'}</strong>
+                <span>此記錄未有保存原相片</span>
+              </div>
+            ) : activePreviewKind === 'pdf' ? (
+              <div className="preview-placeholder">
+                <Icon name="picture_as_pdf" filled />
+                <strong>{activePreviewItem?.name || '已上載 PDF'}</strong>
+                {activePreviewItem?.url ? <a href={activePreviewItem.url} target="_blank" rel="noreferrer">開啟 PDF 原檔</a> : <span>PDF 已加入分析佇列</span>}
+              </div>
+            ) : activePreviewItem && !activePreviewItem.url ? (
               <div className="preview-placeholder">
                 <Icon name="picture_as_pdf" filled />
                 <strong>{activePreviewItem.name}</strong>
                 <span>PDF 已加入分析佇列</span>
               </div>
             ) : (
-              <img src={previewUrl} alt={activePreviewItem?.name || '已掃描功課'} />
+              <img src={effectivePreviewUrl} alt={activePreviewItem?.name || '已掃描功課'} />
             )}
-            {selectedFileCount ? (
+            {previewItemCount ? (
               <span className="page-stack-badge">
                 <Icon name="filter_none" />
-                {selectedFileCount} 頁
+                {previewItemCount} 頁
               </span>
             ) : null}
-            {selectedFileCount ? <span className="preview-page-label">P{activePreviewIndex + 1}</span> : null}
+            {previewItemCount ? <span className="preview-page-label">P{activePreviewItem?.pageNumber || effectivePreviewIndex + 1}</span> : null}
             <div className="page-stack-shadow" aria-hidden="true">
               <span />
               <span />
               <span />
             </div>
-            <button type="button" aria-label="查看大圖" onClick={onViewPreview} disabled={!canViewPreview}>
+            <button type="button" aria-label="查看大圖" onClick={() => onViewPreview(effectivePreviewUrl)} disabled={!canOpenImagePreview && !canViewPreview}>
               <Icon name="fullscreen" />
             </button>
           </div>
-          {selectedFileCount ? (
+          {previewItemCount ? (
             <div className="selected-file-strip" aria-label="已選上載頁面">
-              {previewItems.slice(0, 6).map((item, index) => (
+              {effectivePreviewItems.map((item, index) => (
                 <button
-                  className={index === activePreviewIndex ? 'active' : ''}
+                  className={index === effectivePreviewIndex ? 'active' : ''}
                   key={`${item.name}-${index}`}
                   type="button"
                   onClick={() => onSelectPreviewPage(index)}
                 >
                   <Icon name="check_circle" filled />
-                  <b>P{index + 1}</b>
-                  {item.url ? <img src={item.url} alt="" /> : <Icon name="picture_as_pdf" />}
+                  <b>P{item.pageNumber || index + 1}</b>
+                  {item.url && previewItemKind(item) === 'image' ? <img src={item.url} alt="" /> : <Icon name={previewItemKind(item) === 'pdf' ? 'picture_as_pdf' : 'draft'} />}
                   <span>{item.name}</span>
                 </button>
               ))}
-              {selectedFileCount > 6 ? <span className="more-pages">另有 {selectedFileCount - 6} 頁</span> : null}
             </div>
           ) : null}
         </section>
@@ -2911,7 +2954,7 @@ function UploadView({
             <span>{statusLabel}</span>
           </div>
 
-          <FormDisplay icon="stacks" label="頁數 / 檔案" value={selectedFileCount ? `${selectedFileCount} 個檔案，共 ${pageCount} 頁` : '可一次選多張相片或 PDF'} />
+          <FormDisplay icon="stacks" label="頁數 / 檔案" value={selectedFileCount ? `${selectedFileCount} 個檔案，共 ${pageCount} 頁` : hasSavedReviewPreview ? `${previewItemCount || pageCount} 個已保存檔案，共 ${pageCount} 頁` : '可一次選多張相片或 PDF'} />
           <FormDisplay icon="category" label="學習主題（AI 多主題）" value={topicValue} />
 
           <div className="parent-confirmation-notice">
