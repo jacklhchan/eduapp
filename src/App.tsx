@@ -549,6 +549,7 @@ const languageOptions = ['繁體中文', '英文', '雙語：繁中及英文'];
 
 const subjectDisplayNames: Record<string, string> = {
   Addition: '加法',
+  'Addition and Subtraction': '加減',
   'Addition and Subtraction within 100': '100 以內加減',
   'Addition within 100': '100 以內加法',
   'Chinese Language': '中國語文',
@@ -588,6 +589,21 @@ function normalizeDisplayKey(value: string) {
 const normalizedSubjectDisplayNames = new Map(
   Object.entries(subjectDisplayNames).map(([key, label]) => [normalizeDisplayKey(key), label]),
 );
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const learningTextTranslations = Object.entries(subjectDisplayNames)
+  .filter(([source]) => /[A-Za-z]/.test(source))
+  .sort(([left], [right]) => right.length - left.length);
+
+function displayLearningText(value?: string | null) {
+  if (!value) return '';
+  return learningTextTranslations.reduce((text, [source, label]) => {
+    return text.replace(new RegExp(escapeRegExp(source), 'gi'), label);
+  }, value);
+}
 
 function displayPassportName(value?: string | null) {
   if (!value || value === 'Learning Passport') return defaultPassportName;
@@ -3252,8 +3268,8 @@ function WeeklyBriefingPanel({ briefing, child }: { briefing: WeeklyBriefing | n
       <div className="weekly-briefing-head">
         <div>
           <span className="report-kicker"><Icon name="event_note" /> 每週簡報</span>
-          <h2>{briefing?.headline || `${child?.name || '孩子'} 的每週學習摘要`}</h2>
-          <p>{briefing?.summary || '完成 OCR 檢視或練習後，系統會整理本週重點。'}</p>
+          <h2>{briefing?.headline ? displayLearningText(briefing.headline) : `${child?.name || '孩子'} 的每週學習摘要`}</h2>
+          <p>{briefing?.summary ? displayLearningText(briefing.summary) : '完成 OCR 檢視或練習後，系統會整理本週重點。'}</p>
         </div>
         <Metric value={briefing?.week_end ? formatBriefDate(briefing.week_end) : '--'} label="至" />
       </div>
@@ -3270,7 +3286,7 @@ function BriefingColumn({ icon, items, title }: { icon: string; items: string[];
   return (
     <article>
       <h3><Icon name={icon} /> {title}</h3>
-      {items.slice(0, 3).map((item) => <p key={item}>{item}</p>)}
+      {items.slice(0, 3).map((item) => <p key={item}>{displayLearningText(item)}</p>)}
     </article>
   );
 }
@@ -3305,7 +3321,7 @@ function OcrReviewInboxPanel({
             <article key={document.id} className="review-inbox-row">
               <div>
                 <span>{formatActivityDate(document.created_at)} · {document.page_count} 頁 · {confirmed ? '已確認' : '待確認'}</span>
-                <strong>{document.filename}</strong>
+                <strong>{displayTopicName(document.filename)}</strong>
                 <p>
                   {topics.slice(0, 2).map((topic) => displayTopicName(topic.topic)).join(' / ') || '未分類'}
                   {lowConfidence ? ` · ${lowConfidence} 題低信心` : ''}
@@ -3346,7 +3362,7 @@ function MistakeNotebookPanel({ items }: { items: MistakeNotebookItem[] }) {
             <span className="notebook-source"><Icon name={item.source_type === 'ocr_review' ? 'document_scanner' : 'edit_note'} /> {displaySubjectName(item.subject)}</span>
             <div>
               <strong>{displayTopicName(item.topic)}</strong>
-              <p>{item.question_text || item.recommendation}</p>
+              <p>{displayLearningText(item.question_text || item.recommendation)}</p>
               <small>{mistakeTagLabel(item.mistake_tag)} · 掌握度 {item.mastery}% · {formatActivityDate(item.last_seen_at)}</small>
             </div>
             <b>{item.mastery}%</b>

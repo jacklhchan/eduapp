@@ -1,6 +1,6 @@
 # Status
 
-最後更新：2026-06-03 23:50 HKT
+最後更新：2026-06-04 00:02 HKT
 
 ## 目前目標
 
@@ -13,6 +13,8 @@
 - [x] Weekly Parent Briefing：`GET /api/weekly-briefing` 會根據 progress + 錯題簿生成每週亮點、焦點與下步建議，前端已加入學科進度工作台。
 - [x] Share Link 管理頁：家長可設定分享對象、有效期、summary / evidence scope，並在前端管理與撤回既有教師連結。
 - [x] P0 hardening：CORS production default 改為 explicit allowlist、production `SESSION_SECRET` fail-fast、production demo login 預設關閉、child update 改成 typed Pydantic schema、OCR upload 加 size / total size / MIME sniffing / filename sanitization / PDF page limit / rate limit、teacher share token 加 expiry / revoke / scope 與 410 revoked/expired 防線。
+- [x] Mathematics MVP scope：Progress、OCR inbox、Mistake Notebook、Learning Report 與 course surface 先只顯示 Mathematics / Early Childhood Mathematics，其他科目資料仍可保存但不在 MVP UI 露出。
+- [x] OCR review history：取消前端 confirmation 只顯示 6 題的限制，`Progress -> OCR 記錄 -> 查看` 可回看過往已確認 OCR result；已確認資料以唯讀方式顯示，待確認資料仍可修正後再 confirm。
 
 ## Cloud
 
@@ -21,13 +23,14 @@
 - GCP project：`gen-lang-client-0228668877`
 - Project number：`594335170533`
 - Region：`asia-east2`
-- Last verified revision：`edupass-ai-00032-q99`
+- Last verified revision：`edupass-ai-00034-mkw`
 - Service account：`594335170533-compute@developer.gserviceaccount.com`
 - Storage bucket：`gs://edupass-ai-594335170533-prototype-storage`
 - Firestore database：`(default)` in `asia-east2`
 
 ## Latest Verification
 
+- 2026-06-04 00:02 HKT：Cloud Run `edupass-ai-00034-mkw` 已部署並 serving 100% traffic；`GET /api/health` OK，demo login OK；`GET /api/ocr-review/inbox?include_confirmed=true` 只回 Mathematics；production browser smoke 確認 `Progress -> OCR 記錄 -> 查看` 可打開 `12 pages - mosmps-001.jpeg`，12 題全部顯示，已確認結果為唯讀。
 - 2026-06-03 23:50 HKT：Cloud Run `edupass-ai-00032-q99` 已部署並 serving 100% traffic；`GET /api/health` OK，demo login + `GET /api/auth/me` OK。
 - 2026-06-03：390px mobile smoke 確認 Home / Settings button names 不再混入 Material Symbols ligature，Settings 已有語言切換；local fresh-child flow 確認 Home / Portfolio 不再帶 demo data。
 
@@ -188,7 +191,7 @@
   - 本機 Playwright smoke：Coach course content 已跟上方 selected subject 同步；S3 `中國語文` 顯示 `S3 中國語文 Learning Topics`，切到 `數學` 後顯示 `S3 數學 Learning Topics`，topic rail 由 EDB strands 補出 5 個數學 topics：數、量度、圖形與空間、數據處理、代數與函數銜接；transition notice 與 course stats icons 的 computed font 均為 `Material Symbols Outlined`。
   - 本機 in-app browser smoke：`http://localhost:8000/` signup 成功，first-login onboarding 可建立 parent + P3 child profile，Home 顯示新 child，Coach 顯示 `P3 Learning Topics`、`分數概念建構`、`兩步應用題審題`，Profile 可打開 parent / child edit 表單。
 - Backend local：
-  - `.venv312/bin/python -m pytest tests -q`：18 passed，1 warning（ReportLab dependency deprecation warning）。
+  - `.venv312/bin/python -m pytest tests -q`：25 passed，1 warning（ReportLab dependency deprecation warning）。
   - `.venv312/bin/python -m py_compile backend/app/main.py backend/app/schemas.py backend/app/persistence.py backend/app/curriculum_catalog.py scripts/generate_syllabus_docs.py` 通過。
   - `find docs/syllabus -type f | wc -l`：204 files。
   - 本機 PDF render 已檢查，繁中沒有缺字。
@@ -237,6 +240,9 @@
   - Cloud smoke（revision `edupass-ai-00030-f8z`）：`GET /api/health` 200 / `ok: true`；demo login 成功；`GET /api/auth/me` 回傳 parent@example.com 與 2 個 children；`GET /api/learning/progress` 回傳 document_count 9 與 4 個 subject_scores；`GET /api/ocr-review/inbox` 回傳 9 份待確認；`GET /api/mistake-notebook` 回傳 15 個 items；`GET /api/weekly-briefing` 回傳 headline 與 3 個 next_actions；`GET /api/reports/share` 回傳 2 條分享紀錄。
   - Cloud Run revision `edupass-ai-00031-jcs` 已部署並 serving 100% traffic。
   - Cloud smoke（revision `edupass-ai-00031-jcs`）：`GET /api/health` 200 / `ok: true`；demo login 成功；`GET /api/weekly-briefing` 回傳 headline；`GET /api/mistake-notebook` 正常回傳 items。
+  - Cloud Run revision `edupass-ai-00032-q99` 已部署並 serving 100% traffic。
+  - Cloud Run revision `edupass-ai-00033-5hf` 已部署並 serving 100% traffic。
+  - Cloud Run revision `edupass-ai-00034-mkw` 已部署並 serving 100% traffic；OCR review history / 12-page readonly review smoke 通過。
 - 本次本機驗證：
   - `npm run build` 通過。
   - `.venv312/bin/python -m py_compile backend/app/main.py backend/app/schemas.py backend/app/persistence.py backend/app/auth.py` 通過。
@@ -259,6 +265,8 @@
   - Frontend Upload tab 已加入 editable OCR Review Inbox；Progress / Coach 工作台已加入 Weekly Briefing、OCR Review Inbox、Mistake Notebook、Share Link Manager。
   - Tests 已補 child update schema、share list/revoke、mistake notebook、weekly briefing、upload hardening。
   - 修正 OCR correctness：`ExtractedQuestion` 新增 `is_correct`；OCR prompt 要求正確答案回傳空 `mistake_tags`；backend 對 P1 加減應用題做簡單算式 sanity check（例如 `89 - 15 = 74`），若學生答案正確會清空錯因並設為滿分；前端 OCR 確認欄預設顯示「正確 / 無錯因」，不再把未知或正確題預設成「概念」。
+  - Mathematics MVP 已收斂：非數學科目從 Progress、OCR inbox、Mistake Notebook、Learning Report 與 course UI 暫時隱藏。
+  - OCR review history 已補上：Progress 的 `OCR 記錄` 可載入待確認與已確認 document；已確認 document 會回到 Upload review 畫面作唯讀查看；確認畫面不再只 render 前 6 題。
 
 ## 下一步
 
