@@ -318,6 +318,7 @@ Schema:
       "id": "q1",
       "question_text": "string",
       "detected_answer": "string or null",
+      "is_correct": true,
       "score": 1,
       "max_score": 1,
       "confidence": 0.75,
@@ -325,7 +326,7 @@ Schema:
       "topic": "Fractions",
       "topic_ids": ["t1"],
       "curriculum_node_id": "hk-p3-math-fractions-compare",
-      "mistake_tags": ["concept"]
+      "mistake_tags": []
     }}
   ],
   "requires_parent_confirmation": true,
@@ -344,6 +345,8 @@ Rules:
 - Detect every distinct topic / strand covered by the homework or test. Do not collapse the review into one topic when multiple topics are visible.
 - Link each extracted question to its page_number and topic_ids. page_number starts at 1 and follows the order shown in the upload or OCR page markers.
 - mistake_tags must only contain these enum values: concept, calculation, reading, unit_conversion, careless.
+- If the student's answer is correct, set is_correct true, set score equal to max_score when marks are visible, and return mistake_tags as an empty list.
+- Only return a mistake tag when there is visible evidence that the submitted answer, working, unit, or reasoning is wrong.
 - If the text is sparse, create at most 3 review items from plausible math signals and set confidence below 0.65.
 
 child_profile_id: {child_profile_id}
@@ -379,9 +382,80 @@ def parse_ocr_review_response(
                 topic["confidence"] = topic.get("confidence") if topic.get("confidence") is not None else 0.5
                 normalized_topics.append(topic)
         data["topics"] = normalized_topics
+    if isinstance(data.get("extracted_questions"), list):
+        data["extracted_questions"] = [
+            normalize_extracted_question_marking(question)
+            if isinstance(question, dict)
+            else question
+            for question in data["extracted_questions"]
+        ]
     data["requires_parent_confirmation"] = True
     data["pii_redacted_before_ai"] = False
     return OcrReviewResult.model_validate(data)
+
+
+def normalize_extracted_question_marking(question: dict[str, Any]) -> dict[str, Any]:
+    clean = dict(question)
+    is_correct = clean.get("is_correct")
+    score = clean.get("score")
+    max_score = clean.get("max_score")
+
+    if answer_looks_correct(str(clean.get("question_text") or ""), str(clean.get("detected_answer") or "")):
+        is_correct = True
+    elif score is not None and max_score:
+        try:
+            is_correct = int(score) >= int(max_score)
+        except (TypeError, ValueError):
+            pass
+
+    if is_correct is True:
+        clean["is_correct"] = True
+        clean["mistake_tags"] = []
+        if clean.get("max_score") is None:
+            clean["max_score"] = 1
+        if clean.get("score") is None:
+            clean["score"] = clean["max_score"]
+    elif is_correct is False:
+        clean["is_correct"] = False
+        if not clean.get("mistake_tags"):
+            clean["mistake_tags"] = ["concept"]
+    return clean
+
+
+def answer_looks_correct(question_text: str, detected_answer: str) -> bool:
+    expected = infer_expected_arithmetic_answer(question_text)
+    if expected is None:
+        return False
+    return detected_answer_contains_value(detected_answer, expected)
+
+
+def infer_expected_arithmetic_answer(question_text: str) -> int | None:
+    text = str(question_text or "")
+    numbers = [int(value) for value in re.findall(r"\d+", text)]
+    if len(numbers) < 2:
+        return None
+    operands = numbers[-2:]
+    add_markers = ("共", "一共", "合共", "總共", "共有", "共要", "共售", "共需", "加起")
+    subtract_markers = ("比", "貴", "便宜", "多多少", "少多少", "相差", "差多少")
+    if any(marker in text for marker in subtract_markers):
+        return abs(operands[1] - operands[0])
+    if any(marker in text for marker in add_markers):
+        return operands[0] + operands[1]
+    return None
+
+
+def detected_answer_contains_value(detected_answer: str, expected: int) -> bool:
+    text = str(detected_answer or "")
+    if not text.strip():
+        return False
+    for left, op, right, result in re.findall(r"(\d+)\s*([+\-＋－])\s*(\d+)\s*=?\s*(\d+)", text):
+        left_value = int(left)
+        right_value = int(right)
+        result_value = int(result)
+        calculated = left_value + right_value if op in {"+", "＋"} else left_value - right_value
+        if calculated == expected and result_value == expected:
+            return True
+    return any(int(value) == expected for value in re.findall(r"\d+", text))
 
 
 def build_review_with_gemini(
@@ -1320,7 +1394,11 @@ def build_learning_progress(parent_id: str, child_id: str, report_month: str | N
                 },
             )
             stats["evidence_count"] += 1
-            if question.get("score") is not None and question.get("max_score"):
+            if question.get("is_correct") is True:
+                stats["correct_count"] += 1
+            elif question.get("is_correct") is False:
+                stats["incorrect_count"] += 1
+            elif question.get("score") is not None and question.get("max_score"):
                 if int(question.get("score") or 0) >= int(question.get("max_score") or 1):
                     stats["correct_count"] += 1
                 else:
@@ -1493,9 +1571,12 @@ def build_mistake_notebook(parent_id: str, child_id: str) -> MistakeNotebookResp
             score = question.get("score")
             max_score = question.get("max_score")
             tags = question.get("mistake_tags") or []
+            if question.get("is_correct") is True:
+                continue
             low_score = score is not None and max_score and int(score or 0) < int(max_score or 1)
-            low_confidence = confidence is not None and float(confidence) < 0.76
-            if not (tags or low_score or low_confidence):
+            if score is not None and max_score and int(score or 0) >= int(max_score or 1):
+                continue
+            if not (tags or low_score or question.get("is_correct") is False):
                 continue
             mistake_tag = first_mistake_tag(tags, "calculation" if low_score else "concept")
             mastery = mastery_by_topic.get(topic_key(subject, topic), 0)

@@ -1,6 +1,6 @@
 # Status
 
-最後更新：2026-06-03 23:20 HKT
+最後更新：2026-06-03 23:32 HKT
 
 ## 目前目標
 
@@ -21,7 +21,7 @@
 - GCP project：`gen-lang-client-0228668877`
 - Project number：`594335170533`
 - Region：`asia-east2`
-- Last verified revision：`edupass-ai-00030-f8z`
+- Last verified revision：`edupass-ai-00031-jcs`
 - Service account：`594335170533-compute@developer.gserviceaccount.com`
 - Storage bucket：`gs://edupass-ai-594335170533-prototype-storage`
 - Firestore database：`(default)` in `asia-east2`
@@ -230,10 +230,12 @@
   - Cloud Playwright smoke（revision `edupass-ai-00029-8v4`）：390px mobile Home / Portfolio / Progress / Profile 抽查，`Home` / `Portfolio` / `Upload` / `Progress` / `Profile` / `Daily Goals` / `Academic Progress` / `Progress Report` / `Evidence bank` / `Completed` / `Drafting` / `Generate PDF` / `Settings` / `Data & Privacy` 等舊英文 UI label 均未再出現；`scrollWidth === clientWidth`。
   - Cloud Run revision `edupass-ai-00030-f8z` 已部署並 serving 100% traffic。
   - Cloud smoke（revision `edupass-ai-00030-f8z`）：`GET /api/health` 200 / `ok: true`；demo login 成功；`GET /api/auth/me` 回傳 parent@example.com 與 2 個 children；`GET /api/learning/progress` 回傳 document_count 9 與 4 個 subject_scores；`GET /api/ocr-review/inbox` 回傳 9 份待確認；`GET /api/mistake-notebook` 回傳 15 個 items；`GET /api/weekly-briefing` 回傳 headline 與 3 個 next_actions；`GET /api/reports/share` 回傳 2 條分享紀錄。
+  - Cloud Run revision `edupass-ai-00031-jcs` 已部署並 serving 100% traffic。
+  - Cloud smoke（revision `edupass-ai-00031-jcs`）：`GET /api/health` 200 / `ok: true`；demo login 成功；`GET /api/weekly-briefing` 回傳 headline；`GET /api/mistake-notebook` 正常回傳 items。
 - 本次本機驗證：
   - `npm run build` 通過。
   - `.venv312/bin/python -m py_compile backend/app/main.py backend/app/schemas.py backend/app/persistence.py backend/app/auth.py` 通過。
-  - `.venv312/bin/python -m pytest tests -q`：24 passed，1 warning（ReportLab dependency deprecation warning）。
+  - `.venv312/bin/python -m pytest tests -q`：25 passed，1 warning（ReportLab dependency deprecation warning）。
   - 本機 API test：fresh child Jackson 只帶 `name` / `grade` 建立時，`passport` / `focus` / `language` / `school_type` / `portfolio_sections` 均保持空白。
   - 本機 API test：`POST /api/practice-attempts` 接受 `Chinese Language` subject score tracking；`Visual Arts` 回 400，且不出現在 `subject_scores`。
   - 本機 API test：demo parent rehydrate 後，Matthew 有 4 份 document / 4 次 subject attempts，Chloe 有 3 份 document / 3 次 subject attempts，且兩人都有 portfolio section mock drafts。
@@ -251,6 +253,7 @@
   - OCR review `pii_redacted_before_ai` 改為 `false`，避免把原始 multimodal upload 誤描述成已去識別化。
   - Frontend Upload tab 已加入 editable OCR Review Inbox；Progress / Coach 工作台已加入 Weekly Briefing、OCR Review Inbox、Mistake Notebook、Share Link Manager。
   - Tests 已補 child update schema、share list/revoke、mistake notebook、weekly briefing、upload hardening。
+  - 修正 OCR correctness：`ExtractedQuestion` 新增 `is_correct`；OCR prompt 要求正確答案回傳空 `mistake_tags`；backend 對 P1 加減應用題做簡單算式 sanity check（例如 `89 - 15 = 74`），若學生答案正確會清空錯因並設為滿分；前端 OCR 確認欄預設顯示「正確 / 無錯因」，不再把未知或正確題預設成「概念」。
 
 ## 下一步
 

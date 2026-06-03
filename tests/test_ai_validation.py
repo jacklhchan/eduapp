@@ -152,6 +152,31 @@ def test_parse_ocr_review_response_enforces_parent_confirmation() -> None:
     assert review.pii_redacted_before_ai is False
 
 
+def test_parse_ocr_review_response_clears_mistake_for_correct_arithmetic_answer() -> None:
+    review = parse_ocr_review_response(
+        """
+        {
+          "subject": "Mathematics",
+          "grade": "P1",
+          "extracted_questions": [{
+            "id": "q1",
+            "question_text": "玩具車比原子筆貴多少元？（原子筆: 15元, 玩具車: 89元）",
+            "detected_answer": "89 - 15 = 74 玩具車比原子筆貴74元",
+            "confidence": 0.95,
+            "topic": "Addition and Subtraction within 100",
+            "mistake_tags": ["concept"]
+          }]
+        }
+        """,
+        child_profile_id="child-matthew",
+        file_kind="image",
+    )
+    question = review.extracted_questions[0]
+    assert question.is_correct is True
+    assert question.score == question.max_score == 1
+    assert question.mistake_tags == []
+
+
 def test_parse_ocr_review_response_accepts_multiple_pages_and_topics() -> None:
     review = parse_ocr_review_response(
         """

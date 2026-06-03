@@ -238,6 +238,7 @@ class ExtractedQuestion(BaseModel):
     id: str
     question_text: str
     detected_answer: str | None = None
+    is_correct: bool | None = None
     score: int | None = Field(default=None, ge=0)
     max_score: int | None = Field(default=None, ge=1)
     confidence: float = Field(..., ge=0, le=1)

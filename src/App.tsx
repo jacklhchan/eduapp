@@ -42,6 +42,7 @@ type OcrResult = {
       id?: string;
       question_text: string;
       detected_answer?: string | null;
+      is_correct?: boolean | null;
       score?: number | null;
       max_score?: number | null;
       confidence: number;
@@ -219,6 +220,7 @@ type OcrReviewQuestionDraft = {
   id: string;
   question_text: string;
   detected_answer?: string | null;
+  is_correct?: boolean | null;
   score?: number | null;
   max_score?: number | null;
   confidence: number;
@@ -293,6 +295,7 @@ type PracticeStartOptions = {
 };
 
 type PracticeState = 'idle' | 'generating' | 'ready' | 'complete' | 'error';
+type UiLanguage = 'zh-Hant' | 'en';
 
 type ProfileSheet =
   | 'edit-parent'
@@ -334,13 +337,187 @@ const images = {
     'https://lh3.googleusercontent.com/aida-public/AB6AXuCZzVC0zF9A1-GGV75YWWavsdOz9kuXND7X9-al847sMbtxRQVFrh-Tu5mhsKHwU7hExCTW-3WsTah5OJhwH7e9Y5_DceWoH6xEvbR2oeGb7JRw0QjrkF0oLHuUAnh-eOMV8-dH9NgXaj6q-P1lCAfIsNsnI_wNOIgW9f0ZR-zc8w57QmdTqJ19THZ8ltx3XspAx1jba2owPStDMnFYwleip2jH18YS_l-sDD5BNHAbCHx82e74et_0iYBAkK9X5yg6NjuB1D6v2u1Q',
 };
 
-const navItems: Array<{ id: View; label: string; icon: string }> = [
-  { id: 'home', label: '首頁', icon: 'home' },
-  { id: 'portfolio', label: '檔案', icon: 'import_contacts' },
-  { id: 'upload', label: '上載', icon: 'add_a_photo' },
-  { id: 'coach', label: '進度', icon: 'monitoring' },
-  { id: 'profile', label: '設定', icon: 'person' },
+const uiLanguageStorageKey = 'edupass-ui-language';
+
+const navItems: Array<{ id: View; label: Record<UiLanguage, string>; icon: string }> = [
+  { id: 'home', label: { 'zh-Hant': '首頁', en: 'Home' }, icon: 'home' },
+  { id: 'portfolio', label: { 'zh-Hant': '檔案', en: 'Portfolio' }, icon: 'import_contacts' },
+  { id: 'upload', label: { 'zh-Hant': '上載', en: 'Upload' }, icon: 'add_a_photo' },
+  { id: 'coach', label: { 'zh-Hant': '進度', en: 'Progress' }, icon: 'monitoring' },
+  { id: 'profile', label: { 'zh-Hant': '設定', en: 'Settings' }, icon: 'person' },
 ];
+
+const uiLanguageOptions: Array<{
+  id: UiLanguage;
+  label: Record<UiLanguage, string>;
+  description: Record<UiLanguage, string>;
+}> = [
+  {
+    id: 'zh-Hant',
+    label: { 'zh-Hant': '繁體中文', en: 'Traditional Chinese' },
+    description: { 'zh-Hant': '以繁體中文顯示主要介面。', en: 'Use Traditional Chinese for the main interface.' },
+  },
+  {
+    id: 'en',
+    label: { 'zh-Hant': 'English', en: 'English' },
+    description: { 'zh-Hant': '以英文顯示導覽與設定介面。', en: 'Use English for navigation and settings.' },
+  },
+];
+
+const uiCopy: Record<UiLanguage, {
+  back: string;
+  close: string;
+  help: string;
+  passportName: string;
+  loading: string;
+  uploadTitle: string;
+  settingsTitle: string;
+  profile: {
+    addChild: string;
+    appSettings: string;
+    children: string;
+    editChild: (name?: string) => string;
+    editParent: string;
+    logout: string;
+    parentAvatarAlt: string;
+  };
+  settingsRows: {
+    language: string;
+    languageValue: string;
+    learningPlusBadge: string;
+    learningPlusSubtitle: string;
+    learningPlusTitle: string;
+    notifications: string;
+    privacy: string;
+    privacySubtitle: string;
+    support: string;
+  };
+  sheetTitles: Record<Exclude<ProfileSheet, null>, string>;
+  settingPanels: {
+    learningPlus: { title: string; text: string };
+    notifications: { title: string; text: string };
+    support: { title: string; text: string };
+  };
+  languagePanel: {
+    title: string;
+    intro: string;
+    current: string;
+  };
+}> = {
+  'zh-Hant': {
+    back: '返回',
+    close: '關閉',
+    help: '說明',
+    passportName: '學習護照',
+    loading: '正在載入安全學習工作區...',
+    uploadTitle: '確認作業內容',
+    settingsTitle: '設定',
+    profile: {
+      addChild: '新增學生',
+      appSettings: '應用設定',
+      children: '學生',
+      editChild: (name) => `編輯 ${name || '學生'}`,
+      editParent: '編輯家長',
+      logout: '登出',
+      parentAvatarAlt: '家長頭像',
+    },
+    settingsRows: {
+      language: '語言',
+      languageValue: '繁體中文',
+      learningPlusBadge: '管理',
+      learningPlusSubtitle: '示範帳戶已啟用',
+      learningPlusTitle: '學習加值',
+      notifications: '通知設定',
+      privacy: '資料與私隱',
+      privacySubtitle: '上載、同意與資料保留',
+      support: '支援與常見問題',
+    },
+    sheetTitles: {
+      'add-child': '新增學生',
+      'edit-child': '編輯學生',
+      'edit-parent': '編輯家長',
+      language: '語言',
+      'learning-plus': '學習加值',
+      notifications: '通知設定',
+      privacy: '資料與私隱',
+      support: '支援與常見問題',
+    },
+    settingPanels: {
+      learningPlus: { title: '示範帳戶已啟用', text: '學習加值目前只作原型示範，暫未接入真實付款或訂閱系統。' },
+      notifications: { title: '每週進度提醒', text: '提醒偏好會在下一階段接入後端，支援按家長設定電郵或推送通知。' },
+      support: { title: '支援與常見問題', text: '此面板用作確認設定流程；正式版可加入常見問題及支援渠道。' },
+    },
+    languagePanel: {
+      title: '介面語言',
+      intro: '切換後會即時套用到導覽與設定介面；學習紀錄、檔名和上載內容會保留原文。',
+      current: '目前語言',
+    },
+  },
+  en: {
+    back: 'Back',
+    close: 'Close',
+    help: 'Help',
+    passportName: 'Learning Passport',
+    loading: 'Loading your secure learning workspace...',
+    uploadTitle: 'Review Upload',
+    settingsTitle: 'Settings',
+    profile: {
+      addChild: 'Add Child',
+      appSettings: 'App Settings',
+      children: 'Children',
+      editChild: (name) => `Edit ${name || 'Student'}`,
+      editParent: 'Edit Parent',
+      logout: 'Log out',
+      parentAvatarAlt: 'Parent avatar',
+    },
+    settingsRows: {
+      language: 'Language',
+      languageValue: 'English',
+      learningPlusBadge: 'Manage',
+      learningPlusSubtitle: 'Demo account enabled',
+      learningPlusTitle: 'Learning Plus',
+      notifications: 'Notifications',
+      privacy: 'Data & Privacy',
+      privacySubtitle: 'Uploads, consent, and retention',
+      support: 'Support & FAQ',
+    },
+    sheetTitles: {
+      'add-child': 'Add Child',
+      'edit-child': 'Edit Student',
+      'edit-parent': 'Edit Parent',
+      language: 'Language',
+      'learning-plus': 'Learning Plus',
+      notifications: 'Notifications',
+      privacy: 'Data & Privacy',
+      support: 'Support & FAQ',
+    },
+    settingPanels: {
+      learningPlus: { title: 'Demo account enabled', text: 'Learning Plus is shown for the prototype only and is not connected to live billing.' },
+      notifications: { title: 'Weekly progress reminders', text: 'Notification preferences will connect to email or push channels in the next phase.' },
+      support: { title: 'Support & FAQ', text: 'This panel validates the settings flow; production can add support channels and FAQs.' },
+    },
+    languagePanel: {
+      title: 'Interface Language',
+      intro: 'Changes apply instantly to navigation and settings. Learning records, filenames, and uploaded content stay in their original language.',
+      current: 'Current language',
+    },
+  },
+};
+
+function isUiLanguage(value: string | null): value is UiLanguage {
+  return value === 'zh-Hant' || value === 'en';
+}
+
+function getInitialUiLanguage(): UiLanguage {
+  if (typeof window === 'undefined') return 'zh-Hant';
+  const stored = window.localStorage.getItem(uiLanguageStorageKey);
+  if (isUiLanguage(stored)) return stored;
+  return window.navigator.language.toLowerCase().startsWith('en') ? 'en' : 'zh-Hant';
+}
+
+function uiLanguageLabel(language: UiLanguage, displayLanguage: UiLanguage) {
+  return uiLanguageOptions.find((option) => option.id === language)?.label[displayLanguage] || language;
+}
 
 const gradeOptions = ['K1', 'K2', 'K3', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6'];
 
@@ -351,6 +528,7 @@ const defaultPassportName = '學習護照';
 const languageOptions = ['繁體中文', '英文', '雙語：繁中及英文'];
 
 const subjectDisplayNames: Record<string, string> = {
+  'Addition and Subtraction within 100': '100 以內加減',
   'Chinese Language': '中國語文',
   'Early Childhood Mathematics': '幼兒數學',
   'English Language': '英國語文',
@@ -388,12 +566,16 @@ function portfolioStatusLabel(status: string) {
 
 function displaySubjectName(value?: string | null) {
   if (!value) return '未分類';
-  return subjectDisplayNames[value] || value;
+  const normalized = value.trim();
+  return subjectDisplayNames[normalized] || normalized;
 }
 
 function displayTopicName(value?: string | null) {
   if (!value) return '未分類主題';
-  return subjectDisplayNames[value] || value;
+  const normalized = value.trim();
+  const uploadTitle = normalized.match(/^(\d+)\s+pages?\s*-\s*(.+)$/i);
+  if (uploadTitle) return `${uploadTitle[1]} 頁 - ${uploadTitle[2]}`;
+  return subjectDisplayNames[normalized] || normalized;
 }
 
 function displayKlaName(subject: CurriculumSubject) {
@@ -460,6 +642,8 @@ function displayStrandName(value: string) {
     'historical sources': '歷史資料',
     ICT: '資訊科技',
     interpersonal: '人際溝通',
+    experience: '經驗',
+    knowledge: '知識',
     listening: '聆聽',
     'living environment': '生活環境',
     measure: '量度',
@@ -2397,18 +2581,22 @@ function UploadView({
   const reviewConfirmed = Boolean(ocrResult?.document?.parent_confirmed_at);
 
   useEffect(() => {
-    setQuestionDrafts(detectedQuestions.map((question, index) => ({
-      confidence: question.confidence ?? 0.5,
-      detected_answer: question.detected_answer ?? '',
-      id: question.id || `q${index + 1}`,
-      max_score: question.max_score ?? null,
-      mistake_tags: question.mistake_tags?.length ? question.mistake_tags : ['concept'],
-      page_number: question.page_number ?? index + 1,
-      question_text: question.question_text || '',
-      score: question.score ?? null,
-      topic: question.topic || '',
-      topic_ids: question.topic_ids || [],
-    })));
+    setQuestionDrafts(detectedQuestions.map((question, index) => {
+      const isCorrect = questionLikelyCorrect(question);
+      return {
+        confidence: question.confidence ?? 0.5,
+        detected_answer: question.detected_answer ?? '',
+        id: question.id || `q${index + 1}`,
+        is_correct: isCorrect,
+        max_score: question.max_score ?? (isCorrect ? 1 : null),
+        mistake_tags: isCorrect ? [] : (question.mistake_tags || ['concept']),
+        page_number: question.page_number ?? index + 1,
+        question_text: question.question_text || '',
+        score: question.score ?? (isCorrect ? 1 : null),
+        topic: question.topic || '',
+        topic_ids: question.topic_ids || [],
+      };
+    }));
     setReviewNotes('');
   }, [detectedQuestions]);
 
@@ -2540,11 +2728,17 @@ function UploadView({
                         />
                       </label>
                       <label>
-                        錯因
+                        判定
                         <select
-                          value={question.mistake_tags[0] || 'concept'}
-                          onChange={(event) => updateQuestionDraft(question.id, { mistake_tags: [event.target.value] })}
+                          value={question.is_correct ? 'correct' : question.mistake_tags[0] || 'concept'}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            updateQuestionDraft(question.id, value === 'correct'
+                              ? { is_correct: true, mistake_tags: [] }
+                              : { is_correct: false, mistake_tags: [value] });
+                          }}
                         >
+                          <option value="correct">正確 / 無錯因</option>
                           <option value="concept">概念</option>
                           <option value="calculation">計算</option>
                           <option value="reading">審題</option>
@@ -3262,22 +3456,73 @@ function confidenceLabel(value: number) {
   return '低信心';
 }
 
+function questionLikelyCorrect(question: {
+  detected_answer?: string | null;
+  is_correct?: boolean | null;
+  mistake_tags?: string[];
+  max_score?: number | null;
+  question_text: string;
+  score?: number | null;
+}) {
+  if (question.is_correct !== null && question.is_correct !== undefined) return question.is_correct;
+  if (question.score !== null && question.score !== undefined && question.max_score) {
+    return question.score >= question.max_score;
+  }
+  const expected = inferExpectedArithmeticAnswer(question.question_text);
+  if (expected !== null && answerTextContainsValue(question.detected_answer || '', expected)) return true;
+  if (question.mistake_tags?.length) return false;
+  return true;
+}
+
+function inferExpectedArithmeticAnswer(questionText: string) {
+  const numbers = Array.from(questionText.matchAll(/\d+/g)).map((match) => Number(match[0]));
+  if (numbers.length < 2) return null;
+  const operands = numbers.slice(-2);
+  if (/比|貴|便宜|多多少|少多少|相差|差多少/.test(questionText)) return Math.abs(operands[1] - operands[0]);
+  if (/共|一共|合共|總共|共有|共要|共售|共需|加起/.test(questionText)) return operands[0] + operands[1];
+  return null;
+}
+
+function answerTextContainsValue(answerText: string, expected: number) {
+  const equation = answerText.match(/(\d+)\s*([+\-＋－])\s*(\d+)\s*=?\s*(\d+)/);
+  if (equation) {
+    const left = Number(equation[1]);
+    const op = equation[2];
+    const right = Number(equation[3]);
+    const result = Number(equation[4]);
+    const calculated = op === '+' || op === '＋' ? left + right : left - right;
+    return calculated === expected && result === expected;
+  }
+  return Array.from(answerText.matchAll(/\d+/g)).some((match) => Number(match[0]) === expected);
+}
+
 function normalizeReviewQuestionDrafts(questions: OcrReviewQuestionDraft[]) {
   return questions
     .filter((question) => String(question.question_text || question.topic || '').trim())
-    .map((question, index) => ({
-      confidence: Math.max(0, Math.min(1, question.confidence || 0.5)),
-      curriculum_node_id: null,
-      detected_answer: question.detected_answer || null,
-      id: question.id || `q${index + 1}`,
-      max_score: question.max_score ?? null,
-      mistake_tags: Array.isArray(question.mistake_tags) && question.mistake_tags.length ? question.mistake_tags : ['concept'],
-      page_number: question.page_number || index + 1,
-      question_text: String(question.question_text || question.topic || `OCR 題目 ${index + 1}`).trim(),
-      score: question.score ?? null,
-      topic: question.topic || null,
-      topic_ids: question.topic_ids || [],
-    }));
+    .map((question, index) => {
+      const isCorrect = questionLikelyCorrect({
+        detected_answer: question.detected_answer,
+        is_correct: question.is_correct,
+        mistake_tags: question.mistake_tags,
+        max_score: question.max_score,
+        question_text: question.question_text || question.topic || '',
+        score: question.score,
+      });
+      return {
+        confidence: Math.max(0, Math.min(1, question.confidence || 0.5)),
+        curriculum_node_id: null,
+        detected_answer: question.detected_answer || null,
+        id: question.id || `q${index + 1}`,
+        is_correct: isCorrect,
+        max_score: question.max_score ?? (isCorrect ? 1 : null),
+        mistake_tags: isCorrect ? [] : (Array.isArray(question.mistake_tags) && question.mistake_tags.length ? question.mistake_tags : ['concept']),
+        page_number: question.page_number || index + 1,
+        question_text: String(question.question_text || question.topic || `OCR 題目 ${index + 1}`).trim(),
+        score: question.score ?? (isCorrect ? 1 : null),
+        topic: question.topic || null,
+        topic_ids: question.topic_ids || [],
+      };
+    });
 }
 
 function estimateAnswerCorrect(answer: string, expected: string) {

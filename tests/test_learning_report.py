@@ -51,6 +51,30 @@ def test_practice_attempt_updates_progress_and_share_report(monkeypatch) -> None
             },
         }
     )
+    persistence.save_document(
+        {
+            "id": "doc-correct-arithmetic",
+            "parent_id": parent_id,
+            "child_id": child_id,
+            "filename": "correct-p1-arithmetic.jpg",
+            "created_at": "2026-06-02T08:00:00+00:00",
+            "review": {
+                "subject": "Mathematics",
+                "topics": [{"topic": "Addition and Subtraction within 100", "subject": "Mathematics", "confidence": 0.95}],
+                "extracted_questions": [
+                    {
+                        "topic": "Addition and Subtraction within 100",
+                        "question_text": "可樂和檸檬茶共要多少元？（可樂: 10元, 檸檬茶: 20元）",
+                        "detected_answer": "10 + 20 = 30 可樂和檸檬茶共要30元",
+                        "is_correct": True,
+                        "score": 1,
+                        "max_score": 1,
+                        "mistake_tags": ["concept"],
+                    }
+                ],
+            },
+        }
+    )
 
     attempt = client.post(
         "/api/practice-attempts",
@@ -87,7 +111,7 @@ def test_practice_attempt_updates_progress_and_share_report(monkeypatch) -> None
     progress = client.get(f"/api/learning/progress?child_id={child_id}")
     assert progress.status_code == 200
     body = progress.json()
-    assert body["document_count"] == 1
+    assert body["document_count"] == 2
     assert body["practice_count"] == 1
     assert body["weak_topics"][0]["topic"] == "Fractions"
     assert body["trend_points"] == [50]
@@ -128,6 +152,7 @@ def test_practice_attempt_updates_progress_and_share_report(monkeypatch) -> None
     assert notebook.status_code == 200
     assert notebook.json()["items"]
     assert notebook.json()["items"][0]["topic"] == "Fractions"
+    assert "Addition and Subtraction within 100" not in {item["topic"] for item in notebook.json()["items"]}
 
     briefing = client.get(f"/api/weekly-briefing?child_id={child_id}")
     assert briefing.status_code == 200
