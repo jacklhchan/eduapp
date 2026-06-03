@@ -176,6 +176,12 @@ def test_mvp_progress_hides_non_math_and_excludes_non_academic(monkeypatch) -> N
     child_id = child.json()["id"]
     consent = client.patch("/api/privacy/consent", json={"ai_processing_consent": True})
     assert consent.status_code == 200
+    uploaded_png = b"\x89PNG\r\n\x1a\nedupass-test-image"
+    storage_uri = persistence.upload_bytes(
+        f"parents/{parent_id}/children/{child_id}/documents/doc-mvp-math-inbox-page-1-math-homework.png",
+        uploaded_png,
+        "image/png",
+    )
 
     persistence.save_document(
         {
@@ -183,6 +189,13 @@ def test_mvp_progress_hides_non_math_and_excludes_non_academic(monkeypatch) -> N
             "parent_id": parent_id,
             "child_id": child_id,
             "filename": "math-homework.pdf",
+            "filenames": ["math-homework.png"],
+            "mime_type": "image/png",
+            "mime_types": ["image/png"],
+            "file_kind": "image",
+            "page_count": 1,
+            "storage_uri": storage_uri,
+            "storage_uris": [storage_uri],
             "created_at": "2026-06-01T08:00:00+00:00",
             "review": {
                 "subject": "Mathematics",
@@ -251,3 +264,13 @@ def test_mvp_progress_hides_non_math_and_excludes_non_academic(monkeypatch) -> N
     inbox = client.get(f"/api/ocr-review/inbox?child_id={child_id}")
     assert inbox.status_code == 200
     assert [item["filename"] for item in inbox.json()] == ["math-homework.pdf"]
+    preview = inbox.json()[0]["file_previews"][0]
+    assert preview["filename"] == "math-homework.png"
+    assert preview["mime_type"] == "image/png"
+    assert preview["file_kind"] == "image"
+    assert preview["preview_url"] == "/api/ocr-review/doc-mvp-math-inbox/files/1"
+
+    original_file = client.get(preview["preview_url"])
+    assert original_file.status_code == 200
+    assert original_file.headers["content-type"] == "image/png"
+    assert original_file.content == uploaded_png
