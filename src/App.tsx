@@ -2837,6 +2837,7 @@ function UploadView({
   const [reviewNotes, setReviewNotes] = useState('');
   const pageCount = ocrResult?.review?.page_count || ocrResult?.page_count || Math.max(selectedFiles.length, 1);
   const selectedFileCount = selectedFiles.length;
+  const documentId = ocrResult?.document?.id || ocrResult?.document_id || '';
   const effectivePreviewItems = previewItems.length ? previewItems : savedPreviewItems;
   const previewItemCount = effectivePreviewItems.length;
   const effectivePreviewIndex = Math.min(activePreviewIndex, Math.max(previewItemCount - 1, 0));
@@ -2844,6 +2845,7 @@ function UploadView({
   const activePreviewKind = previewItemKind(activePreviewItem);
   const effectivePreviewUrl = activePreviewItem?.url || previewUrl;
   const canOpenImagePreview = Boolean(activePreviewItem?.url && activePreviewKind === 'image');
+  const canOpenPreviewLightbox = activePreviewItem ? canOpenImagePreview : canViewPreview;
   const hasSavedReviewPreview = !selectedFileCount && Boolean(documentId) && ocrState === 'done';
   const topicValue = detectedTopics.length
     ? detectedTopics.map((topic) => displayTopicName(topic.topic)).join(' / ')
@@ -2857,7 +2859,6 @@ function UploadView({
       : selectedFileCount
         ? '等待分析'
         : '可多頁上載';
-  const documentId = ocrResult?.document?.id || ocrResult?.document_id || '';
   const reviewConfirmed = Boolean(ocrResult?.document?.parent_confirmed_at);
 
   useEffect(() => {
@@ -2925,7 +2926,7 @@ function UploadView({
               <span />
               <span />
             </div>
-            <button type="button" aria-label="查看大圖" onClick={() => onViewPreview(effectivePreviewUrl)} disabled={!canOpenImagePreview && !canViewPreview}>
+            <button type="button" aria-label="查看大圖" onClick={() => onViewPreview(effectivePreviewUrl)} disabled={!canOpenPreviewLightbox}>
               <Icon name="fullscreen" />
             </button>
           </div>
@@ -3092,6 +3093,14 @@ function UploadView({
       </footer>
     </>
   );
+}
+
+function previewItemKind(item: UploadPreviewItem | null): 'image' | 'pdf' | 'file' {
+  if (!item) return 'file';
+  if (item.fileKind) return item.fileKind;
+  if (item.type === 'application/pdf') return 'pdf';
+  if (item.type.startsWith('image/')) return 'image';
+  return 'file';
 }
 
 function FormDisplay({ icon, label, value }: { icon: string; label: string; value: string }) {
