@@ -14,7 +14,7 @@
 - [x] Share Link 管理頁：家長可設定分享對象、有效期、summary / evidence scope，並在前端管理與撤回既有教師連結。
 - [x] P0 hardening：CORS production default 改為 explicit allowlist、production `SESSION_SECRET` fail-fast、production demo login 預設關閉、child update 改成 typed Pydantic schema、OCR upload 加 size / total size / MIME sniffing / filename sanitization / PDF page limit / rate limit、teacher share token 加 expiry / revoke / scope 與 410 revoked/expired 防線。
 - [x] Mathematics MVP scope：Progress、OCR inbox、Mistake Notebook、Learning Report 與 course surface 先只顯示 Mathematics / Early Childhood Mathematics，其他科目資料仍可保存但不在 MVP UI 露出。
-- [x] OCR review history：取消前端 confirmation 只顯示 6 題的限制，`Progress -> OCR 記錄 -> 查看` 可回看過往已確認 OCR result；已確認資料以唯讀方式顯示，待確認資料仍可修正後再 confirm。
+- [x] OCR review history：取消前端 confirmation 只顯示 6 題的限制，`Progress -> OCR 記錄 -> 查看` 可回看過往已確認 OCR result；review 畫面會顯示原始上載相片 / PDF 原檔入口；已確認資料以唯讀方式顯示，待確認資料仍可修正後再 confirm。
 
 ## Cloud
 
@@ -30,6 +30,7 @@
 
 ## Latest Verification
 
+- 2026-06-04 00:16 HKT：Cloud Run `edupass-ai-00037-zdc` 已部署並 serving 100% traffic；production API smoke 確認 `12 pages - mosmps-001.jpeg` 回傳 `file_previews`，`/api/ocr-review/doc-80f3a89988/files/1` 以 authenticated cookie 取回 `image/jpeg` 200；production browser smoke 確認 `Progress -> OCR 記錄 -> 查看` 顯示原圖 `mosmps-001.jpeg`、12 張縮圖、P12 縮圖、12 題 review 與唯讀判定欄。
 - 2026-06-04 00:13 HKT：Cloud Run `edupass-ai-00037-zdc` 已部署並 serving 100% traffic；`GET /api/health` OK；390px mobile Progress smoke 再確認 `scrollWidth === clientWidth === 390`、overflowCount 0、header `P3 • 數學進度`、英文 topic hit 全 false。
 - 2026-06-04 00:06 HKT：Cloud Run `edupass-ai-00036-6vw` 已部署並 serving 100% traffic；`GET /api/health` OK；390px mobile Progress smoke 確認 header 顯示 `Matthew / P3 • 數學進度`、分享連結管理不再橫向溢出（`scrollWidth === clientWidth === 390` / overflowCount 0），weekly briefing / mistake notebook / improved topics 不再顯示 `Addition and Subtraction`、`Fractions：`、`Two-step word problems` 或 `N pages -`。
 - 2026-06-04 00:02 HKT：Cloud Run `edupass-ai-00034-mkw` 已部署並 serving 100% traffic；`GET /api/health` OK，demo login OK；`GET /api/ocr-review/inbox?include_confirmed=true` 只回 Mathematics；production browser smoke 確認 `Progress -> OCR 記錄 -> 查看` 可打開 `12 pages - mosmps-001.jpeg`，12 題全部顯示，已確認結果為唯讀。
@@ -247,7 +248,7 @@
   - Cloud Run revision `edupass-ai-00034-mkw` 已部署並 serving 100% traffic；OCR review history / 12-page readonly review smoke 通過。
   - Cloud Run revision `edupass-ai-00035-5xc` 已部署並 serving 100% traffic；390px mobile Progress layout / share-link overflow smoke 通過。
   - Cloud Run revision `edupass-ai-00036-6vw` 已部署並 serving 100% traffic；390px mobile Progress 中英夾雜與 share-link overflow smoke 通過。
-  - Cloud Run revision `edupass-ai-00037-zdc` 已部署並 serving 100% traffic；GitHub head `00841d8` build/test 後部署，390px mobile Progress smoke 通過。
+  - Cloud Run revision `edupass-ai-00037-zdc` 已部署並 serving 100% traffic；GitHub head `00841d8` build/test 後部署，390px mobile Progress smoke、OCR 原相片 preview smoke 通過。
 - 本次本機驗證：
   - `npm run build` 通過。
   - `.venv312/bin/python -m py_compile backend/app/main.py backend/app/schemas.py backend/app/persistence.py backend/app/auth.py` 通過。
@@ -271,7 +272,7 @@
   - Tests 已補 child update schema、share list/revoke、mistake notebook、weekly briefing、upload hardening。
   - 修正 OCR correctness：`ExtractedQuestion` 新增 `is_correct`；OCR prompt 要求正確答案回傳空 `mistake_tags`；backend 對 P1 加減應用題做簡單算式 sanity check（例如 `89 - 15 = 74`），若學生答案正確會清空錯因並設為滿分；前端 OCR 確認欄預設顯示「正確 / 無錯因」，不再把未知或正確題預設成「概念」。
   - Mathematics MVP 已收斂：非數學科目從 Progress、OCR inbox、Mistake Notebook、Learning Report 與 course UI 暫時隱藏。
-  - OCR review history 已補上：Progress 的 `OCR 記錄` 可載入待確認與已確認 document；已確認 document 會回到 Upload review 畫面作唯讀查看；確認畫面不再只 render 前 6 題。
+  - OCR review history 已補上：Progress 的 `OCR 記錄` 可載入待確認與已確認 document；已確認 document 會回到 Upload review 畫面作唯讀查看；確認畫面不再只 render 前 6 題，並會顯示原始上載相片或 PDF 原檔入口。
 
 ## 下一步
 
