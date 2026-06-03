@@ -238,6 +238,7 @@ type OcrInboxDocument = {
   review_mode: string;
   parent_confirmed_at?: string | null;
   review: {
+    page_count?: number;
     topics?: Array<{ topic: string; confidence?: number; page_numbers?: number[] }>;
     extracted_questions?: OcrReviewQuestionDraft[];
   };
@@ -403,6 +404,7 @@ const uiCopy: Record<UiLanguage, {
     intro: string;
     current: string;
   };
+  viewLabels: Record<View, string>;
 }> = {
   'zh-Hant': {
     back: '返回',
@@ -451,6 +453,13 @@ const uiCopy: Record<UiLanguage, {
       title: '介面語言',
       intro: '切換後會即時套用到導覽與設定介面；學習紀錄、檔名和上載內容會保留原文。',
       current: '目前語言',
+    },
+    viewLabels: {
+      coach: '數學進度',
+      home: '首頁',
+      portfolio: '學習檔案',
+      profile: '設定',
+      upload: '上載功課',
     },
   },
   en: {
@@ -501,6 +510,13 @@ const uiCopy: Record<UiLanguage, {
       intro: 'Changes apply instantly to navigation and settings. Learning records, filenames, and uploaded content stay in their original language.',
       current: 'Current language',
     },
+    viewLabels: {
+      coach: 'Math Progress',
+      home: 'Home',
+      portfolio: 'Portfolio',
+      profile: 'Settings',
+      upload: 'Upload',
+    },
   },
 };
 
@@ -532,8 +548,12 @@ const defaultPassportName = '學習護照';
 const languageOptions = ['繁體中文', '英文', '雙語：繁中及英文'];
 
 const subjectDisplayNames: Record<string, string> = {
+  Addition: '加法',
   'Addition and Subtraction within 100': '100 以內加減',
+  'Addition within 100': '100 以內加法',
   'Chinese Language': '中國語文',
+  Decimals: '小數',
+  Division: '除法',
   'Early Childhood Mathematics': '幼兒數學',
   'English Language': '英國語文',
   'Expressing feelings': '情緒表達',
@@ -543,18 +563,31 @@ const subjectDisplayNames: Record<string, string> = {
   Inference: '閱讀推論',
   Language: '語文',
   Mathematics: '數學',
+  Multiplication: '乘法',
   'Number sense': '數感',
+  'Numbers within 100': '100 以內數字',
   Patterns: '規律',
   'Reading comprehension': '閱讀理解',
   'Self and Society': '個人與群體',
   'Sentence grammar': '句子文法',
   'Story retelling': '故事重述',
+  Subtraction: '減法',
+  'Subtraction within 100': '100 以內減法',
   'Community facilities': '社區設施',
   'Self-care routines': '自理常規',
   'Taking turns': '輪候與分享',
   'Two-step word problems': '兩步應用題',
   'Vocabulary in context': '語境詞彙',
+  'Word problems': '應用題',
 };
+
+function normalizeDisplayKey(value: string) {
+  return value.trim().toLowerCase().replace(/[._-]+/g, ' ').replace(/\s+/g, ' ');
+}
+
+const normalizedSubjectDisplayNames = new Map(
+  Object.entries(subjectDisplayNames).map(([key, label]) => [normalizeDisplayKey(key), label]),
+);
 
 function displayPassportName(value?: string | null) {
   if (!value || value === 'Learning Passport') return defaultPassportName;
@@ -571,7 +604,7 @@ function portfolioStatusLabel(status: string) {
 function displaySubjectName(value?: string | null) {
   if (!value) return '未分類';
   const normalized = value.trim();
-  return subjectDisplayNames[normalized] || normalized;
+  return subjectDisplayNames[normalized] || normalizedSubjectDisplayNames.get(normalizeDisplayKey(normalized)) || normalized;
 }
 
 function displayTopicName(value?: string | null) {
@@ -579,7 +612,7 @@ function displayTopicName(value?: string | null) {
   const normalized = value.trim();
   const uploadTitle = normalized.match(/^(\d+)\s+pages?\s*-\s*(.+)$/i);
   if (uploadTitle) return `${uploadTitle[1]} 頁 - ${uploadTitle[2]}`;
-  return subjectDisplayNames[normalized] || normalized;
+  return subjectDisplayNames[normalized] || normalizedSubjectDisplayNames.get(normalizeDisplayKey(normalized)) || normalized;
 }
 
 function normalizeLearningSubject(value?: string | null) {
@@ -1508,7 +1541,7 @@ function App() {
     if (!childId) return [] as OcrInboxDocument[];
     setOcrInboxState('loading');
     try {
-      const response = await fetch(`/api/ocr-review/inbox?child_id=${encodeURIComponent(childId)}`, { credentials: 'include' });
+      const response = await fetch(`/api/ocr-review/inbox?child_id=${encodeURIComponent(childId)}&include_confirmed=true`, { credentials: 'include' });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
       setOcrInbox(data);
@@ -1676,6 +1709,34 @@ function App() {
       setToast(error instanceof Error ? error.message : 'OCR 確認失敗');
       throw error;
     }
+  }
+
+  function openOcrReviewDocument(document: OcrInboxDocument) {
+    uploadPreviewItems.forEach((item) => {
+      if (item.url) URL.revokeObjectURL(item.url);
+    });
+    setSelectedFiles([]);
+    setUploadPreviewItems([]);
+    setActivePreviewIndex(0);
+    setOcrResult({
+      document: {
+        id: document.id,
+        filename: document.filename,
+        parent_confirmed_at: document.parent_confirmed_at,
+      },
+      document_id: document.id,
+      ok: true,
+      page_count: document.page_count,
+      review: {
+        ...document.review,
+        page_count: Number(document.review.page_count || document.page_count || 1),
+      },
+      review_mode: document.review_mode,
+    });
+    setOcrState('done');
+    setReviewConfirmState(document.parent_confirmed_at ? 'done' : 'idle');
+    setActiveView('upload');
+    setToast(document.parent_confirmed_at ? '已載入已確認 OCR 結果' : '已載入 OCR 待確認結果');
   }
 
   async function updateSelectedChild(updates: Partial<ChildProfile>) {
@@ -1997,7 +2058,7 @@ function App() {
           shareReport={shareReport}
           shareState={shareState}
           weeklyBriefing={weeklyBriefing}
-          onConfirmOcrReview={confirmOcrReview}
+          onOpenOcrReview={openOcrReviewDocument}
           onRevokeShareReport={revokeShareReport}
           onShareReport={shareLearningReport}
         />
@@ -2258,20 +2319,15 @@ function MainHeader({
   const isPortfolio = activeView === 'portfolio';
   const avatar = child?.name === 'Chloe' ? images.chloe : isPortfolio ? images.portfolioChild : images.child;
   const passportLabel = child?.passport && child.passport !== 'Learning Passport' ? child.passport : copy.passportName;
+  const sectionLabel = activeView === 'home' ? passportLabel : copy.viewLabels[activeView];
 
   return (
     <header className="top-appbar">
       <div className="profile-row">
         <img className="avatar-img" src={avatar} alt={child?.name || 'Matthew'} />
         <div>
-          {isPortfolio ? (
-            <h1 className="brand-title">{copy.passportName}</h1>
-          ) : (
-            <>
-              <h1 className="student-title">{activeView === 'home' ? child?.name || 'Matthew' : copy.passportName}</h1>
-              {activeView === 'home' ? <p>{child?.grade || 'P3'} • {passportLabel}</p> : null}
-            </>
-          )}
+          <h1 className={isPortfolio ? 'brand-title' : 'student-title'}>{child?.name || 'Matthew'}</h1>
+          <p>{child?.grade || 'P3'} • {sectionLabel}</p>
         </div>
       </div>
       <button className="symbol-button" type="button" aria-label="切換學生檔案" onClick={onSwitchChild}>
@@ -2892,6 +2948,7 @@ function UploadView({
                     </div>
                     <textarea
                       aria-label={`第 ${index + 1} 題 OCR 文字`}
+                      readOnly={reviewConfirmed}
                       value={question.question_text}
                       onChange={(event) => updateQuestionDraft(question.id, { question_text: event.target.value })}
                     />
@@ -2899,6 +2956,7 @@ function UploadView({
                       <label>
                         學生答案
                         <input
+                          readOnly={reviewConfirmed}
                           value={question.detected_answer || ''}
                           onChange={(event) => updateQuestionDraft(question.id, { detected_answer: event.target.value })}
                         />
@@ -2906,6 +2964,7 @@ function UploadView({
                       <label>
                         判定
                         <select
+                          disabled={reviewConfirmed}
                           value={question.is_correct ? 'correct' : question.mistake_tags[0] || 'concept'}
                           onChange={(event) => {
                             const value = event.target.value;
@@ -2927,7 +2986,7 @@ function UploadView({
                 ))}
                 <label className="review-notes-field">
                   家長備註
-                  <textarea value={reviewNotes} onChange={(event) => setReviewNotes(event.target.value)} />
+                  <textarea disabled={reviewConfirmed} value={reviewNotes} onChange={(event) => setReviewNotes(event.target.value)} />
                 </label>
                 <button
                   className="secondary-action full"
@@ -3043,7 +3102,7 @@ function CoachView({
   mistakeNotebook,
   ocrInbox,
   ocrInboxState,
-  onConfirmOcrReview,
+  onOpenOcrReview,
   onRevokeShareReport,
   onShareReport,
   progressState,
@@ -3057,7 +3116,7 @@ function CoachView({
   mistakeNotebook: MistakeNotebookItem[];
   ocrInbox: OcrInboxDocument[];
   ocrInboxState: 'idle' | 'loading' | 'ready' | 'error';
-  onConfirmOcrReview: (documentId: string, questions: OcrReviewQuestionDraft[], parentNotes?: string) => Promise<void>;
+  onOpenOcrReview: (document: OcrInboxDocument) => void;
   onRevokeShareReport: (shareId: string) => Promise<void>;
   onShareReport: (options?: ShareReportOptions) => void;
   progressState: 'idle' | 'loading' | 'ready' | 'error';
@@ -3116,7 +3175,7 @@ function CoachView({
       <OcrReviewInboxPanel
         documents={ocrInbox}
         state={ocrInboxState}
-        onConfirm={onConfirmOcrReview}
+        onOpenReview={onOpenOcrReview}
       />
 
       <MistakeNotebookPanel items={visibleMistakeNotebook} />
@@ -3218,32 +3277,34 @@ function BriefingColumn({ icon, items, title }: { icon: string; items: string[];
 
 function OcrReviewInboxPanel({
   documents,
-  onConfirm,
+  onOpenReview,
   state,
 }: {
   documents: OcrInboxDocument[];
-  onConfirm: (documentId: string, questions: OcrReviewQuestionDraft[], parentNotes?: string) => Promise<void>;
+  onOpenReview: (document: OcrInboxDocument) => void;
   state: 'idle' | 'loading' | 'ready' | 'error';
 }) {
+  const pendingCount = documents.filter((document) => !document.parent_confirmed_at).length;
   return (
-    <section className="review-inbox-panel" aria-label="OCR 待確認">
+    <section className="review-inbox-panel" aria-label="OCR 記錄">
       <div className="report-panel-head">
         <div>
-          <span className="report-kicker"><Icon name="rule" /> OCR 待確認</span>
-          <h2>待家長確認</h2>
-          <p>{state === 'loading' ? '讀取上載紀錄中...' : `${documents.length} 份功課需要確認`}</p>
+          <span className="report-kicker"><Icon name="rule" /> OCR 記錄</span>
+          <h2>待確認與已確認</h2>
+          <p>{state === 'loading' ? '讀取上載紀錄中...' : `${pendingCount} 份待確認 · ${documents.length} 份近期記錄`}</p>
         </div>
-        <Metric value={`${documents.length}`} label="待處理" />
+        <Metric value={`${pendingCount}`} label="待處理" />
       </div>
       <div className="review-inbox-list">
-        {documents.slice(0, 4).map((document) => {
+        {documents.map((document) => {
           const questions = document.review.extracted_questions || [];
           const topics = document.review.topics || [];
           const lowConfidence = questions.filter((question) => question.confidence < 0.76).length;
+          const confirmed = Boolean(document.parent_confirmed_at);
           return (
             <article key={document.id} className="review-inbox-row">
               <div>
-                <span>{formatActivityDate(document.created_at)} · {document.page_count} 頁</span>
+                <span>{formatActivityDate(document.created_at)} · {document.page_count} 頁 · {confirmed ? '已確認' : '待確認'}</span>
                 <strong>{document.filename}</strong>
                 <p>
                   {topics.slice(0, 2).map((topic) => displayTopicName(topic.topic)).join(' / ') || '未分類'}
@@ -3254,15 +3315,15 @@ function OcrReviewInboxPanel({
                 className="secondary-action"
                 type="button"
                 disabled={!questions.length}
-                onClick={() => onConfirm(document.id, questions, '在 OCR 待確認清單直接確認')}
+                onClick={() => onOpenReview(document)}
               >
-                <Icon name="fact_check" />
-                確認
+                <Icon name={confirmed ? 'visibility' : 'fact_check'} />
+                {confirmed ? '查看' : '檢視'}
               </button>
             </article>
           );
         })}
-        {!documents.length ? <p className="empty-report-note">暫時沒有待確認 OCR 檢視。</p> : null}
+        {!documents.length ? <p className="empty-report-note">暫時沒有 OCR 記錄。</p> : null}
       </div>
     </section>
   );

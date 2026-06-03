@@ -3306,6 +3306,13 @@ p {
   animation: report-card-in 0.42s ease both;
 }
 
+.learning-report-panel > *,
+.share-link-manager > *,
+.teacher-share-card > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .learning-report-panel::before {
   position: absolute;
   inset: 0 0 auto;
@@ -3852,13 +3859,14 @@ p {
 
 .mastery-row {
   display: grid;
-  grid-template-columns: 80px 1fr 40px;
+  grid-template-columns: minmax(92px, 0.8fr) minmax(0, 1fr) 40px;
   gap: 8px;
   align-items: center;
 }
 
 .mastery-row span,
 .mastery-row b {
+  min-width: 0;
   color: var(--on-variant);
   font-family: "Work Sans", "Noto Sans TC", sans-serif;
   font-size: 12px;
@@ -4920,7 +4928,10 @@ p {
 .ocr-review-inbox,
 .share-link-manager {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid rgba(195, 198, 214, 0.72);
   border-radius: 12px;
   background: var(--surface-lowest);
@@ -4941,6 +4952,8 @@ p {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  width: 100%;
+  min-width: 0;
 }
 
 .weekly-briefing-head h2,
@@ -5005,6 +5018,9 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   padding: 12px;
 }
 
@@ -5012,6 +5028,7 @@ p {
 .notebook-row > div,
 .share-link-item > div {
   min-width: 0;
+  max-width: 100%;
 }
 
 .review-inbox-row span,
@@ -5166,6 +5183,7 @@ p {
 
 .share-link-item a {
   display: block;
+  min-width: 0;
   max-width: 100%;
   margin-top: 4px;
   overflow: hidden;
@@ -5180,6 +5198,8 @@ p {
   flex: 0 0 auto;
   align-items: center;
   gap: 4px;
+  min-width: 0;
+  max-width: 100%;
   min-height: 36px;
   padding: 0 10px;
   border-radius: 999px;
