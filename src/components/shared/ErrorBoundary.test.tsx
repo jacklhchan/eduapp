@@ -9,12 +9,23 @@ function BrokenChild(): never {
 describe('ErrorBoundary', () => {
   it('renders fallback UI and logs the error', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const suppressExpectedRenderError = (event: ErrorEvent) => {
+      if (event.message === 'broken render') {
+        event.preventDefault();
+      }
+    };
 
-    render(
-      <ErrorBoundary>
-        <BrokenChild />
-      </ErrorBoundary>,
-    );
+    window.addEventListener('error', suppressExpectedRenderError);
+
+    try {
+      render(
+        <ErrorBoundary>
+          <BrokenChild />
+        </ErrorBoundary>,
+      );
+    } finally {
+      window.removeEventListener('error', suppressExpectedRenderError);
+    }
 
     expect(screen.getByRole('heading', { name: '畫面暫時未能載入' })).toBeInTheDocument();
     expect(consoleError).toHaveBeenCalled();
