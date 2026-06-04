@@ -7,6 +7,7 @@ Last updated: 2026-06-04 HKT
 - Added GitHub Actions CI at `.github/workflows/ci.yml`.
   - Frontend job runs `npm ci`, `npm run build`, and `npm test`.
   - Backend job runs `pip install -r backend/requirements.txt`, `python -m pytest tests -q`, and `python -m py_compile backend/app/main.py backend/app/routers/*.py backend/app/services/*.py`.
+- Added `pytest==8.3.4` to `backend/requirements.txt` so the backend CI job can run the specified pytest command from a clean runner.
 - Split frontend API access into `src/api/client.ts` and `src/api/endpoints.ts`.
 - Moved frontend shared types, assets, UI copy, and learning display helpers into `src/types/`, `src/config/`, `src/i18n/`, and `src/domain/`.
 - Extracted shared React UI primitives and top-level views under `src/components/shared/` and `src/components/views/`.
@@ -63,7 +64,7 @@ dist/index.html                   0.85 kB │ gzip:  0.42 kB
 dist/assets/index-B9TxIlvW.css   84.03 kB │ gzip: 13.67 kB
 dist/assets/index-C1KowZsa.js   262.91 kB │ gzip: 83.09 kB
 
-✓ built in 565ms
+✓ built in 99ms
 ```
 
 ### Frontend tests
@@ -84,8 +85,8 @@ RUN  v4.1.8 /Users/apple/Documents/eduapp
 
 Test Files  21 passed (21)
 Tests  32 passed (32)
-Start at  11:36:20
-Duration  7.08s (transform 3.96s, setup 6.94s, import 6.08s, tests 7.91s, environment 43.30s)
+Start at  11:44:39
+Duration  5.47s (transform 2.99s, setup 5.59s, import 4.84s, tests 6.54s, environment 34.57s)
 ```
 
 ### Backend dependency install
@@ -105,9 +106,10 @@ Requirement already satisfied: google-cloud-storage==2.19.0 in ./.venv312/lib/py
 Requirement already satisfied: google-cloud-vision==3.8.1 in ./.venv312/lib/python3.12/site-packages (from -r backend/requirements.txt (line 4)) (3.8.1)
 Requirement already satisfied: google-genai==1.52.0 in ./.venv312/lib/python3.12/site-packages (from -r backend/requirements.txt (line 5)) (1.52.0)
 Requirement already satisfied: pydantic==2.10.4 in ./.venv312/lib/python3.12/site-packages (from -r backend/requirements.txt (line 6)) (2.10.4)
-Requirement already satisfied: python-multipart==0.0.20 in ./.venv312/lib/python3.12/site-packages (from -r backend/requirements.txt (line 7)) (0.0.20)
-Requirement already satisfied: reportlab==4.2.5 in ./.venv312/lib/python3.12/site-packages (from -r backend/requirements.txt (line 8)) (4.2.5)
-Requirement already satisfied: uvicorn==0.32.1 in ./.venv312/lib/python3.12/site-packages (from uvicorn[standard]==0.32.1->-r backend/requirements.txt (line 9)) (0.32.1)
+Requirement already satisfied: pytest==8.3.4 in ./.venv312/lib/python3.12/site-packages (from -r backend/requirements.txt (line 7)) (8.3.4)
+Requirement already satisfied: python-multipart==0.0.20 in ./.venv312/lib/python3.12/site-packages (from -r backend/requirements.txt (line 8)) (0.0.20)
+Requirement already satisfied: reportlab==4.2.5 in ./.venv312/lib/python3.12/site-packages (from -r backend/requirements.txt (line 9)) (4.2.5)
+Requirement already satisfied: uvicorn==0.32.1 in ./.venv312/lib/python3.12/site-packages (from uvicorn[standard]==0.32.1->-r backend/requirements.txt (line 10)) (0.32.1)
 Requirement already satisfied: starlette<0.42.0,>=0.40.0 in ./.venv312/lib/python3.12/site-packages (from fastapi==0.115.6->-r backend/requirements.txt (line 1)) (0.41.3)
 Requirement already satisfied: typing-extensions>=4.8.0 in ./.venv312/lib/python3.12/site-packages (from fastapi==0.115.6->-r backend/requirements.txt (line 1)) (4.15.0)
 Requirement already satisfied: google-api-core!=2.0.*,!=2.1.*,!=2.10.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.*,<3.0.0,>=1.34.0 in ./.venv312/lib/python3.12/site-packages (from google-api-core[grpc]!=2.0.*,!=2.1.*,!=2.10.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.*,<3.0.0,>=1.34.0->google-cloud-firestore==2.21.0->-r backend/requirements.txt (line 2)) (2.30.3)
@@ -124,15 +126,18 @@ Requirement already satisfied: tenacity<9.2.0,>=8.2.3 in ./.venv312/lib/python3.
 Requirement already satisfied: websockets<15.1.0,>=13.0.0 in ./.venv312/lib/python3.12/site-packages (from google-genai==1.52.0->-r backend/requirements.txt (line 5)) (15.0.1)
 Requirement already satisfied: annotated-types>=0.6.0 in ./.venv312/lib/python3.12/site-packages (from pydantic==2.10.4->-r backend/requirements.txt (line 6)) (0.7.0)
 Requirement already satisfied: pydantic-core==2.27.2 in ./.venv312/lib/python3.12/site-packages (from pydantic==2.10.4->-r backend/requirements.txt (line 6)) (2.27.2)
-Requirement already satisfied: pillow>=9.0.0 in ./.venv312/lib/python3.12/site-packages (from reportlab==4.2.5->-r backend/requirements.txt (line 8)) (12.2.0)
-Requirement already satisfied: chardet in ./.venv312/lib/python3.12/site-packages (from reportlab==4.2.5->-r backend/requirements.txt (line 8)) (7.4.3)
-Requirement already satisfied: click>=7.0 in ./.venv312/lib/python3.12/site-packages (from uvicorn==0.32.1->uvicorn[standard]==0.32.1->-r backend/requirements.txt (line 9)) (8.4.1)
-Requirement already satisfied: h11>=0.8 in ./.venv312/lib/python3.12/site-packages (from uvicorn==0.32.1->uvicorn[standard]==0.32.1->-r backend/requirements.txt (line 9)) (0.16.0)
-Requirement already satisfied: httptools>=0.6.3 in ./.venv312/lib/python3.12/site-packages (from uvicorn[standard]==0.32.1->-r backend/requirements.txt (line 9)) (0.8.0)
-Requirement already satisfied: python-dotenv>=0.13 in ./.venv312/lib/python3.12/site-packages (from uvicorn[standard]==0.32.1->-r backend/requirements.txt (line 9)) (1.2.2)
-Requirement already satisfied: pyyaml>=5.1 in ./.venv312/lib/python3.12/site-packages (from uvicorn[standard]==0.32.1->-r backend/requirements.txt (line 9)) (6.0.3)
-Requirement already satisfied: uvloop!=0.15.0,!=0.15.1,>=0.14.0 in ./.venv312/lib/python3.12/site-packages (from uvicorn[standard]==0.32.1->-r backend/requirements.txt (line 9)) (0.22.1)
-Requirement already satisfied: watchfiles>=0.13 in ./.venv312/lib/python3.12/site-packages (from uvicorn[standard]==0.32.1->-r backend/requirements.txt (line 9)) (1.2.0)
+Requirement already satisfied: iniconfig in ./.venv312/lib/python3.12/site-packages (from pytest==8.3.4->-r backend/requirements.txt (line 7)) (2.3.0)
+Requirement already satisfied: packaging in ./.venv312/lib/python3.12/site-packages (from pytest==8.3.4->-r backend/requirements.txt (line 7)) (26.2)
+Requirement already satisfied: pluggy<2,>=1.5 in ./.venv312/lib/python3.12/site-packages (from pytest==8.3.4->-r backend/requirements.txt (line 7)) (1.6.0)
+Requirement already satisfied: pillow>=9.0.0 in ./.venv312/lib/python3.12/site-packages (from reportlab==4.2.5->-r backend/requirements.txt (line 9)) (12.2.0)
+Requirement already satisfied: chardet in ./.venv312/lib/python3.12/site-packages (from reportlab==4.2.5->-r backend/requirements.txt (line 9)) (7.4.3)
+Requirement already satisfied: click>=7.0 in ./.venv312/lib/python3.12/site-packages (from uvicorn==0.32.1->uvicorn[standard]==0.32.1->-r backend/requirements.txt (line 10)) (8.4.1)
+Requirement already satisfied: h11>=0.8 in ./.venv312/lib/python3.12/site-packages (from uvicorn==0.32.1->uvicorn[standard]==0.32.1->-r backend/requirements.txt (line 10)) (0.16.0)
+Requirement already satisfied: httptools>=0.6.3 in ./.venv312/lib/python3.12/site-packages (from uvicorn[standard]==0.32.1->-r backend/requirements.txt (line 10)) (0.8.0)
+Requirement already satisfied: python-dotenv>=0.13 in ./.venv312/lib/python3.12/site-packages (from uvicorn[standard]==0.32.1->-r backend/requirements.txt (line 10)) (1.2.2)
+Requirement already satisfied: pyyaml>=5.1 in ./.venv312/lib/python3.12/site-packages (from uvicorn[standard]==0.32.1->-r backend/requirements.txt (line 10)) (6.0.3)
+Requirement already satisfied: uvloop!=0.15.0,!=0.15.1,>=0.14.0 in ./.venv312/lib/python3.12/site-packages (from uvicorn[standard]==0.32.1->-r backend/requirements.txt (line 10)) (0.22.1)
+Requirement already satisfied: watchfiles>=0.13 in ./.venv312/lib/python3.12/site-packages (from uvicorn[standard]==0.32.1->-r backend/requirements.txt (line 10)) (1.2.0)
 Requirement already satisfied: idna>=2.8 in ./.venv312/lib/python3.12/site-packages (from anyio<5.0.0,>=4.8.0->google-genai==1.52.0->-r backend/requirements.txt (line 5)) (3.17)
 Requirement already satisfied: googleapis-common-protos<2.0.0,>=1.63.2 in ./.venv312/lib/python3.12/site-packages (from google-api-core!=2.0.*,!=2.1.*,!=2.10.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.*,<3.0.0,>=1.34.0->google-api-core[grpc]!=2.0.*,!=2.1.*,!=2.10.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.*,<3.0.0,>=1.34.0->google-cloud-firestore==2.21.0->-r backend/requirements.txt (line 2)) (1.75.0)
 Requirement already satisfied: grpcio<2.0.0,>=1.33.2 in ./.venv312/lib/python3.12/site-packages (from google-api-core[grpc]!=2.0.*,!=2.1.*,!=2.10.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.*,<3.0.0,>=1.34.0->google-cloud-firestore==2.21.0->-r backend/requirements.txt (line 2)) (1.80.0)
@@ -169,7 +174,7 @@ Output:
     haveNameConstant = hasattr(ast,'NameConstant')
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-25 passed, 1 warning in 5.47s
+25 passed, 1 warning in 1.48s
 ```
 
 ### Backend compile
