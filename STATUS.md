@@ -15,6 +15,7 @@
 - [x] P0 hardening：CORS production default 改為 explicit allowlist、production `SESSION_SECRET` fail-fast、production demo login 預設關閉、child update 改成 typed Pydantic schema、OCR upload 加 size / total size / MIME sniffing / filename sanitization / PDF page limit / rate limit、teacher share token 加 expiry / revoke / scope 與 410 revoked/expired 防線。
 - [x] Mathematics MVP scope：Progress、OCR inbox、Mistake Notebook、Learning Report 與 course surface 先只顯示 Mathematics / Early Childhood Mathematics，其他科目資料仍可保存但不在 MVP UI 露出。
 - [x] OCR review history：取消前端 confirmation 只顯示 6 題的限制，`Progress -> OCR 記錄 -> 查看` 可回看過往已確認 OCR result；review 畫面會顯示原始上載相片 / PDF 原檔入口；已確認資料以唯讀方式顯示，待確認資料仍可修正後再 confirm。
+- [x] OCR data deletion：`DELETE /api/ocr-review/{document_id}` 可刪除單筆 OCR document、原始上載 storage objects 並寫入 audit log；前端 `Progress -> OCR 記錄` 與已打開 review 畫面均有刪除入口與確認提示。
 
 ## Cloud
 
@@ -23,13 +24,15 @@
 - GCP project：`gen-lang-client-0228668877`
 - Project number：`594335170533`
 - Region：`asia-east2`
-- Last verified revision：`edupass-ai-00037-zdc`
+- Last verified revision：`edupass-ai-00038-nnl`
 - Service account：`594335170533-compute@developer.gserviceaccount.com`
 - Storage bucket：`gs://edupass-ai-594335170533-prototype-storage`
 - Firestore database：`(default)` in `asia-east2`
 
 ## Latest Verification
 
+- 2026-06-04 09:47 HKT：Cloud Run `edupass-ai-00038-nnl` 已部署並 serving 100% traffic；production API smoke 確認 `GET /api/health` OK、demo login OK、`GET /api/ocr-review/inbox?include_confirmed=true` 回傳 8 份 Mathematics OCR 記錄、authenticated `DELETE /api/ocr-review/doc-smoke-missing` 回 404；production 390px browser smoke 確認 `Progress -> OCR 記錄` 顯示刪除 icon、confirm dialog 可開啟並取消、`scrollWidth === clientWidth === 390`、overflowCount 0。
+- 2026-06-04 09:43 HKT：本機 memory backend smoke 確認 `DELETE /api/ocr-review/{document_id}` 會移除 OCR 記錄、原始上載 storage object、錯題簿關聯項目與 progress 上載數；390px Playwright smoke 確認 OCR 記錄列刪除 icon 固定 44px、無 horizontal overflow。
 - 2026-06-04 00:16 HKT：Cloud Run `edupass-ai-00037-zdc` 已部署並 serving 100% traffic；production API smoke 確認 `12 pages - mosmps-001.jpeg` 回傳 `file_previews`，`/api/ocr-review/doc-80f3a89988/files/1` 以 authenticated cookie 取回 `image/jpeg` 200；production browser smoke 確認 `Progress -> OCR 記錄 -> 查看` 顯示原圖 `mosmps-001.jpeg`、12 張縮圖、P12 縮圖、12 題 review 與唯讀判定欄。
 - 2026-06-04 00:13 HKT：Cloud Run `edupass-ai-00037-zdc` 已部署並 serving 100% traffic；`GET /api/health` OK；390px mobile Progress smoke 再確認 `scrollWidth === clientWidth === 390`、overflowCount 0、header `P3 • 數學進度`、英文 topic hit 全 false。
 - 2026-06-04 00:06 HKT：Cloud Run `edupass-ai-00036-6vw` 已部署並 serving 100% traffic；`GET /api/health` OK；390px mobile Progress smoke 確認 header 顯示 `Matthew / P3 • 數學進度`、分享連結管理不再橫向溢出（`scrollWidth === clientWidth === 390` / overflowCount 0），weekly briefing / mistake notebook / improved topics 不再顯示 `Addition and Subtraction`、`Fractions：`、`Two-step word problems` 或 `N pages -`。
@@ -125,6 +128,7 @@
   - upload file 存入 Cloud Storage
   - OCR review result 存入 Firestore
   - `POST /api/ocr-review`
+  - `DELETE /api/ocr-review/{document_id}` 可刪除單筆 OCR review、GCS 原始上載檔與進度 / 錯題簿關聯證據。
 - 加入 Hybrid OCR review pipeline：
   - image 先用 Cloud Vision `document_text_detection` 建立 OCR evidence。
   - PDF 先用 Gemini document extraction 建立 text evidence。
@@ -249,6 +253,7 @@
   - Cloud Run revision `edupass-ai-00035-5xc` 已部署並 serving 100% traffic；390px mobile Progress layout / share-link overflow smoke 通過。
   - Cloud Run revision `edupass-ai-00036-6vw` 已部署並 serving 100% traffic；390px mobile Progress 中英夾雜與 share-link overflow smoke 通過。
   - Cloud Run revision `edupass-ai-00037-zdc` 已部署並 serving 100% traffic；GitHub head `00841d8` build/test 後部署，390px mobile Progress smoke、OCR 原相片 preview smoke 通過。
+  - Cloud Run revision `edupass-ai-00038-nnl` 已部署並 serving 100% traffic；OCR data deletion API、390px Progress delete action、authenticated DELETE 404 smoke 通過。
 - 本次本機驗證：
   - `npm run build` 通過。
   - `.venv312/bin/python -m py_compile backend/app/main.py backend/app/schemas.py backend/app/persistence.py backend/app/auth.py` 通過。
@@ -265,7 +270,7 @@
   - 本機 Playwright smoke：390px mobile Home / Portfolio / Progress / Profile 抽查，`Home` / `Portfolio` / `Upload` / `Progress` / `Profile` / `Daily Goals` / `Academic Progress` / `Progress Report` / `Evidence bank` / `Completed` / `Drafting` / `Generate PDF` / `Settings` / `Data & Privacy` 等舊英文 UI label 均未再出現；`scrollWidth === clientWidth`。
 - 本次 P0 implementation：
   - Backend 新增 `ChildUpdateRequest`、`OcrReviewConfirmRequest`、`OcrReviewInboxItem`、`MistakeNotebookResponse`、`WeeklyParentBriefingResponse` 與 share link lifecycle fields。
-  - 新增 `GET /api/ocr-review/inbox`、`PATCH /api/ocr-review/{document_id}/confirm`、`GET /api/mistake-notebook`、`GET /api/weekly-briefing`、`GET /api/reports/share`、`DELETE /api/reports/share/{share_id}`。
+  - 新增 `GET /api/ocr-review/inbox`、`PATCH /api/ocr-review/{document_id}/confirm`、`DELETE /api/ocr-review/{document_id}`、`GET /api/mistake-notebook`、`GET /api/weekly-briefing`、`GET /api/reports/share`、`DELETE /api/reports/share/{share_id}`。
   - Teacher report public read 現在會拒絕 revoked / expired token，回 410。
   - OCR review `pii_redacted_before_ai` 改為 `false`，避免把原始 multimodal upload 誤描述成已去識別化。
   - Frontend Upload tab 已加入 editable OCR Review Inbox；Progress / Coach 工作台已加入 Weekly Briefing、OCR Review Inbox、Mistake Notebook、Share Link Manager。

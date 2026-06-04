@@ -829,6 +829,42 @@ class Persistence:
         record.update(updates)
         return record
 
+    def delete_document(self, parent_id: str, document_id: str, delete_storage: bool = True) -> dict[str, Any] | None:
+        document = self.get_document(parent_id, document_id)
+        if not document:
+            return None
+
+        storage_deleted = 0
+        if delete_storage:
+            storage_uris = document.get("storage_uris") if isinstance(document.get("storage_uris"), list) else []
+            storage_uri_values = [*storage_uris]
+            if document.get("storage_uri"):
+                storage_uri_values.append(document["storage_uri"])
+            for storage_uri in set(str(uri) for uri in storage_uri_values if uri):
+                storage_deleted += self.delete_storage_uri(storage_uri)
+
+        db = self.firestore
+        if db is None:
+            self._memory["documents"].pop(document_id, None)
+        else:
+            db.collection("documents").document(document_id).delete()
+
+        self.record_audit_event(
+            parent_id,
+            "ocr_review_deleted",
+            child_id=str(document.get("child_id") or ""),
+            details={
+                "document_id": document_id,
+                "filename": document.get("filename"),
+                "deleted_storage_objects": storage_deleted,
+            },
+        )
+        return {
+            "deleted_document_id": document_id,
+            "deleted_storage_objects": storage_deleted,
+            "document": document,
+        }
+
     def list_documents(self, parent_id: str, child_id: str) -> list[dict[str, Any]]:
         records = list(self._records_for_child("documents", parent_id, child_id).values())
         records.sort(key=lambda record: str(record.get("created_at", "")), reverse=True)

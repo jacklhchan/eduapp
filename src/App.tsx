@@ -1295,6 +1295,7 @@ function App() {
   const [ocrInbox, setOcrInbox] = useState<OcrInboxDocument[]>([]);
   const [ocrInboxState, setOcrInboxState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [reviewConfirmState, setReviewConfirmState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
+  const [ocrDeleteId, setOcrDeleteId] = useState<string | null>(null);
   const [mistakeNotebook, setMistakeNotebook] = useState<MistakeNotebookItem[]>([]);
   const [weeklyBriefing, setWeeklyBriefing] = useState<WeeklyBriefing | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
@@ -1740,6 +1741,45 @@ function App() {
     }
   }
 
+  async function deleteOcrReviewDocument(documentId: string, filename?: string) {
+    if (!documentId || ocrDeleteId) return;
+    const label = filename || '這份 OCR 記錄';
+    const confirmed = window.confirm(`永久刪除「${label}」？\n\nOCR 結果、原始相片 / PDF 及相關進度證據會一併移除。`);
+    if (!confirmed) return;
+
+    setOcrDeleteId(documentId);
+    try {
+      const response = await fetch(`/api/ocr-review/${encodeURIComponent(documentId)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+
+      const openDocumentId = ocrResult?.document?.id || ocrResult?.document_id;
+      setOcrInbox((current) => current.filter((document) => document.id !== documentId));
+      if (openDocumentId === documentId) {
+        uploadPreviewItems.forEach((item) => {
+          if (item.url) URL.revokeObjectURL(item.url);
+        });
+        setOcrResult(null);
+        setOcrState('idle');
+        setReviewConfirmState('idle');
+        setSelectedFiles([]);
+        setUploadPreviewItems([]);
+        setActivePreviewIndex(0);
+        setActiveView('coach');
+      }
+      await refreshLearningProgress(currentChild?.id);
+      await refreshP0Workspace(currentChild?.id);
+      setToast('OCR 記錄已刪除');
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : 'OCR 記錄刪除失敗');
+    } finally {
+      setOcrDeleteId(null);
+    }
+  }
+
   function openOcrReviewDocument(document: OcrInboxDocument) {
     uploadPreviewItems.forEach((item) => {
       if (item.url) URL.revokeObjectURL(item.url);
@@ -2070,7 +2110,9 @@ function App() {
           analyzeUpload={analyzeUpload}
           handleFileChange={handleFileChange}
           ocrConfirmState={reviewConfirmState}
+          ocrDeleteId={ocrDeleteId}
           onConfirmReview={confirmOcrReview}
+          onDeleteReview={deleteOcrReviewDocument}
           onSelectPreviewPage={setActivePreviewIndex}
           canViewPreview={canViewUploadPreview}
           onViewPreview={(image) => setLightboxSrc(image)}
@@ -2089,6 +2131,8 @@ function App() {
           shareReport={shareReport}
           shareState={shareState}
           weeklyBriefing={weeklyBriefing}
+          ocrDeleteId={ocrDeleteId}
+          onDeleteOcrReview={deleteOcrReviewDocument}
           onOpenOcrReview={openOcrReviewDocument}
           onRevokeShareReport={revokeShareReport}
           onShareReport={shareLearningReport}
@@ -2795,8 +2839,10 @@ function UploadView({
   handleFileChange,
   inputRef,
   ocrConfirmState,
+  ocrDeleteId,
   onSelectPreviewPage,
   onConfirmReview,
+  onDeleteReview,
   onViewPreview,
   onViewProgress,
   ocrResult,
@@ -2811,7 +2857,9 @@ function UploadView({
   handleFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
   inputRef: RefObject<HTMLInputElement | null>;
   ocrConfirmState: 'idle' | 'running' | 'done' | 'error';
+  ocrDeleteId: string | null;
   onConfirmReview: (documentId: string, questions: OcrReviewQuestionDraft[], parentNotes?: string) => Promise<void>;
+  onDeleteReview: (documentId: string, filename?: string) => Promise<void>;
   onSelectPreviewPage: (index: number) => void;
   onViewPreview: (image: string) => void;
   onViewProgress: () => void;
@@ -2860,6 +2908,7 @@ function UploadView({
         ? '等待分析'
         : '可多頁上載';
   const reviewConfirmed = Boolean(ocrResult?.document?.parent_confirmed_at);
+  const deleteInProgress = Boolean(documentId && ocrDeleteId === documentId);
 
   useEffect(() => {
     setQuestionDrafts(detectedQuestions.map((question, index) => {
@@ -3057,6 +3106,15 @@ function UploadView({
                   <Icon name={reviewConfirmed ? 'verified' : 'fact_check'} />
                   {ocrConfirmState === 'running' ? '確認中...' : reviewConfirmed ? '已完成確認' : '確認 OCR 結果'}
                 </button>
+                <button
+                  className="danger-outline-action full"
+                  type="button"
+                  disabled={!documentId || deleteInProgress}
+                  onClick={() => onDeleteReview(documentId, ocrResult?.document?.filename)}
+                >
+                  <Icon name={deleteInProgress ? 'sync' : 'delete'} />
+                  {deleteInProgress ? '刪除中...' : '刪除此 OCR 記錄'}
+                </button>
               </div>
             ) : null}
             {ocrState === 'error' ? (
@@ -3169,7 +3227,9 @@ function CoachView({
   learningProgress,
   mistakeNotebook,
   ocrInbox,
+  ocrDeleteId,
   ocrInboxState,
+  onDeleteOcrReview,
   onOpenOcrReview,
   onRevokeShareReport,
   onShareReport,
@@ -3183,7 +3243,9 @@ function CoachView({
   learningProgress: LearningProgress | null;
   mistakeNotebook: MistakeNotebookItem[];
   ocrInbox: OcrInboxDocument[];
+  ocrDeleteId: string | null;
   ocrInboxState: 'idle' | 'loading' | 'ready' | 'error';
+  onDeleteOcrReview: (documentId: string, filename?: string) => Promise<void>;
   onOpenOcrReview: (document: OcrInboxDocument) => void;
   onRevokeShareReport: (shareId: string) => Promise<void>;
   onShareReport: (options?: ShareReportOptions) => void;
@@ -3242,7 +3304,9 @@ function CoachView({
 
       <OcrReviewInboxPanel
         documents={ocrInbox}
+        deletingDocumentId={ocrDeleteId}
         state={ocrInboxState}
+        onDeleteReview={onDeleteOcrReview}
         onOpenReview={onOpenOcrReview}
       />
 
@@ -3344,11 +3408,15 @@ function BriefingColumn({ icon, items, title }: { icon: string; items: string[];
 }
 
 function OcrReviewInboxPanel({
+  deletingDocumentId,
   documents,
+  onDeleteReview,
   onOpenReview,
   state,
 }: {
+  deletingDocumentId: string | null;
   documents: OcrInboxDocument[];
+  onDeleteReview: (documentId: string, filename?: string) => Promise<void>;
   onOpenReview: (document: OcrInboxDocument) => void;
   state: 'idle' | 'loading' | 'ready' | 'error';
 }) {
@@ -3369,6 +3437,7 @@ function OcrReviewInboxPanel({
           const topics = document.review.topics || [];
           const lowConfidence = questions.filter((question) => question.confidence < 0.76).length;
           const confirmed = Boolean(document.parent_confirmed_at);
+          const deleting = deletingDocumentId === document.id;
           return (
             <article key={document.id} className="review-inbox-row">
               <div>
@@ -3379,15 +3448,27 @@ function OcrReviewInboxPanel({
                   {lowConfidence ? ` · ${lowConfidence} 題低信心` : ''}
                 </p>
               </div>
-              <button
-                className="secondary-action"
-                type="button"
-                disabled={!questions.length}
-                onClick={() => onOpenReview(document)}
-              >
-                <Icon name={confirmed ? 'visibility' : 'fact_check'} />
-                {confirmed ? '查看' : '檢視'}
-              </button>
+              <div className="review-inbox-actions">
+                <button
+                  className="secondary-action"
+                  type="button"
+                  disabled={!questions.length || deleting}
+                  onClick={() => onOpenReview(document)}
+                >
+                  <Icon name={confirmed ? 'visibility' : 'fact_check'} />
+                  {confirmed ? '查看' : '檢視'}
+                </button>
+                <button
+                  aria-label={`刪除 OCR 記錄 ${document.filename}`}
+                  className="secondary-action icon-only destructive-action"
+                  title="刪除 OCR 記錄"
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => onDeleteReview(document.id, document.filename)}
+                >
+                  <Icon name={deleting ? 'sync' : 'delete'} />
+                </button>
+              </div>
             </article>
           );
         })}
@@ -4970,7 +5051,7 @@ function PrivacyCenterPanel({
         <div className="audit-list">
           {auditEvents.length ? auditEvents.slice(0, 3).map((event) => (
             <div className="audit-row" key={event.id}>
-              <Icon name={event.event_type === 'child_data_deleted' ? 'delete_forever' : 'verified_user'} />
+              <Icon name={event.event_type.includes('deleted') ? 'delete_forever' : 'verified_user'} />
               <div>
                 <strong>{auditEventLabel(event.event_type)}</strong>
                 <span>{formatAuditTime(event.created_at)}</span>
@@ -5043,6 +5124,7 @@ function auditEventLabel(eventType: string) {
   if (eventType === 'child_data_deleted') return '學生資料已刪除';
   if (eventType === 'portfolio_exported') return '作品集 PDF 已匯出';
   if (eventType === 'ocr_review_confirmed') return 'OCR 檢視已確認';
+  if (eventType === 'ocr_review_deleted') return 'OCR 記錄已刪除';
   if (eventType === 'learning_report_shared') return '學習報告已分享';
   if (eventType === 'learning_report_share_revoked') return '分享連結已撤回';
   if (eventType === 'practice_attempt_saved') return '練習紀錄已儲存';

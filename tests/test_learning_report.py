@@ -274,3 +274,22 @@ def test_mvp_progress_hides_non_math_and_excludes_non_academic(monkeypatch) -> N
     assert original_file.status_code == 200
     assert original_file.headers["content-type"] == "image/png"
     assert original_file.content == uploaded_png
+
+    deleted = client.delete("/api/ocr-review/doc-mvp-math-inbox")
+    assert deleted.status_code == 200
+    assert deleted.json()["deleted_document_id"] == "doc-mvp-math-inbox"
+    assert deleted.json()["deleted_storage_objects"] == 1
+
+    inbox_after_delete = client.get(f"/api/ocr-review/inbox?child_id={child_id}&include_confirmed=true")
+    assert inbox_after_delete.status_code == 200
+    assert inbox_after_delete.json() == []
+
+    deleted_file = client.get(preview["preview_url"])
+    assert deleted_file.status_code == 404
+
+    missing_delete = client.delete("/api/ocr-review/doc-mvp-math-inbox")
+    assert missing_delete.status_code == 404
+
+    audit = client.get("/api/audit-log")
+    assert audit.status_code == 200
+    assert any(event["event_type"] == "ocr_review_deleted" for event in audit.json())

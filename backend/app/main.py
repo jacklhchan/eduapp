@@ -48,6 +48,7 @@ from .schemas import (
     MistakeNotebookItem,
     MistakeNotebookResponse,
     OcrReviewConfirmRequest,
+    OcrReviewDeleteResponse,
     OcrReviewFilePreview,
     OcrReviewInboxItem,
     OcrReviewResult,
@@ -990,6 +991,20 @@ def confirm_ocr_review(
         },
     )
     return {"ok": True, "document": updated, "parent_confirmed_at": confirmed_at}
+
+
+@app.delete("/api/ocr-review/{document_id}", response_model=OcrReviewDeleteResponse)
+def delete_ocr_review(
+    document_id: str,
+    parent_id: str = Depends(require_parent_id),
+) -> OcrReviewDeleteResponse:
+    result = persistence.delete_document(parent_id, document_id, delete_storage=True)
+    if not result:
+        raise HTTPException(status_code=404, detail="OCR review document not found")
+    return OcrReviewDeleteResponse(
+        deleted_document_id=result["deleted_document_id"],
+        deleted_storage_objects=result["deleted_storage_objects"],
+    )
 
 
 @app.post("/api/generate-quiz")

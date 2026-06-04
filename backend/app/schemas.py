@@ -234,6 +234,12 @@ class ChildDeleteResponse(BaseModel):
     deleted_storage_objects: int = 0
 
 
+class OcrReviewDeleteResponse(BaseModel):
+    ok: bool = True
+    deleted_document_id: str
+    deleted_storage_objects: int = 0
+
+
 class ExtractedQuestion(BaseModel):
     id: str
     question_text: str
