@@ -1,0 +1,19 @@
+{
+  "name": "EduPass AI Learning Passport",
+  "short_name": "EduPass AI",
+  "description": "Mobile-first learning passport prototype for parents.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fa",
+  "theme_color": "#0b5ed7",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "180x180",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

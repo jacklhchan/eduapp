@@ -1,0 +1,1039 @@
+.top-appbar,
+.upload-appbar,
+.settings-appbar {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: var(--surface);
+}
+
+.top-appbar {
+  height: 72px;
+  padding: 8px 16px;
+  box-shadow: var(--shadow-1);
+}
+
+.upload-appbar,
+.settings-appbar {
+  height: 56px;
+  padding: 8px 16px;
+  border-bottom: 1px solid rgba(195, 198, 214, 0.35);
+}
+
+.upload-appbar h1,
+.settings-appbar h1 {
+  flex: 1;
+  color: var(--primary);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-weight: 700;
+  text-align: center;
+}
+
+.upload-appbar h1 {
+  font-size: 17px;
+  line-height: 22px;
+}
+
+.settings-appbar h1 {
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.upload-appbar span,
+.settings-appbar > span {
+  width: 40px;
+}
+
+.profile-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 12px;
+}
+
+.avatar-img {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--outline-variant);
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.brand-title,
+.student-title {
+  color: var(--primary);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 28px;
+}
+
+.profile-row p {
+  margin-top: 1px;
+  color: var(--on-variant);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.symbol-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--on-variant);
+  transition: background 0.15s ease;
+}
+
+.symbol-button:hover {
+  background: var(--surface-low);
+}
+
+.content-stack,
+.upload-content,
+.profile-content {
+  width: 100%;
+  max-width: 768px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.content-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.home-view {
+  gap: 16px;
+}
+
+.home-progress-dashboard,
+.daily-goals-card,
+.ai-summary-card,
+.next-action-card,
+.shortcut-card,
+.portfolio-tip,
+.passport-overview,
+.portfolio-card,
+.passport-editor-panel,
+.ocr-panel,
+.data-card,
+.history-card,
+.settings-card,
+.child-card {
+  border: 1px solid rgba(195, 198, 214, 0.42);
+  border-radius: 12px;
+  background: var(--surface-lowest);
+  box-shadow: var(--shadow-1);
+}
+
+.home-progress-dashboard {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 20px;
+  padding: 16px;
+}
+
+.home-progress-dashboard > .material-symbols-outlined {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  color: var(--primary);
+  font-size: 74px;
+  opacity: 0.05;
+  pointer-events: none;
+}
+
+.home-mastery-block {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.home-mastery-ring-wrap {
+  position: relative;
+  width: 128px;
+  height: 128px;
+}
+
+.home-mastery-ring {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.home-mastery-ring path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-width: 3.2;
+}
+
+.home-mastery-ring .ring-track {
+  stroke: var(--surface-variant);
+}
+
+.home-mastery-ring .ring-value {
+  stroke: var(--primary-container);
+  transform: rotate(-90deg);
+  transform-origin: center;
+}
+
+.home-mastery-ring-wrap > div {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.home-mastery-ring-wrap strong {
+  color: var(--primary);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 34px;
+}
+
+.home-mastery-ring-wrap span {
+  max-width: 88px;
+  color: var(--on-variant);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
+}
+
+.home-trend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 26px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(0, 108, 71, 0.1);
+  color: var(--secondary);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.home-trend-chip .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.home-progress-content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 16px;
+}
+
+.home-progress-content h2,
+.daily-goals-head h2 {
+  color: var(--on-surface);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 28px;
+}
+
+.home-progress-content p {
+  margin-top: 4px;
+  color: var(--on-variant);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.dashboard-progress-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.dashboard-progress-item {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(195, 198, 214, 0.32);
+  border-radius: 12px;
+  background: var(--surface-low);
+}
+
+.dashboard-progress-item > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dashboard-progress-item span,
+.dashboard-progress-item b {
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.dashboard-progress-item span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--on-surface);
+}
+
+.dashboard-progress-item .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.dashboard-progress-item.primary b,
+.dashboard-progress-item.primary .material-symbols-outlined {
+  color: var(--primary);
+}
+
+.dashboard-progress-item.tertiary b,
+.dashboard-progress-item.tertiary .material-symbols-outlined {
+  color: var(--tertiary);
+}
+
+.dashboard-progress-item.secondary b,
+.dashboard-progress-item.secondary .material-symbols-outlined {
+  color: var(--secondary);
+}
+
+.dashboard-progress-item.primary .progress-track span {
+  background: var(--primary-container);
+}
+
+.dashboard-progress-item.tertiary .progress-track span {
+  background: var(--tertiary-container);
+}
+
+.dashboard-progress-item.secondary .progress-track span {
+  background: var(--secondary);
+}
+
+.daily-goals-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.daily-goals-head,
+.daily-goal-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.daily-goals-head {
+  justify-content: space-between;
+}
+
+.daily-goals-head h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.daily-goals-head h2 .material-symbols-outlined {
+  color: var(--secondary);
+  font-size: 22px;
+}
+
+.daily-goals-head > span {
+  color: var(--on-variant);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.daily-goal-list {
+  display: grid;
+  gap: 10px;
+}
+
+.daily-goal-row {
+  min-height: 48px;
+  padding: 10px;
+  border: 1px solid rgba(195, 198, 214, 0.42);
+  border-radius: 10px;
+  background: var(--surface-low);
+}
+
+.daily-goal-row.completed {
+  border-color: rgba(0, 108, 71, 0.22);
+  background: rgba(0, 108, 71, 0.06);
+}
+
+.goal-check {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--outline-variant);
+  border-radius: 999px;
+  color: white;
+}
+
+.daily-goal-row.completed .goal-check {
+  border-color: var(--secondary);
+  background: var(--secondary);
+}
+
+.goal-check .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.daily-goal-row p {
+  flex: 1;
+  min-width: 0;
+  color: var(--on-surface);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.daily-goal-row.completed p {
+  color: var(--on-variant);
+  text-decoration: line-through;
+}
+
+.daily-goal-row button {
+  flex: 0 0 auto;
+  background: transparent;
+  color: var(--primary);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dashboard-action-card {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(0, 82, 204, 0.2);
+  background: rgba(218, 226, 255, 0.28);
+}
+
+.dashboard-action-card > .material-symbols-outlined {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  color: var(--primary);
+  font-size: 56px;
+  opacity: 0.1;
+}
+
+.dashboard-action-card > *:not(.material-symbols-outlined) {
+  position: relative;
+  z-index: 1;
+}
+
+.ai-summary-card {
+  position: relative;
+  overflow: hidden;
+  padding: 16px;
+  background: rgba(218, 226, 255, 0.28);
+  border-color: rgba(218, 226, 255, 0.95);
+}
+
+.ai-summary-card > .material-symbols-outlined {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  color: var(--primary);
+  font-size: 56px;
+  opacity: 0.1;
+}
+
+.ai-summary-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.summary-icon,
+.school-icon,
+.shortcut-icon,
+.portfolio-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.summary-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  background: var(--primary-container);
+  color: var(--on-primary);
+}
+
+.ai-summary-card h2,
+.portfolio-tip h3 {
+  margin-bottom: 4px;
+  color: var(--primary);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 28px;
+}
+
+.ai-summary-card p {
+  color: var(--on-surface);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.ai-summary-card strong {
+  color: var(--primary);
+}
+
+.next-action-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.next-copy {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.school-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: rgba(0, 108, 71, 0.1);
+  color: var(--secondary);
+}
+
+.next-copy div:not(.school-icon) > span,
+.upload-preview h2,
+.form-display > span,
+.mistake-list > label,
+.portfolio-card p,
+.settings-copy small {
+  color: var(--on-variant);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.next-copy h3 {
+  color: var(--on-surface);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 28px;
+}
+
+.next-copy p {
+  margin-top: 4px;
+  color: var(--on-variant);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.primary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 24px;
+  border-radius: 12px;
+  background: var(--primary-container);
+  color: var(--on-primary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  box-shadow: var(--shadow-1);
+}
+
+.primary-action.full {
+  width: 100%;
+}
+
+.secondary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--outline-variant);
+  border-radius: 12px;
+  background: var(--surface-lowest);
+  color: var(--primary);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.secondary-action.icon-only {
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+}
+
+.secondary-action.destructive-action {
+  border-color: rgba(186, 26, 26, 0.32);
+  background: rgba(255, 251, 255, 0.9);
+  color: var(--error);
+}
+
+.danger-outline-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid rgba(186, 26, 26, 0.36);
+  border-radius: 12px;
+  background: rgba(255, 251, 255, 0.94);
+  color: var(--error);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.danger-outline-action.full {
+  width: 100%;
+}
+
+.danger-outline-action:disabled,
+.secondary-action.destructive-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.primary-action .material-symbols-outlined,
+.secondary-action .material-symbols-outlined,
+.danger-outline-action .material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-size: 18px;
+  font-weight: normal;
+  line-height: 1;
+}
+
+.shortcut-grid,
+.coach-grid,
+.portfolio-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.shortcut-card {
+  display: block;
+  width: 100%;
+  padding: 16px;
+  color: inherit;
+  text-align: left;
+}
+
+.shortcut-top,
+.portfolio-card-top,
+.card-title-row,
+.section-heading,
+.ocr-panel-head,
+.history-meta,
+.mistake-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.shortcut-top {
+  margin-bottom: 24px;
+  align-items: flex-start;
+}
+
+.shortcut-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+}
+
+.shortcut-icon.tertiary {
+  background: rgba(125, 82, 0, 0.1);
+  color: var(--tertiary);
+}
+
+.shortcut-icon.primary {
+  background: rgba(0, 82, 204, 0.1);
+  color: var(--primary);
+}
+
+.shortcut-card h3,
+.portfolio-card h3,
+.data-card h3,
+.history-section > h3 {
+  color: var(--on-surface);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 28px;
+}
+
+.shortcut-card p {
+  margin: 4px 0 16px;
+  color: var(--on-variant);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.progress-track,
+.mastery-track {
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-container);
+}
+
+.progress-track span,
+.mastery-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--secondary);
+}
+
+.mini-tags,
+.mistake-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mini-tags span {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--surface-high);
+  color: var(--on-variant);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: var(--on-secondary-container);
+  background: rgba(0, 108, 71, 0.1);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.status-chip i {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.status-chip.ready {
+  color: var(--primary);
+  background: rgba(0, 82, 204, 0.18);
+}
+
+.status-chip.draft {
+  color: var(--on-variant);
+  background: var(--surface-highest);
+}
+
+.section-heading {
+  margin-bottom: 16px;
+  align-items: flex-end;
+}
+
+.section-heading h2 {
+  color: var(--on-surface);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 28px;
+}
+
+.section-heading button {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: transparent;
+  color: var(--primary);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.recent-scroll,
+.children-scroll {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 0 16px 8px;
+  margin: 0 -16px;
+  scrollbar-width: none;
+}
+
+.recent-scroll::-webkit-scrollbar,
+.children-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.add-upload-card,
+.recent-thumb {
+  position: relative;
+  flex: 0 0 128px;
+  width: 128px;
+  height: 160px;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.add-upload-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 2px dashed var(--outline-variant);
+  background: var(--surface-low);
+  color: var(--outline);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.recent-thumb {
+  border: 1px solid rgba(195, 198, 214, 0.4);
+  box-shadow: var(--shadow-1);
+}
+
+.recent-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.recent-thumb div {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 24px 8px 8px;
+  color: white;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.62), transparent);
+}
+
+.recent-thumb strong,
+.recent-thumb span {
+  display: block;
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.recent-thumb span {
+  font-size: 10px;
+  opacity: 0.82;
+}
+
+.portfolio-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 16px;
+  background: rgba(218, 226, 255, 0.2);
+  border-color: var(--primary-fixed);
+}
+
+.portfolio-tip > .material-symbols-outlined {
+  color: var(--primary);
+}
+
+.portfolio-tip p,
+.page-intro p {
+  color: var(--on-variant);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.passport-overview {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  padding: 16px;
+  animation: screen-in 0.24s ease both;
+}
+
+.passport-overview::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 44%;
+  background: linear-gradient(135deg, rgba(218, 226, 255, 0), rgba(130, 249, 190, 0.3));
+  content: "";
+  pointer-events: none;
+}
+
+.passport-overview > * {
+  position: relative;
+  z-index: 1;
+}
+
+.passport-overview h2 {
+  margin: 6px 0 4px;
+  color: var(--on-surface);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 34px;
+}
+
+.passport-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.passport-title-row h2 {
+  min-width: 0;
+}
+
+.passport-title-row button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 7px 9px;
+  border: 1px solid rgba(0, 82, 204, 0.24);
+  border-radius: 999px;
+  background: var(--primary-fixed);
+  color: var(--primary);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.passport-title-row button .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.passport-overview p {
+  overflow: hidden;
+  max-width: 100%;
+  color: var(--on-variant);
+  font-size: 13px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+}
+
+.passport-progress-meter {
+  display: grid;
+  place-items: center;
+  align-self: start;
+  width: 88px;
+  height: 88px;
+  border: 8px solid rgba(130, 249, 190, 0.32);
+  border-top-color: var(--secondary);
+  border-radius: 999px;
+  background: var(--surface-lowest);
+  color: var(--secondary);
+  box-shadow: var(--shadow-1);
+  animation: pulse-pop 1.8s ease-in-out infinite;
+}
+
+.passport-progress-meter strong,
+.passport-progress-meter span,
+.passport-stat-row span,
+.portfolio-card-actions span,
+.editor-title span,
+.evidence-head span,
+.draft-textarea,
+.ai-draft-panel span,
+.evidence-chip,
+.empty-evidence {
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.passport-progress-meter strong {
+  font-size: 22px;
+  line-height: 24px;
+}
+
+.passport-progress-meter span {
+  color: var(--on-variant);
+  font-size: 10px;
+}
+
+.passport-stat-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.passport-stat-row span {
+  min-width: 0;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(248, 249, 251, 0.88);
+  color: var(--on-variant);
+}
+
+.passport-stat-row b {
+  display: block;
+  color: var(--primary);
+  font-size: 18px;
+  line-height: 22px;
+}
+
+.page-intro h2 {
+  margin-bottom: 8px;
+  color: var(--on-surface);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 40px;
+}

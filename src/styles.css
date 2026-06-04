@@ -1,0 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Work+Sans:wght@400;600;700&display=swap');
+
+@import './styles/base-auth.css';
+@import './styles/shell-home.css';
+@import './styles/portfolio.css';
+@import './styles/upload-practice.css';
+@import './styles/coach-profile.css';
+@import './styles/responsive.css';

@@ -1,0 +1,326 @@
+
+:root {
+  color-scheme: light;
+  --background: #f8f9fb;
+  --surface: #f8f9fb;
+  --surface-lowest: #ffffff;
+  --surface-low: #f3f4f6;
+  --surface-container: #edeef0;
+  --surface-high: #e7e8ea;
+  --surface-highest: #e1e2e4;
+  --on-surface: #191c1e;
+  --on-variant: #434654;
+  --outline: #737685;
+  --outline-variant: #c3c6d6;
+  --primary: #003d9b;
+  --primary-container: #0052cc;
+  --on-primary: #ffffff;
+  --on-primary-container: #c4d2ff;
+  --primary-fixed: #dae2ff;
+  --secondary: #006c47;
+  --secondary-container: #82f9be;
+  --on-secondary-container: #00734c;
+  --tertiary: #5e3c00;
+  --tertiary-fixed: #ffddb3;
+  --tertiary-fixed-dim: #ffb950;
+  --error: #ba1a1a;
+  --error-container: #ffdad6;
+  --on-error-container: #93000a;
+  --shadow-1: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-2: 0 8px 16px rgba(0, 0, 0, 0.1);
+  font-family: "Noto Sans TC", "Noto Sans", sans-serif;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--on-surface);
+  font-family: "Noto Sans TC", "Noto Sans", sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+.bottom-nav,
+.primary-action,
+.status-chip,
+.brand-title,
+.student-title {
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  letter-spacing: 0;
+}
+
+p {
+  color: var(--on-variant);
+}
+
+.material-symbols-outlined {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Material Symbols Outlined" !important;
+  font-size: 24px;
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  direction: ltr;
+  -webkit-font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+
+.icon-filled {
+  font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+
+.stitch-app {
+  min-height: 100dvh;
+  padding-top: 72px;
+  padding-bottom: 96px;
+  background: var(--background);
+}
+
+.stitch-app.upload-mode {
+  padding-top: 56px;
+  padding-bottom: 172px;
+}
+
+.login-shell {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 24px;
+  background: var(--background);
+}
+
+.login-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(100%, 390px);
+  padding: 24px;
+  border: 1px solid rgba(195, 198, 214, 0.42);
+  border-radius: 16px;
+  background: var(--surface-lowest);
+  box-shadow: var(--shadow-2);
+}
+
+.login-mark {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: var(--primary-container);
+  color: var(--on-primary);
+}
+
+.login-card h1 {
+  color: var(--primary);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 36px;
+}
+
+.login-card p {
+  color: var(--on-variant);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.login-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--on-variant);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.login-card input,
+.login-card select {
+  min-height: 46px;
+  border: 1px solid var(--outline-variant);
+  border-radius: 12px;
+  padding: 0 12px;
+  color: var(--on-surface);
+  background: var(--surface-low);
+}
+
+.login-card input:focus,
+.login-card select:focus {
+  border-color: var(--primary-container);
+  outline: 2px solid rgba(0, 82, 204, 0.12);
+}
+
+.auth-switch {
+  min-height: 40px;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--primary);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.onboarding-shell {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 24px;
+  background:
+    linear-gradient(180deg, rgba(218, 226, 255, 0.72), rgba(248, 249, 251, 0.72)),
+    var(--background);
+}
+
+.onboarding-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(100%, 520px);
+  padding: 20px;
+  border: 1px solid rgba(195, 198, 214, 0.5);
+  border-radius: 16px;
+  background: var(--surface-lowest);
+  box-shadow: var(--shadow-2);
+}
+
+.onboarding-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.onboarding-head > div {
+  min-width: 0;
+}
+
+.onboarding-head span,
+.onboarding-divider,
+.onboarding-card label,
+.form-grid label {
+  color: var(--on-variant);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.onboarding-head h1 {
+  margin-top: 2px;
+  color: var(--primary);
+  font-family: "Work Sans", "Noto Sans TC", sans-serif;
+  font-size: 24px;
+  line-height: 32px;
+}
+
+.onboarding-head p {
+  overflow: hidden;
+  margin-top: 2px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.onboarding-card label,
+.form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.onboarding-card input,
+.onboarding-card select,
+.onboarding-card textarea {
+  width: 100%;
+  border: 1px solid var(--outline-variant);
+  border-radius: 12px;
+  background: var(--surface-low);
+  color: var(--on-surface);
+  font-size: 14px;
+}
+
+.onboarding-card input,
+.onboarding-card select {
+  min-height: 46px;
+  padding: 0 12px;
+}
+
+.onboarding-card textarea {
+  min-height: 86px;
+  padding: 12px;
+  resize: vertical;
+}
+
+.onboarding-card input:focus,
+.onboarding-card select:focus,
+.onboarding-card textarea:focus {
+  border-color: var(--primary-container);
+  outline: 2px solid rgba(0, 82, 204, 0.12);
+}
+
+.onboarding-divider {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 6px;
+  color: var(--primary);
+}
+
+.onboarding-divider .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.form-grid.two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.login-error {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--error-container);
+  color: var(--on-error-container);
+  font-size: 13px;
+}
