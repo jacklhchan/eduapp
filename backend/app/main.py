@@ -20,31 +20,17 @@ from google.cloud import vision
 from google.genai import types
 from pydantic import BaseModel
 
-from .ai_validation import extract_json_object, validate_ai_json
-from .auth import (
-    SESSION_COOKIE,
-    SESSION_MAX_AGE_SECONDS,
-    hash_pin,
-    require_parent_id,
-    session_cookie_secure,
-    sign_session,
-    verify_pin,
-)
-from .curriculum_catalog import find_subject_for_grade, get_curriculum_catalog, subject_names_for_grade
+from .ai_validation import validate_ai_json
+from .auth import require_parent_id
+from .curriculum_catalog import find_subject_for_grade, get_curriculum_catalog
 from .pdf_export import build_portfolio_pdf
 from .persistence import DEMO_CHILD_ID, DEMO_PARENT_ID, now_iso, persistence
+from .routers.account import account_router, require_privacy_consent
+from .services.ocr_review import build_ocr_review_prompt, parse_ocr_review_response
 from .schemas import (
-    AuthResponse,
-    AuditEvent,
-    ChildDataSummary,
-    ChildCreateRequest,
-    ChildDeleteRequest,
-    ChildDeleteResponse,
     ChildProfile,
-    ChildUpdateRequest,
     DocumentRecord,
     GeneratedQuiz,
-    LoginRequest,
     MistakeNotebookItem,
     MistakeNotebookResponse,
     OcrReviewConfirmRequest,
@@ -52,19 +38,14 @@ from .schemas import (
     OcrReviewFilePreview,
     OcrReviewInboxItem,
     OcrReviewResult,
-    ParentUpdateRequest,
     ParentProfile,
     PracticeAttemptRecord,
     PracticeAttemptRequest,
     PracticeTopicResult,
-    PrivacyCenterResponse,
-    PrivacySettings,
-    PrivacyUpdateRequest,
     PortfolioExportRecord,
     PortfolioExportRequest,
     ShareLearningReportRecord,
     ShareLearningReportRequest,
-    SignupRequest,
     TeacherLearningReportResponse,
     WeeklyParentBriefingResponse,
     LearningProgressResponse,
@@ -135,6 +116,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(account_router)
 
 _rate_limit_events: dict[str, list[float]] = {}
 
@@ -328,183 +310,6 @@ def build_combined_ocr_text(upload_pages: list[dict[str, Any]]) -> str:
     return "\n\n".join(section for section in sections if section)
 
 
-def build_ocr_review_prompt(
-    extracted_text: str,
-    child_profile_id: str,
-    grade: str,
-    file_kind: str,
-    page_count_hint: int = 1,
-) -> str:
-    allowed_subjects = subject_names_for_grade(grade) or ["Mathematics"]
-    active_subjects = [ACTIVE_LEARNING_SUBJECT] if ACTIVE_LEARNING_SUBJECT in allowed_subjects else allowed_subjects
-    return f"""
-You are a multimodal OCR review assistant for a Hong Kong parent-led learning app.
-Return JSON only. Align subject and topic labels with the HKEDB curriculum catalogue.
-
-Schema:
-{{
-  "document_id": "string",
-  "child_profile_id": "string",
-  "file_kind": "image|pdf|mixed",
-  "subject": "Mathematics",
-  "grade": "P3",
-  "page_count": 2,
-  "topics": [
-    {{
-      "id": "t1",
-      "subject": "Mathematics",
-      "topic": "Fractions",
-      "strand": "Number",
-      "curriculum_node_id": "hk-p3-math-fractions-compare",
-      "confidence": 0.75,
-      "page_numbers": [1, 2]
-    }}
-  ],
-  "extracted_questions": [
-    {{
-      "id": "q1",
-      "question_text": "string",
-      "detected_answer": "string or null",
-      "is_correct": true,
-      "score": 1,
-      "max_score": 1,
-      "confidence": 0.75,
-      "page_number": 1,
-      "topic": "Fractions",
-      "topic_ids": ["t1"],
-      "curriculum_node_id": "hk-p3-math-fractions-compare",
-      "mistake_tags": []
-    }}
-  ],
-  "requires_parent_confirmation": true,
-  "pii_redacted_before_ai": false
-}}
-
-Rules:
-- The active MVP review subject is Mathematics. Other subjects are roadmap catalogue context only.
-- Subject must be one of these active subjects for grade "{grade}": {active_subjects}.
-- Use grade "{grade}".
-- The upload may contain multiple pages or multiple uploaded page images. The current upload has at least {page_count_hint} uploaded page/file part(s); for PDFs, count physical pages when visible.
-- Do not invent student personal data.
-- If you can see the original upload, use the visual layout to separate printed questions, student answers, marks, teacher corrections, diagrams, and tables.
-- Use the OCR text below as evidence, but if it conflicts with the visible upload, prefer the visual evidence and set confidence lower.
-- If handwriting, blur, rotation, cropping, or teacher markings make the result uncertain, set requires_parent_confirmation true.
-- Detect every distinct topic / strand covered by the homework or test. Do not collapse the review into one topic when multiple topics are visible.
-- Link each extracted question to its page_number and topic_ids. page_number starts at 1 and follows the order shown in the upload or OCR page markers.
-- mistake_tags must only contain these enum values: concept, calculation, reading, unit_conversion, careless.
-- If the student's answer is correct, set is_correct true, set score equal to max_score when marks are visible, and return mistake_tags as an empty list.
-- Only return a mistake tag when there is visible evidence that the submitted answer, working, unit, or reasoning is wrong.
-- If the text is sparse, create at most 3 review items from plausible math signals and set confidence below 0.65.
-
-child_profile_id: {child_profile_id}
-file_kind: {file_kind}
-extracted_text:
-{extracted_text[:5000]}
-"""
-
-
-def parse_ocr_review_response(
-    response_text: str,
-    child_profile_id: str,
-    file_kind: str,
-    page_count_hint: int = 1,
-) -> OcrReviewResult:
-    data = extract_json_object(response_text or "{}")
-    data["document_id"] = data.get("document_id") or f"doc-{uuid.uuid4().hex[:10]}"
-    data["child_profile_id"] = child_profile_id
-    data["file_kind"] = file_kind
-    try:
-        page_count = int(data.get("page_count") or page_count_hint)
-    except (TypeError, ValueError):
-        page_count = page_count_hint
-    data["page_count"] = max(1, page_count, page_count_hint)
-    if isinstance(data.get("topics"), list):
-        normalized_topics = []
-        for index, topic in enumerate(data["topics"], start=1):
-            if isinstance(topic, str):
-                topic = {"topic": topic}
-            if isinstance(topic, dict):
-                topic["id"] = topic.get("id") or f"t{index}"
-                topic["subject"] = topic.get("subject") or data.get("subject") or "Mathematics"
-                topic["confidence"] = topic.get("confidence") if topic.get("confidence") is not None else 0.5
-                normalized_topics.append(topic)
-        data["topics"] = normalized_topics
-    if isinstance(data.get("extracted_questions"), list):
-        data["extracted_questions"] = [
-            normalize_extracted_question_marking(question)
-            if isinstance(question, dict)
-            else question
-            for question in data["extracted_questions"]
-        ]
-    data["requires_parent_confirmation"] = True
-    data["pii_redacted_before_ai"] = False
-    return OcrReviewResult.model_validate(data)
-
-
-def normalize_extracted_question_marking(question: dict[str, Any]) -> dict[str, Any]:
-    clean = dict(question)
-    is_correct = clean.get("is_correct")
-    score = clean.get("score")
-    max_score = clean.get("max_score")
-
-    if answer_looks_correct(str(clean.get("question_text") or ""), str(clean.get("detected_answer") or "")):
-        is_correct = True
-    elif score is not None and max_score:
-        try:
-            is_correct = int(score) >= int(max_score)
-        except (TypeError, ValueError):
-            pass
-
-    if is_correct is True:
-        clean["is_correct"] = True
-        clean["mistake_tags"] = []
-        if clean.get("max_score") is None:
-            clean["max_score"] = 1
-        if clean.get("score") is None:
-            clean["score"] = clean["max_score"]
-    elif is_correct is False:
-        clean["is_correct"] = False
-        if not clean.get("mistake_tags"):
-            clean["mistake_tags"] = ["concept"]
-    return clean
-
-
-def answer_looks_correct(question_text: str, detected_answer: str) -> bool:
-    expected = infer_expected_arithmetic_answer(question_text)
-    if expected is None:
-        return False
-    return detected_answer_contains_value(detected_answer, expected)
-
-
-def infer_expected_arithmetic_answer(question_text: str) -> int | None:
-    text = str(question_text or "")
-    numbers = [int(value) for value in re.findall(r"\d+", text)]
-    if len(numbers) < 2:
-        return None
-    operands = numbers[-2:]
-    add_markers = ("共", "一共", "合共", "總共", "共有", "共要", "共售", "共需", "加起")
-    subtract_markers = ("比", "貴", "便宜", "多多少", "少多少", "相差", "差多少")
-    if any(marker in text for marker in subtract_markers):
-        return abs(operands[1] - operands[0])
-    if any(marker in text for marker in add_markers):
-        return operands[0] + operands[1]
-    return None
-
-
-def detected_answer_contains_value(detected_answer: str, expected: int) -> bool:
-    text = str(detected_answer or "")
-    if not text.strip():
-        return False
-    for left, op, right, result in re.findall(r"(\d+)\s*([+\-＋－])\s*(\d+)\s*=?\s*(\d+)", text):
-        left_value = int(left)
-        right_value = int(right)
-        result_value = int(result)
-        calculated = left_value + right_value if op in {"+", "＋"} else left_value - right_value
-        if calculated == expected and result_value == expected:
-            return True
-    return any(int(value) == expected for value in re.findall(r"\d+", text))
-
-
 def build_review_with_gemini(
     extracted_text: str,
     child_profile_id: str,
@@ -560,168 +365,6 @@ def health() -> HealthResponse:
 @app.get("/api/curriculum/catalog")
 def curriculum_catalog() -> dict[str, Any]:
     return get_curriculum_catalog()
-
-
-def set_session_cookie(response: Response, parent_id: str) -> None:
-    response.set_cookie(
-        key=SESSION_COOKIE,
-        value=sign_session(parent_id),
-        max_age=SESSION_MAX_AGE_SECONDS,
-        httponly=True,
-        samesite="lax",
-        secure=session_cookie_secure(),
-        path="/",
-    )
-
-
-@app.post("/api/auth/login", response_model=AuthResponse)
-def login(payload: LoginRequest, response: Response) -> AuthResponse:
-    email = payload.email.strip().lower()
-    if DEMO_LOGIN_ENABLED and email == DEMO_PARENT_EMAIL and payload.pin == DEMO_PARENT_PIN:
-        parent = persistence.ensure_demo_data(email)
-        set_session_cookie(response, DEMO_PARENT_ID)
-        return AuthResponse(parent=ParentProfile.model_validate(parent))
-
-    parent = persistence.get_parent_by_email(email)
-    if not parent or not verify_pin(payload.pin, parent.get("pin_hash")):
-        raise HTTPException(status_code=401, detail="Invalid email or PIN")
-    set_session_cookie(response, str(parent["id"]))
-    return AuthResponse(parent=ParentProfile.model_validate(parent))
-
-
-@app.post("/api/auth/signup", response_model=AuthResponse)
-def signup(payload: SignupRequest, response: Response) -> AuthResponse:
-    email = payload.email.strip().lower()
-    if not email:
-        raise HTTPException(status_code=400, detail="Email is required")
-    if email == DEMO_PARENT_EMAIL or persistence.get_parent_by_email(email):
-        raise HTTPException(status_code=409, detail="Email already registered")
-
-    parent = persistence.create_parent(
-        email=email,
-        display_name=payload.display_name,
-        pin_hash=hash_pin(payload.pin),
-    )
-    set_session_cookie(response, str(parent["id"]))
-    return AuthResponse(parent=ParentProfile.model_validate(parent))
-
-
-@app.post("/api/auth/logout")
-def logout(response: Response) -> dict[str, bool]:
-    response.delete_cookie(SESSION_COOKIE, path="/")
-    return {"ok": True}
-
-
-@app.get("/api/auth/me", response_model=AuthResponse)
-def auth_me(parent_id: str = Depends(require_parent_id)) -> AuthResponse:
-    parent = persistence.get_parent_with_children(parent_id)
-    if not parent:
-        if DEMO_LOGIN_ENABLED and parent_id == DEMO_PARENT_ID:
-            parent = persistence.ensure_demo_data(DEMO_PARENT_EMAIL)
-        else:
-            raise HTTPException(status_code=404, detail="Parent profile not found")
-    return AuthResponse(parent=ParentProfile.model_validate(parent))
-
-
-@app.patch("/api/parent", response_model=ParentProfile)
-def update_parent(payload: ParentUpdateRequest, parent_id: str = Depends(require_parent_id)) -> ParentProfile:
-    parent = persistence.patch_parent(parent_id, payload.model_dump(mode="json", exclude_unset=True))
-    if not parent:
-        raise HTTPException(status_code=404, detail="Parent profile not found")
-    return ParentProfile.model_validate(parent)
-
-
-def build_privacy_center_response(parent_id: str) -> PrivacyCenterResponse:
-    parent = persistence.get_parent_with_children(parent_id)
-    if not parent:
-        raise HTTPException(status_code=404, detail="Parent profile not found")
-    parent_profile = ParentProfile.model_validate(parent)
-    return PrivacyCenterResponse(
-        parent=parent_profile,
-        privacy_settings=PrivacySettings.model_validate(parent_profile.privacy_settings),
-        children=[ChildDataSummary.model_validate(item) for item in persistence.list_child_data_summaries(parent_id)],
-        audit_events=[AuditEvent.model_validate(item) for item in persistence.list_audit_events(parent_id)],
-    )
-
-
-def require_privacy_consent(parent_id: str, consent_key: str, action: str) -> None:
-    parent = persistence.get_parent_with_children(parent_id)
-    if not parent:
-        raise HTTPException(status_code=404, detail="Parent profile not found")
-    settings = PrivacySettings.model_validate(parent.get("privacy_settings") or {})
-    if not getattr(settings, consent_key):
-        raise HTTPException(status_code=403, detail=f"Parent consent required for {action}")
-
-
-@app.get("/api/privacy", response_model=PrivacyCenterResponse)
-def privacy_center(parent_id: str = Depends(require_parent_id)) -> PrivacyCenterResponse:
-    return build_privacy_center_response(parent_id)
-
-
-@app.patch("/api/privacy/consent", response_model=PrivacyCenterResponse)
-def update_privacy_settings(
-    payload: PrivacyUpdateRequest,
-    parent_id: str = Depends(require_parent_id),
-) -> PrivacyCenterResponse:
-    parent = persistence.update_privacy_settings(parent_id, payload.model_dump(mode="json", exclude_unset=True))
-    if not parent:
-        raise HTTPException(status_code=404, detail="Parent profile not found")
-    return build_privacy_center_response(parent_id)
-
-
-@app.get("/api/audit-log", response_model=list[AuditEvent])
-def audit_log(parent_id: str = Depends(require_parent_id)) -> list[AuditEvent]:
-    return [AuditEvent.model_validate(item) for item in persistence.list_audit_events(parent_id)]
-
-
-@app.get("/api/children")
-def list_children(parent_id: str = Depends(require_parent_id)) -> dict[str, Any]:
-    parent = persistence.get_parent_with_children(parent_id)
-    if not parent:
-        raise HTTPException(status_code=404, detail="Parent profile not found")
-    return {"ok": True, "children": parent.get("children", [])}
-
-
-@app.post("/api/children", response_model=ChildProfile)
-async def create_child(payload: ChildCreateRequest, parent_id: str = Depends(require_parent_id)) -> ChildProfile:
-    child = persistence.create_child(parent_id, payload.model_dump(mode="json"))
-    return ChildProfile.model_validate(child)
-
-
-@app.patch("/api/children/{child_id}", response_model=ChildProfile)
-async def update_child(child_id: str, payload: ChildUpdateRequest, parent_id: str = Depends(require_parent_id)) -> ChildProfile:
-    child = persistence.patch_child(parent_id, child_id, payload.model_dump(mode="json", exclude_unset=True))
-    if not child:
-        raise HTTPException(status_code=404, detail="Child not found")
-    return ChildProfile.model_validate(child)
-
-
-@app.delete("/api/children/{child_id}", response_model=ChildDeleteResponse)
-async def delete_child(
-    child_id: str,
-    payload: ChildDeleteRequest,
-    parent_id: str = Depends(require_parent_id),
-) -> ChildDeleteResponse:
-    try:
-        result = persistence.delete_child_data(
-            parent_id,
-            child_id,
-            confirmation_name=payload.confirmation_name,
-            delete_storage=payload.delete_storage,
-        )
-    except ValueError as exc:
-        detail = str(exc)
-        status_code = 409 if "only child" in detail else 400
-        if detail == "Child not found":
-            status_code = 404
-        raise HTTPException(status_code=status_code, detail=detail) from exc
-    return ChildDeleteResponse(
-        parent=ParentProfile.model_validate(result["parent"]),
-        deleted_child_id=result["deleted_child_id"],
-        deleted_documents=result["deleted_documents"],
-        deleted_portfolio_exports=result["deleted_portfolio_exports"],
-        deleted_storage_objects=result["deleted_storage_objects"],
-    )
 
 
 @app.post("/api/ocr-review")
